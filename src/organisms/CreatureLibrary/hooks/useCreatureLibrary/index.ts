@@ -1,0 +1,61 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useTRPC } from '~/trpc/react';
+import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
+
+type LibraryStatus = { isImported: boolean } | undefined;
+
+export type CreatureLibraryState = {
+  isPending: boolean;
+  isLibraryImported: boolean;
+  creatures: CreatureSummary[];
+  search: string;
+  setSearch: (search: string) => void;
+};
+
+type ToLibraryStateArgs = {
+  isStatusPending: boolean;
+  isListPending: boolean;
+  status: LibraryStatus;
+  creatures: CreatureSummary[] | undefined;
+};
+
+/**
+ * The hook's decision logic as a pure function, so the browser-free unit
+ * project can test it.
+ *
+ * The subtlety worth testing: an empty result means two different things
+ * depending on whether the library was ever imported, and the view renders a
+ * different empty state for each.
+ */
+export const toLibraryState = ({
+  isStatusPending,
+  isListPending,
+  status,
+  creatures,
+}: ToLibraryStateArgs): Omit<CreatureLibraryState, 'search' | 'setSearch'> => ({
+  isPending: isStatusPending || isListPending,
+  isLibraryImported: status?.isImported ?? false,
+  creatures: creatures ?? [],
+});
+
+export const useCreatureLibrary = (): CreatureLibraryState => {
+  const trpc = useTRPC();
+  const [search, setSearch] = useState('');
+
+  const status = useQuery(trpc.library.status.queryOptions());
+  const list = useQuery(trpc.library.listCreatures.queryOptions({ search }));
+
+  return {
+    ...toLibraryState({
+      isStatusPending: status.isPending,
+      isListPending: list.isPending,
+      status: status.data,
+      creatures: list.data,
+    }),
+    search,
+    setSearch,
+  };
+};

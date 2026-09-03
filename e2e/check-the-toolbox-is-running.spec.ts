@@ -13,22 +13,23 @@ test.describe('check the toolbox is running', () => {
     ).toBeVisible();
   });
 
-  test('reports a live connection to the API', async ({ page }) => {
+  test('lays out the three working panels', async ({ page }) => {
     await page.goto('/');
 
-    // The status panel resolves once health.ping round-trips.
     await expect(
-      page.getByText('E2E Campaign', { exact: true }).last(),
+      page.getByRole('heading', { name: 'Add Combatants' }),
     ).toBeVisible();
-    await expect(page.getByText(/Answered/)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Combatants by Initiative' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Selected Combatant' }),
+    ).toBeVisible();
   });
 
-  test('reveals gated sections only when the gate is on', async ({ page }) => {
+  test('credits the source data, as the licence requires', async ({ page }) => {
     await page.goto('/');
 
-    // FEATURE_INITIATIVE_TRACKER is "true" for this run (playwright.config.ts).
-    await expect(
-      page.getByRole('heading', { name: 'Initiative', level: 3 }),
-    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'CC BY 4.0' })).toBeVisible();
   });
 });

@@ -24,6 +24,7 @@ pnpm install
 pnpm exec playwright install chromium   # for story tests and e2e
 cp .env.example .env.local              # then edit CAMPAIGN_NAME
 pnpm db:migrate                         # creates .data/kernel-dm-toolbox.db
+pnpm db:import                          # pulls the SRD 5.2 creature library
 pnpm dev
 ```
 

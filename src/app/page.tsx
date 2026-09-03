@@ -1,6 +1,8 @@
-import { ConnectionStatus } from '~/organisms/ConnectionStatus';
-import { DashboardTemplate } from '~/templates/DashboardTemplate';
-import { isInitiativeTrackerEnabled } from '~/flags';
+import { CreatureLibrary } from '~/organisms/CreatureLibrary';
+import { StatblockPanel } from '~/organisms/StatblockPanel';
+import { TrackerTemplate } from '~/templates/TrackerTemplate';
+import { LibraryAttribution } from '~/molecules/LibraryAttribution';
+import { LIBRARY_ATTRIBUTION } from '~/server/library/source';
 import { env } from '~/env';
 
 /**
@@ -19,11 +21,16 @@ export const dynamic = 'force-dynamic';
  * evaluated; the result is handed to a template as plain props.
  */
 const HomePage = () => (
-  <DashboardTemplate
+  <TrackerTemplate
     campaignName={env.CAMPAIGN_NAME}
-    isInitiativeTrackerEnabled={isInitiativeTrackerEnabled()}
-    statusSlot={<ConnectionStatus />}
+    librarySlot={<CreatureLibrary />}
+    encounterSlot={<EncounterPlaceholder />}
+    statblockSlot={<StatblockPanel />}
+    attribution={<LibraryAttribution {...LIBRARY_ATTRIBUTION} />}
   />
 );
+
+/** Replaced by the real combatant list in milestone 4. */
+const EncounterPlaceholder = () => <p>No combatants yet.</p>;
 
 export default HomePage;

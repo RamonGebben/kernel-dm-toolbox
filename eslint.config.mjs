@@ -45,6 +45,7 @@ const eslintConfig = defineConfig([
       '.storybook/**',
       'src/server/db/migrate.ts',
       'src/server/db/import.ts',
+      'scripts/**',
     ],
     rules: {
       'no-restricted-properties': 'off',

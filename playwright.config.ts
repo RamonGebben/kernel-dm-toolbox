@@ -26,10 +26,11 @@ export default defineConfig({
   webServer: {
     // The same standalone server the Docker image runs, so e2e exercises the
     // production artefact rather than a dev-only server.
-    command: 'pnpm build && pnpm start',
+    // The library must exist before the browser specs run.
+    command: 'pnpm build && pnpm db:migrate && pnpm db:import && pnpm start',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    timeout: 300_000,
     env: {
       PORT: String(port),
       HOSTNAME: '127.0.0.1',

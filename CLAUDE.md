@@ -367,6 +367,16 @@ single delete and why renaming a dragon to "Meat" cannot corrupt the template.
   spinner and not an error.
 - **Attribution is required.** SRD 5.2 is CC-BY-4.0; the credit belongs in the
   UI, not just in a comment.
+- **`DATABASE_URL` must be absolute in production.** The generated standalone
+  `server.js` calls `process.chdir(__dirname)`, so a relative `file:` path
+  resolves inside `.next/standalone` and you get a silently empty database.
+  `pnpm start` (`scripts/start.mjs`) absolutises it against the project root,
+  and Docker passes `/data/...`; anything else launching the server must do the
+  same.
+- **No I/O in a module body.** `next build` imports route modules to collect
+  their config, so a database client constructed at module scope runs during
+  the build — where there is no connection string. `getDb()` is lazy for this
+  reason.
 
 ### Milestones
 
