@@ -1,0 +1,10 @@
+.git
+.next
+.data
+node_modules
+storybook-static
+playwright-report
+test-results
+coverage
+.env
+.env.local

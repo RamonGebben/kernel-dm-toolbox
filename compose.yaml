@@ -1,0 +1,20 @@
+# One service per campaign. Copy this block, change the container name, the
+# published port and the volume, and you have a second campaign running beside
+# the first with no shared state.
+services:
+  toolbox:
+    build: .
+    container_name: kernel-dm-toolbox
+    restart: unless-stopped
+    ports:
+      # Bound to all interfaces so the DM can reach it from a tablet on the LAN.
+      - '3000:3000'
+    environment:
+      CAMPAIGN_NAME: ${CAMPAIGN_NAME:-Untitled Campaign}
+      DATABASE_URL: file:/data/kernel-dm-toolbox.db
+      FEATURE_INITIATIVE_TRACKER: ${FEATURE_INITIATIVE_TRACKER:-false}
+    volumes:
+      - campaign-data:/data
+
+volumes:
+  campaign-data:
