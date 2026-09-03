@@ -1,4 +1,4 @@
-import { CreatureLibrary } from '~/organisms/CreatureLibrary';
+import { LibraryPanel } from '~/organisms/LibraryPanel';
 import { StatblockPanel } from '~/organisms/StatblockPanel';
 import { TrackerTemplate } from '~/templates/TrackerTemplate';
 import { LibraryAttribution } from '~/molecules/LibraryAttribution';
@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 const HomePage = () => (
   <TrackerTemplate
     campaignName={env.CAMPAIGN_NAME}
-    librarySlot={<CreatureLibrary />}
+    librarySlot={<LibraryPanel />}
     encounterSlot={<EncounterPlaceholder />}
     statblockSlot={<StatblockPanel />}
     attribution={<LibraryAttribution {...LIBRARY_ATTRIBUTION} />}

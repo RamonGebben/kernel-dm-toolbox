@@ -265,3 +265,31 @@ export type NewCreatureTrait = typeof creatureTraits.$inferInsert;
 export type Condition = typeof conditions.$inferSelect;
 export type NewCondition = typeof conditions.$inferInsert;
 export type ImportRun = typeof importRuns.$inferSelect;
+
+/* ---------------------------------------------------------------------------
+ * Session state
+ *
+ * Ours, not imported. Everything here spreads `syncMeta` and is soft-deleted.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The party. Characters outlive any single fight — clearing an encounter
+ * removes the monsters and leaves these in place (DECISIONS #14).
+ *
+ * `level` is not decoration: the encounter difficulty readout needs party
+ * level as well as party size (DECISIONS #17).
+ */
+export const playerCharacters = sqliteTable('player_characters', {
+  ...syncMeta,
+  name: text('name').notNull(),
+  /** Who is playing them, so the DM knows whose turn to call. */
+  playerName: text('player_name'),
+  armorClass: integer('armor_class').notNull(),
+  maxHitPoints: integer('max_hit_points').notNull(),
+  /** Added to a d20 when the DM types in what the player rolled. */
+  initiativeModifier: integer('initiative_modifier').notNull().default(0),
+  level: integer('level').notNull().default(1),
+});
+
+export type PlayerCharacter = typeof playerCharacters.$inferSelect;
+export type NewPlayerCharacter = typeof playerCharacters.$inferInsert;

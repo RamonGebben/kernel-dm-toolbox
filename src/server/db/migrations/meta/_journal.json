@@ -15,6 +15,13 @@
       "when": 1788471627006,
       "tag": "0001_aspiring_raza",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788472576458,
+      "tag": "0002_gray_gorgon",
+      "breakpoints": true
     }
   ]
 }
