@@ -9,6 +9,8 @@ const baseURL = `http://127.0.0.1:${port}`;
  */
 export default defineConfig({
   testDir: './e2e',
+  // `support/` holds helpers, not specs.
+  testMatch: '**/*.spec.ts',
   /**
    * The encounter is a singleton by design — one instance serves one campaign
    * — so parallel specs would fight over the same rows. This is a property of

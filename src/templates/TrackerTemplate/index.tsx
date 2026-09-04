@@ -42,7 +42,12 @@ export const TrackerTemplate = ({
       <Panel title="Selected Combatant">{statblockSlot}</Panel>
     </Columns>
 
-    <Footer>{attribution}</Footer>
+    <Footer>
+      <PlayerLink href="/player" target="_blank" rel="noreferrer">
+        Open the player screen ↗
+      </PlayerLink>
+      {attribution}
+    </Footer>
   </Page>
 );
 
@@ -91,6 +96,16 @@ const Columns = styled.div`
 `;
 
 const Footer = styled.footer`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: ${props => props.theme.space.md};
+  flex-wrap: wrap;
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textMuted};
+`;
+
+const PlayerLink = styled.a`
+  color: ${props => props.theme.color.accent};
+  font-weight: 600;
 `;
