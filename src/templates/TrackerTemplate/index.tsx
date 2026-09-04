@@ -5,15 +5,16 @@ import styled from 'styled-components';
 import { Panel } from '~/atoms/Panel';
 
 type TrackerTemplateProps = {
-  campaignName: string;
+  /** The vertical tool rail, injected by the page. */
+  navigationSlot: ReactNode;
   librarySlot: ReactNode;
   encounterSlot: ReactNode;
   statblockSlot: ReactNode;
-  attribution: ReactNode;
 };
 
 /**
- * The three-panel body: library, initiative order, selected statblock.
+ * The three-panel body: library, initiative order, selected statblock, with
+ * the tool rail down the left edge.
  *
  * Props in, JSX out. Each panel arrives as a slot so the template never
  * fetches and every connected component stays independently testable.
@@ -22,32 +23,29 @@ type TrackerTemplateProps = {
  * tool is usable from a tablet at the table.
  */
 export const TrackerTemplate = ({
-  campaignName,
+  navigationSlot,
   librarySlot,
   encounterSlot,
   statblockSlot,
-  attribution,
 }: TrackerTemplateProps) => (
   <Page>
-    <Header>
-      <Eyebrow>Campaign</Eyebrow>
-      <CampaignName>{campaignName}</CampaignName>
-    </Header>
+    {navigationSlot}
 
-    <Columns>
-      <Panel title="Add Combatants" isBodyScrollable={false}>
-        {librarySlot}
-      </Panel>
-      <Panel title="Combatants by Initiative">{encounterSlot}</Panel>
-      <Panel title="Selected Combatant">{statblockSlot}</Panel>
-    </Columns>
+    <Workspace>
+      <Columns>
+        <Panel title="Add Combatants" isBodyScrollable={false}>
+          {librarySlot}
+        </Panel>
+        <Panel title="Combatants by Initiative">{encounterSlot}</Panel>
+        <Panel title="Selected Combatant">{statblockSlot}</Panel>
+      </Columns>
 
-    <Footer>
-      <PlayerLink href="/player" target="_blank" rel="noreferrer">
-        Open the player screen ↗
-      </PlayerLink>
-      {attribution}
-    </Footer>
+      <Footer>
+        <PlayerLink href="/player" target="_blank" rel="noreferrer">
+          Open the player screen ↗
+        </PlayerLink>
+      </Footer>
+    </Workspace>
   </Page>
 );
 
@@ -57,25 +55,19 @@ const Page = styled.div`
   gap: ${props => props.theme.space.md};
   height: 100dvh;
   padding: ${props => props.theme.space.md};
+
+  ${props => props.theme.media.lg} {
+    flex-direction: row;
+  }
 `;
 
-const Header = styled.header`
+const Workspace = styled.div`
   display: flex;
-  align-items: baseline;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Eyebrow = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const CampaignName = styled.h1`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.xl};
-  color: ${props => props.theme.color.textPrimary};
+  flex: 1;
+  flex-direction: column;
+  gap: ${props => props.theme.space.md};
+  min-width: 0;
+  min-height: 0;
 `;
 
 const Columns = styled.div`
@@ -98,9 +90,8 @@ const Columns = styled.div`
 const Footer = styled.footer`
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: ${props => props.theme.space.md};
-  flex-wrap: wrap;
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textMuted};
 `;

@@ -2,9 +2,8 @@ import { LibraryPanel } from '~/organisms/LibraryPanel';
 import { StatblockPanel } from '~/organisms/StatblockPanel';
 import { EncounterPanel } from '~/organisms/EncounterPanel';
 import { TrackerTemplate } from '~/templates/TrackerTemplate';
-import { LibraryAttribution } from '~/molecules/LibraryAttribution';
-import { LIBRARY_ATTRIBUTION } from '~/server/library/source';
-import { env } from '~/env';
+import { NavigationRail } from '~/molecules/NavigationRail';
+import { tools } from '~/content/tools';
 
 /**
  * Rendered per request, never prerendered.
@@ -23,11 +22,10 @@ export const dynamic = 'force-dynamic';
  */
 const HomePage = () => (
   <TrackerTemplate
-    campaignName={env.CAMPAIGN_NAME}
+    navigationSlot={<NavigationRail tools={tools} activeToolId="initiative" />}
     librarySlot={<LibraryPanel />}
     encounterSlot={<EncounterPanel />}
     statblockSlot={<StatblockPanel />}
-    attribution={<LibraryAttribution {...LIBRARY_ATTRIBUTION} />}
   />
 );
 

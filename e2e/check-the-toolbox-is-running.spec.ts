@@ -5,12 +5,15 @@ import { expect, test } from '@playwright/test';
  * that this instance is up and serving the right campaign.
  */
 test.describe('check the toolbox is running', () => {
-  test('shows the campaign this instance serves', async ({ page }) => {
+  test('serves the campaign this instance was started for', async ({
+    page,
+  }) => {
     await page.goto('/');
 
-    await expect(
-      page.getByRole('heading', { name: 'E2E Campaign', level: 1 }),
-    ).toBeVisible();
+    // The campaign name lives in the tab title rather than in a page header —
+    // one container serves one campaign, so a banner repeating it every time
+    // the DM looks at the screen was chrome, not information.
+    await expect(page).toHaveTitle('E2E Campaign');
   });
 
   test('lays out the three working panels', async ({ page }) => {
@@ -27,9 +30,21 @@ test.describe('check the toolbox is running', () => {
     ).toBeVisible();
   });
 
-  test('credits the source data, as the licence requires', async ({ page }) => {
+  test('offers the tool rail, with the unbuilt tools visibly unbuilt', async ({
+    page,
+  }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('link', { name: 'CC BY 4.0' })).toBeVisible();
+    const rail = page.getByRole('navigation', { name: 'Tools' });
+
+    await expect(
+      rail.getByRole('link', { name: 'Initiative tracker' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(
+      rail.getByRole('button', { name: 'Maps — coming soon' }),
+    ).toBeDisabled();
+    await expect(
+      rail.getByRole('button', { name: 'Spells — coming soon' }),
+    ).toBeDisabled();
   });
 });

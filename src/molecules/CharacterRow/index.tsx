@@ -65,6 +65,7 @@ export const CharacterRow = ({
 
 const Row = styled.div`
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: ${props => props.theme.space.sm};
@@ -72,6 +73,11 @@ const Row = styled.div`
   background: ${props => props.theme.color.canvas};
   border: 1px solid ${props => props.theme.color.border};
   border-radius: ${props => props.theme.radius.sm};
+
+  ${props => props.theme.media.md} {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 `;
 
 const Details = styled.div`
