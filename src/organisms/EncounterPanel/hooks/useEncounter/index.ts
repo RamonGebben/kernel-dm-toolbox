@@ -69,6 +69,12 @@ export const useEncounter = () => {
   const update = useMutation(
     trpc.encounter.update.mutationOptions({ onSuccess: invalidate }),
   );
+  const addCondition = useMutation(
+    trpc.encounter.addCondition.mutationOptions({ onSuccess: invalidate }),
+  );
+  const removeCondition = useMutation(
+    trpc.encounter.removeCondition.mutationOptions({ onSuccess: invalidate }),
+  );
 
   return {
     isPending: encounter.isPending,
@@ -85,5 +91,10 @@ export const useEncounter = () => {
       grantTemporary.mutate({ id, amount }),
     setHidden: (id: string, isHidden: boolean) =>
       update.mutate({ id, isHidden }),
+    applyCondition: (
+      combatantId: string,
+      input: { conditionSlug: string; roundsRemaining: number | null },
+    ) => addCondition.mutate({ combatantId, ...input }),
+    removeCondition: (id: string) => removeCondition.mutate({ id }),
   };
 };

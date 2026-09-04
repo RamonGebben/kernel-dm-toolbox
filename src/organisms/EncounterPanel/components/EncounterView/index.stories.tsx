@@ -14,6 +14,7 @@ const combatants = [
     armorClass: 18,
     isHidden: false,
     isDelayed: false,
+    conditions: [],
     isPlayerCharacter: false,
   },
   {
@@ -26,6 +27,7 @@ const combatants = [
     armorClass: 18,
     isHidden: false,
     isDelayed: false,
+    conditions: [],
     isPlayerCharacter: false,
   },
   {
@@ -38,6 +40,7 @@ const combatants = [
     armorClass: 20,
     isHidden: false,
     isDelayed: false,
+    conditions: [],
     isPlayerCharacter: true,
   },
   {
@@ -50,6 +53,7 @@ const combatants = [
     armorClass: 19,
     isHidden: false,
     isDelayed: false,
+    conditions: [],
     isPlayerCharacter: true,
   },
 ];

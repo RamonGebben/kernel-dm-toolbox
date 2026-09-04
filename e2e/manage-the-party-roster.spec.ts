@@ -27,9 +27,12 @@ test.describe('manage the party roster', () => {
     await page.getByLabel('Init', { exact: true }).fill('2');
     await page.getByRole('button', { name: 'Add character' }).click();
 
-    await expect(roster(page).getByText(name)).toBeVisible();
+    // Scoped to this character's own row: other specs create characters with
+    // the same stats, so the summary line alone is not unique.
+    const row = roster(page).locator('li').filter({ hasText: name });
+    await expect(row).toBeVisible();
     await expect(
-      roster(page).getByText(/Anna · Level 5 · AC 20 · 45 HP · init \+2/),
+      row.getByText(/Anna · Level 5 · AC 20 · 45 HP · init \+2/),
     ).toBeVisible();
   });
 

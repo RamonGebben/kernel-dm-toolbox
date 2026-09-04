@@ -3,16 +3,20 @@ import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
   CURRENT_ENCOUNTER_ID,
+  combatantConditions,
   combatants,
+  conditions,
   creatures,
   encounters,
   playerCharacters,
 } from '~/server/db/schema';
 import {
   addCharacterInputSchema,
+  addConditionInputSchema,
   addCreatureInputSchema,
   adjustHitPointsInputSchema,
   combatantIdInputSchema,
+  conditionIdInputSchema,
   updateCombatantInputSchema,
 } from '~/server/trpc/schemas/encounter';
 import { ensureEncounter, readEncounterState } from '~/server/encounter/state';
@@ -23,6 +27,7 @@ import {
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { buildCombatantNames } from '~/utils/buildCombatantNames';
 import { rollInitiative } from '~/utils/rollDice';
+import { tickConditions } from '~/utils/tickConditions';
 import {
   nextRoundNumber,
   nextTurn,
@@ -273,6 +278,92 @@ export const encounterRouter = createTRPCRouter({
       return { id: input.id };
     }),
 
+  /**
+   * Applies a condition, optionally with a countdown. Re-applying the same
+   * condition refreshes its duration rather than stacking a second copy —
+   * two Poisoned rows on one creature mean nothing.
+   */
+  addCondition: publicProcedure
+    .input(addConditionInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      await loadCombatant(ctx.db, input.combatantId);
+
+      const condition = await ctx.db.query.conditions.findFirst({
+        where: eq(conditions.slug, input.conditionSlug),
+      });
+
+      if (!condition) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'That condition is not in the library.',
+        });
+      }
+
+      const existing = await ctx.db.query.combatantConditions.findFirst({
+        where: and(
+          eq(combatantConditions.combatantId, input.combatantId),
+          eq(combatantConditions.conditionSlug, input.conditionSlug),
+          isNull(combatantConditions.deletedAt),
+        ),
+      });
+
+      if (existing) {
+        const [refreshed] = await ctx.db
+          .update(combatantConditions)
+          .set({
+            roundsRemaining: input.roundsRemaining ?? null,
+            note: input.note || null,
+            ...touchSyncMeta({ version: existing.version, now: new Date() }),
+          })
+          .where(eq(combatantConditions.id, existing.id))
+          .returning();
+
+        publishEncounterChanged();
+        return refreshed;
+      }
+
+      const [created] = await ctx.db
+        .insert(combatantConditions)
+        .values({
+          combatantId: input.combatantId,
+          conditionSlug: input.conditionSlug,
+          roundsRemaining: input.roundsRemaining ?? null,
+          note: input.note || null,
+        })
+        .returning();
+
+      publishEncounterChanged();
+
+      return created;
+    }),
+
+  removeCondition: publicProcedure
+    .input(conditionIdInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.query.combatantConditions.findFirst({
+        where: and(
+          eq(combatantConditions.id, input.id),
+          isNull(combatantConditions.deletedAt),
+        ),
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'That condition is no longer applied.',
+        });
+      }
+
+      await ctx.db
+        .update(combatantConditions)
+        .set(tombstoneSyncMeta({ version: existing.version, now: new Date() }))
+        .where(eq(combatantConditions.id, input.id));
+
+      publishEncounterChanged();
+
+      return { id: input.id };
+    }),
+
   /** Advance to the next combatant, rolling the round over at the top. */
   nextTurn: publicProcedure.mutation(({ ctx }) =>
     advanceTurn(ctx.db, 'forward'),
@@ -360,6 +451,11 @@ const advanceTurn = async (db: Database, direction: 'forward' | 'backward') => {
     direction,
   });
 
+  // Durations tick with the round, so only a forward wrap counts one down.
+  if (didWrap && direction === 'forward' && state.roundNumber > 0) {
+    await tickConditionDurations(db);
+  }
+
   await db
     .update(encounters)
     .set({ activeCombatantId: activeId, roundNumber })
@@ -368,6 +464,42 @@ const advanceTurn = async (db: Database, direction: 'forward' | 'backward') => {
   publishEncounterChanged();
 
   return { activeCombatantId: activeId, roundNumber };
+};
+
+/**
+ * Counts every live condition down one round, clearing the ones that ran out.
+ *
+ * The arithmetic itself is pure and tested in `~/utils/tickConditions`; this
+ * only reads, applies and writes.
+ */
+const tickConditionDurations = async (db: Database) => {
+  const applied = await db
+    .select()
+    .from(combatantConditions)
+    .where(isNull(combatantConditions.deletedAt));
+
+  const { remaining, expired } = tickConditions(applied);
+  const now = new Date();
+
+  await Promise.all([
+    ...remaining
+      .filter(condition => condition.roundsRemaining !== null)
+      .map(condition =>
+        db
+          .update(combatantConditions)
+          .set({
+            roundsRemaining: condition.roundsRemaining,
+            ...touchSyncMeta({ version: condition.version, now }),
+          })
+          .where(eq(combatantConditions.id, condition.id)),
+      ),
+    ...expired.map(condition =>
+      db
+        .update(combatantConditions)
+        .set(tombstoneSyncMeta({ version: condition.version, now }))
+        .where(eq(combatantConditions.id, condition.id)),
+    ),
+  ]);
 };
 
 /** A removed combatant must not stay the active one. */

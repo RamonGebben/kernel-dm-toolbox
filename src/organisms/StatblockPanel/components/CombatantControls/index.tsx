@@ -3,6 +3,14 @@
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { HitPointControls } from '~/molecules/HitPointControls';
+import {
+  ConditionPicker,
+  type ConditionOption,
+} from '~/molecules/ConditionPicker';
+import {
+  ConditionBadges,
+  type AppliedConditionSummary,
+} from '~/molecules/ConditionBadges';
 
 export type CombatantControlsProps = {
   displayName: string;
@@ -11,10 +19,17 @@ export type CombatantControlsProps = {
   temporaryHitPoints: number;
   isHidden: boolean;
   isPending: boolean;
+  conditions: readonly AppliedConditionSummary[];
+  conditionOptions: readonly ConditionOption[];
   onDamage: (amount: number) => void;
   onHeal: (amount: number) => void;
   onGrantTemporary: (amount: number) => void;
   onToggleHidden: () => void;
+  onApplyCondition: (input: {
+    conditionSlug: string;
+    roundsRemaining: number | null;
+  }) => void;
+  onRemoveCondition: (id: string) => void;
 };
 
 /**
@@ -29,10 +44,14 @@ export const CombatantControls = ({
   temporaryHitPoints,
   isHidden,
   isPending,
+  conditions,
+  conditionOptions,
   onDamage,
   onHeal,
   onGrantTemporary,
   onToggleHidden,
+  onApplyCondition,
+  onRemoveCondition,
 }: CombatantControlsProps) => (
   <Wrapper>
     <Header>
@@ -55,6 +74,13 @@ export const CombatantControls = ({
       onDamage={onDamage}
       onHeal={onHeal}
       onGrantTemporary={onGrantTemporary}
+    />
+
+    <ConditionBadges conditions={conditions} onRemove={onRemoveCondition} />
+    <ConditionPicker
+      options={conditionOptions}
+      isPending={isPending}
+      onApply={onApplyCondition}
     />
   </Wrapper>
 );

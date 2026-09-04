@@ -5,6 +5,8 @@ import { CharacterCard } from '~/organisms/StatblockPanel/components/CharacterCa
 import { CombatantControls } from '~/organisms/StatblockPanel/components/CombatantControls';
 import { useStatblockTarget } from '~/organisms/StatblockPanel/hooks/useStatblockTarget';
 import { useEncounter } from '~/organisms/EncounterPanel/hooks/useEncounter';
+import { useQuery } from '@tanstack/react-query';
+import { useTRPC } from '~/trpc/react';
 
 /**
  * Connected boundary for the right-hand panel.
@@ -13,8 +15,10 @@ import { useEncounter } from '~/organisms/EncounterPanel/hooks/useEncounter';
  * the controls that change it for a combatant in the fight.
  */
 export const StatblockPanel = () => {
+  const trpc = useTRPC();
   const { target, isPending, statblock } = useStatblockTarget();
   const encounter = useEncounter();
+  const conditionOptions = useQuery(trpc.library.listConditions.queryOptions());
 
   const combatant = target.kind === 'none' ? null : target.combatant;
 
@@ -26,6 +30,8 @@ export const StatblockPanel = () => {
       temporaryHitPoints={combatant.temporaryHitPoints}
       isHidden={combatant.isHidden}
       isPending={encounter.isAdjusting}
+      conditions={combatant.conditions}
+      conditionOptions={conditionOptions.data ?? []}
       onDamage={amount => encounter.damage(combatant.id, amount)}
       onHeal={amount => encounter.heal(combatant.id, amount)}
       onGrantTemporary={amount =>
@@ -34,6 +40,8 @@ export const StatblockPanel = () => {
       onToggleHidden={() =>
         encounter.setHidden(combatant.id, !combatant.isHidden)
       }
+      onApplyCondition={input => encounter.applyCondition(combatant.id, input)}
+      onRemoveCondition={encounter.removeCondition}
     />
   );
 

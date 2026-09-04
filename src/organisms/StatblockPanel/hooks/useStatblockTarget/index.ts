@@ -13,6 +13,12 @@ type CombatantLike = {
   temporaryHitPoints: number;
   armorClass: number;
   isHidden: boolean;
+  conditions: {
+    id: string;
+    name: string;
+    roundsRemaining: number | null;
+    note: string | null;
+  }[];
 };
 
 export type StatblockTarget =

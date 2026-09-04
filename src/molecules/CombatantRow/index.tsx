@@ -2,6 +2,10 @@
 
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
+import {
+  ConditionBadges,
+  type AppliedConditionSummary,
+} from '~/molecules/ConditionBadges';
 import { toHitPointTone, type HitPointTone } from '~/utils/applyDamage';
 
 export type CombatantRowProps = {
@@ -16,6 +20,7 @@ export type CombatantRowProps = {
   /** Whose turn it is right now. */
   isActive: boolean;
   isDelayed: boolean;
+  conditions: readonly AppliedConditionSummary[];
   onSelect: () => void;
   onToggleDelay: () => void;
   onRemove: () => void;
@@ -39,6 +44,7 @@ export const CombatantRow = ({
   isHidden,
   isActive,
   isDelayed,
+  conditions,
   onSelect,
   onToggleDelay,
   onRemove,
@@ -59,6 +65,7 @@ export const CombatantRow = ({
           hidden
         </Badge>
       )}
+      <ConditionBadges conditions={conditions} />
     </SelectButton>
     <HitPoints $tone={toHitPointTone({ currentHitPoints, maxHitPoints })}>
       {currentHitPoints}/{maxHitPoints}

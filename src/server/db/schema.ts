@@ -363,3 +363,26 @@ export const combatants = sqliteTable(
 export type Encounter = typeof encounters.$inferSelect;
 export type Combatant = typeof combatants.$inferSelect;
 export type NewCombatant = typeof combatants.$inferInsert;
+
+/**
+ * A condition applied to a combatant, optionally with a countdown.
+ *
+ * `roundsRemaining` is null for an indefinite condition — Prone stays until
+ * someone stands up, and guessing a duration for it would be worse than
+ * tracking none. A number counts down as rounds pass and expires at zero.
+ */
+export const combatantConditions = sqliteTable('combatant_conditions', {
+  ...syncMeta,
+  combatantId: text('combatant_id')
+    .notNull()
+    .references(() => combatants.id, { onDelete: 'cascade' }),
+  conditionSlug: text('condition_slug')
+    .notNull()
+    .references(() => conditions.slug),
+  roundsRemaining: integer('rounds_remaining'),
+  /** Free text: "concentrating on Hold Person", "grappled by the dragon". */
+  note: text('note'),
+});
+
+export type CombatantCondition = typeof combatantConditions.$inferSelect;
+export type NewCombatantCondition = typeof combatantConditions.$inferInsert;

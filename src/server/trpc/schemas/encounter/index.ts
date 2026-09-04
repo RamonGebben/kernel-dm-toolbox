@@ -31,3 +31,13 @@ export const adjustHitPointsInputSchema = z.object({
 
 export type AddCreatureInput = z.infer<typeof addCreatureInputSchema>;
 export type UpdateCombatantInput = z.infer<typeof updateCombatantInputSchema>;
+
+export const addConditionInputSchema = z.object({
+  combatantId: z.uuid(),
+  conditionSlug: z.string().min(1).max(200),
+  /** Null or absent means indefinite — Prone lasts until someone stands up. */
+  roundsRemaining: z.number().int().min(1).max(100).nullish(),
+  note: z.string().trim().max(200).optional(),
+});
+
+export const conditionIdInputSchema = z.object({ id: z.uuid() });

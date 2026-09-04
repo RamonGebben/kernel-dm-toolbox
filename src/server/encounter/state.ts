@@ -3,7 +3,9 @@ import 'server-only';
 import { asc, eq, isNull, and } from 'drizzle-orm';
 import {
   CURRENT_ENCOUNTER_ID,
+  combatantConditions,
   combatants,
+  conditions,
   creatures,
   encounters,
   playerCharacters,
@@ -38,6 +40,14 @@ export const ensureEncounter = async (db: Database) => {
   );
 };
 
+export type AppliedCondition = {
+  id: string;
+  conditionSlug: string;
+  name: string;
+  roundsRemaining: number | null;
+  note: string | null;
+};
+
 export type EncounterCombatant = {
   id: string;
   displayName: string;
@@ -54,6 +64,7 @@ export type EncounterCombatant = {
   playerCharacterId: string | null;
   isPlayerCharacter: boolean;
   healthStatus: 'healthy' | 'bloodied' | 'unconscious';
+  conditions: AppliedCondition[];
   /** Only present for monsters, and only used by the difficulty readout. */
   challengeRating: number | null;
 };
@@ -104,6 +115,23 @@ export const readEncounterState = async (
     )
     .orderBy(asc(combatants.sortOrder));
 
+  const appliedConditions = await db
+    .select({
+      id: combatantConditions.id,
+      combatantId: combatantConditions.combatantId,
+      conditionSlug: combatantConditions.conditionSlug,
+      name: conditions.name,
+      roundsRemaining: combatantConditions.roundsRemaining,
+      note: combatantConditions.note,
+    })
+    .from(combatantConditions)
+    .innerJoin(
+      conditions,
+      eq(combatantConditions.conditionSlug, conditions.slug),
+    )
+    .where(isNull(combatantConditions.deletedAt))
+    .orderBy(asc(conditions.name));
+
   return {
     roundNumber: encounter.roundNumber,
     activeCombatantId: encounter.activeCombatantId,
@@ -111,6 +139,9 @@ export const readEncounterState = async (
       ...row,
       isPlayerCharacter: row.playerCharacterId !== null,
       healthStatus: toHealthStatus(row),
+      conditions: appliedConditions
+        .filter(applied => applied.combatantId === row.id)
+        .map(({ combatantId: _combatantId, ...applied }) => applied),
     })),
   };
 };

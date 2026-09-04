@@ -10,6 +10,7 @@ const dragon = {
   temporaryHitPoints: 0,
   armorClass: 18,
   isHidden: false,
+  conditions: [],
 };
 
 const sigrid = {
@@ -21,6 +22,7 @@ const sigrid = {
   temporaryHitPoints: 0,
   armorClass: 20,
   isHidden: false,
+  conditions: [],
 };
 
 const combatants = [dragon, sigrid];

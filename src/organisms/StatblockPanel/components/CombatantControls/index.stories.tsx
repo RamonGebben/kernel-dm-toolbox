@@ -12,10 +12,17 @@ const meta = {
     temporaryHitPoints: 0,
     isHidden: false,
     isPending: false,
+    conditions: [],
+    conditionOptions: [
+      { slug: 'srd-2024_poisoned', name: 'Poisoned' },
+      { slug: 'srd-2024_prone', name: 'Prone' },
+    ],
     onDamage: fn(),
     onHeal: fn(),
     onGrantTemporary: fn(),
     onToggleHidden: fn(),
+    onApplyCondition: fn(),
+    onRemoveCondition: fn(),
   },
 } satisfies Meta<typeof CombatantControls>;
 
@@ -45,6 +52,41 @@ export const Hidden: Story = {
 
     await userEvent.click(toggle);
     await expect(args.onToggleHidden).toHaveBeenCalledOnce();
+  },
+};
+
+export const ApplyingACondition: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.selectOptions(
+      canvas.getByLabelText('Condition'),
+      'srd-2024_poisoned',
+    );
+    await userEvent.type(canvas.getByLabelText('Rounds'), '3');
+    await userEvent.click(canvas.getByRole('button', { name: 'Apply' }));
+
+    await expect(args.onApplyCondition).toHaveBeenCalledWith({
+      conditionSlug: 'srd-2024_poisoned',
+      roundsRemaining: 3,
+    });
+  },
+};
+
+export const WithConditionsApplied: Story = {
+  args: {
+    conditions: [
+      { id: 'c1', name: 'Poisoned', roundsRemaining: 3, note: null },
+    ],
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Remove Poisoned' }),
+    );
+
+    await expect(args.onRemoveCondition).toHaveBeenCalledWith('c1');
   },
 };
 

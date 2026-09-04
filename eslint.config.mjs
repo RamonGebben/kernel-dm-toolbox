@@ -19,6 +19,17 @@ const eslintConfig = defineConfig([
             'This codebase is functions and plain data — no classes. See CLAUDE.md.',
         },
       ],
+      // An underscore prefix is the codebase's marker for "deliberately
+      // discarded" — the rest-destructure that drops a join key, for example.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
       // `process.env` is read in exactly one place: src/env.ts.
       'no-restricted-properties': [
         'error',

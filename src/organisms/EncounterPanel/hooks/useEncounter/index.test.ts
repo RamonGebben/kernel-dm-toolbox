@@ -11,6 +11,7 @@ const combatant = {
   armorClass: 18,
   isHidden: false,
   isDelayed: false,
+  conditions: [],
   isPlayerCharacter: false,
 };
 

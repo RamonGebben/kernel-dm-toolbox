@@ -16,6 +16,7 @@ const meta = {
     isHidden: false,
     isActive: false,
     isDelayed: false,
+    conditions: [],
     onSelect: fn(),
     onToggleDelay: fn(),
     onRemove: fn(),
@@ -92,6 +93,21 @@ export const Delayed: Story = {
       canvas.getByRole('button', { name: 'Return Meat to the order' }),
     );
     await expect(args.onToggleDelay).toHaveBeenCalledOnce();
+  },
+};
+
+export const WithConditions: Story = {
+  args: {
+    conditions: [
+      { id: '1', name: 'Poisoned', roundsRemaining: 3, note: null },
+      { id: '2', name: 'Prone', roundsRemaining: null, note: null },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Poisoned')).toBeVisible();
+    await expect(canvas.getByText('Prone')).toBeVisible();
   },
 };
 

@@ -593,3 +593,192 @@ describe('encounter.toggleDelay', () => {
     expect((await caller.encounter.get()).activeCombatantId).toBeNull();
   });
 });
+
+describe('conditions', () => {
+  /** The library import supplies these; the tests seed the two they use. */
+  const seedConditions = async () => {
+    await db.insert(schema.conditions).values([
+      {
+        slug: 'srd-2024_poisoned',
+        key: 'poisoned',
+        name: 'Poisoned',
+        desc: 'Disadvantage on attack rolls and ability checks.',
+      },
+      {
+        slug: 'srd-2024_prone',
+        key: 'prone',
+        name: 'Prone',
+        desc: 'Movement is restricted to crawling.',
+      },
+    ]);
+  };
+
+  const addGoblin = async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    const [goblin] = (await caller.encounter.get()).combatants;
+    return goblin.id;
+  };
+
+  beforeEach(seedConditions);
+
+  it('applies a condition with a countdown', async () => {
+    const combatantId = await addGoblin();
+
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_poisoned',
+      roundsRemaining: 3,
+    });
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect(goblin.conditions).toEqual([
+      expect.objectContaining({
+        conditionSlug: 'srd-2024_poisoned',
+        name: 'Poisoned',
+        roundsRemaining: 3,
+      }),
+    ]);
+  });
+
+  it('applies an indefinite condition when no duration is given', async () => {
+    const combatantId = await addGoblin();
+
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_prone',
+    });
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect(goblin.conditions[0].roundsRemaining).toBeNull();
+  });
+
+  it('refreshes a duplicate rather than stacking a second copy', async () => {
+    const combatantId = await addGoblin();
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_poisoned',
+      roundsRemaining: 2,
+    });
+
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_poisoned',
+      roundsRemaining: 5,
+    });
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect(goblin.conditions).toHaveLength(1);
+    expect(goblin.conditions[0].roundsRemaining).toBe(5);
+  });
+
+  it('stores a free-text note alongside the condition', async () => {
+    const combatantId = await addGoblin();
+
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_poisoned',
+      note: 'concentrating on Hold Person',
+    });
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect(goblin.conditions[0].note).toBe('concentrating on Hold Person');
+  });
+
+  it('counts a duration down when the round advances', async () => {
+    const combatantId = await addGoblin();
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_poisoned',
+      roundsRemaining: 3,
+    });
+
+    // Start the fight, then wrap the order to reach round two.
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect((await caller.encounter.get()).roundNumber).toBe(2);
+    expect(goblin.conditions[0].roundsRemaining).toBe(2);
+  });
+
+  it('does not tick on the round that starts the fight', async () => {
+    const combatantId = await addGoblin();
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_poisoned',
+      roundsRemaining: 3,
+    });
+
+    await caller.encounter.nextTurn();
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect(goblin.conditions[0].roundsRemaining).toBe(3);
+  });
+
+  it('expires a condition automatically when its last round passes', async () => {
+    const combatantId = await addGoblin();
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_poisoned',
+      roundsRemaining: 1,
+    });
+
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect(goblin.conditions).toEqual([]);
+  });
+
+  it('leaves an indefinite condition alone across rounds', async () => {
+    const combatantId = await addGoblin();
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_prone',
+    });
+
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+
+    const [goblin] = (await caller.encounter.get()).combatants;
+    expect(goblin.conditions).toHaveLength(1);
+  });
+
+  it('removes a condition on request', async () => {
+    const combatantId = await addGoblin();
+    await caller.encounter.addCondition({
+      combatantId,
+      conditionSlug: 'srd-2024_prone',
+    });
+    const [before] = (await caller.encounter.get()).combatants;
+
+    await caller.encounter.removeCondition({ id: before.conditions[0].id });
+
+    const [after] = (await caller.encounter.get()).combatants;
+    expect(after.conditions).toEqual([]);
+  });
+
+  it('refuses a condition that is not in the library', async () => {
+    const combatantId = await addGoblin();
+
+    await expect(
+      caller.encounter.addCondition({
+        combatantId,
+        conditionSlug: 'srd-2024_hangry',
+      }),
+    ).rejects.toThrow(/not in the library/);
+  });
+
+  it('refuses to apply a condition to a combatant that has left', async () => {
+    const combatantId = await addGoblin();
+    await caller.encounter.remove({ id: combatantId });
+
+    await expect(
+      caller.encounter.addCondition({
+        combatantId,
+        conditionSlug: 'srd-2024_prone',
+      }),
+    ).rejects.toThrow(/no longer in the encounter/);
+  });
+});

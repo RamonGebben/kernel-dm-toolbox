@@ -19,6 +19,7 @@ const combatant = (
   isPlayerCharacter: false,
   healthStatus: 'healthy',
   challengeRating: 0.125,
+  conditions: [],
   ...overrides,
 });
 

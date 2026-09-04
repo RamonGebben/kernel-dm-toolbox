@@ -16,6 +16,12 @@ export type EncounterCombatantSummary = {
   isHidden: boolean;
   isDelayed: boolean;
   isPlayerCharacter: boolean;
+  conditions: {
+    id: string;
+    name: string;
+    roundsRemaining: number | null;
+    note: string | null;
+  }[];
 };
 
 export type EncounterViewProps = {
@@ -151,6 +157,7 @@ const OrderBody = ({
               armorClass={combatant.armorClass}
               isHidden={combatant.isHidden}
               isDelayed={combatant.isDelayed}
+              conditions={combatant.conditions}
               isActive={combatant.id === activeCombatantId}
               isSelected={combatant.id === selectedCombatantId}
               onSelect={() => onSelect(combatant.id)}
