@@ -46,11 +46,44 @@ export const useEncounter = () => {
       onSuccess: invalidate,
     }),
   );
+  const toggleDelay = useMutation(
+    trpc.encounter.toggleDelay.mutationOptions({ onSuccess: invalidate }),
+  );
+  const nextTurn = useMutation(
+    trpc.encounter.nextTurn.mutationOptions({ onSuccess: invalidate }),
+  );
+  const previousTurn = useMutation(
+    trpc.encounter.previousTurn.mutationOptions({ onSuccess: invalidate }),
+  );
+  const damage = useMutation(
+    trpc.encounter.damage.mutationOptions({ onSuccess: invalidate }),
+  );
+  const heal = useMutation(
+    trpc.encounter.heal.mutationOptions({ onSuccess: invalidate }),
+  );
+  const grantTemporary = useMutation(
+    trpc.encounter.grantTemporaryHitPoints.mutationOptions({
+      onSuccess: invalidate,
+    }),
+  );
+  const update = useMutation(
+    trpc.encounter.update.mutationOptions({ onSuccess: invalidate }),
+  );
 
   return {
     isPending: encounter.isPending,
     ...toEncounterState(encounter.data),
+    isAdjusting: damage.isPending || heal.isPending || grantTemporary.isPending,
     remove: (id: string) => remove.mutate({ id }),
     clearMonsters: () => clearMonsters.mutate(),
+    toggleDelay: (id: string) => toggleDelay.mutate({ id }),
+    nextTurn: () => nextTurn.mutate(),
+    previousTurn: () => previousTurn.mutate(),
+    damage: (id: string, amount: number) => damage.mutate({ id, amount }),
+    heal: (id: string, amount: number) => heal.mutate({ id, amount }),
+    grantTemporary: (id: string, amount: number) =>
+      grantTemporary.mutate({ id, amount }),
+    setHidden: (id: string, isHidden: boolean) =>
+      update.mutate({ id, isHidden }),
   };
 };

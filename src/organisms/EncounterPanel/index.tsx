@@ -18,8 +18,12 @@ export const EncounterPanel = () => {
       roundNumber={encounter.roundNumber}
       combatants={encounter.combatants}
       selectedCombatantId={selectedCombatantId}
+      activeCombatantId={encounter.activeCombatantId}
       onSelect={selectCombatant}
       onRemove={encounter.remove}
+      onToggleDelay={encounter.toggleDelay}
+      onNextTurn={encounter.nextTurn}
+      onPreviousTurn={encounter.previousTurn}
       onClearMonsters={encounter.clearMonsters}
     />
   );

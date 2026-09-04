@@ -73,3 +73,27 @@ export const previousTurn = <TCombatant extends Orderable>(
     ? { activeId: order[order.length - 1].id, didWrap: true }
     : { activeId: order[currentIndex - 1].id, didWrap: false };
 };
+
+/**
+ * The round counter.
+ *
+ * Round 0 means "not started". Advancing past the bottom of the order wraps to
+ * the top and begins a new round; stepping back past the top returns to the
+ * previous one. Rounds never go below 1 once a fight has begun — a round zero
+ * mid-fight would be nonsense on screen.
+ */
+export const nextRoundNumber = ({
+  roundNumber,
+  didWrap,
+  direction,
+}: {
+  roundNumber: number;
+  didWrap: boolean;
+  direction: 'forward' | 'backward';
+}): number => {
+  if (!didWrap) return roundNumber;
+
+  return direction === 'forward'
+    ? roundNumber + 1
+    : Math.max(1, roundNumber - 1);
+};

@@ -14,6 +14,7 @@ export type EncounterCombatantSummary = {
   temporaryHitPoints: number;
   armorClass: number;
   isHidden: boolean;
+  isDelayed: boolean;
   isPlayerCharacter: boolean;
 };
 
@@ -22,8 +23,12 @@ export type EncounterViewProps = {
   roundNumber: number;
   combatants: readonly EncounterCombatantSummary[];
   selectedCombatantId: string | null;
+  activeCombatantId: string | null;
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
+  onToggleDelay: (id: string) => void;
+  onNextTurn: () => void;
+  onPreviousTurn: () => void;
   onClearMonsters: () => void;
 };
 
@@ -33,28 +38,48 @@ export const EncounterView = ({
   roundNumber,
   combatants,
   selectedCombatantId,
+  activeCombatantId,
   onSelect,
   onRemove,
+  onToggleDelay,
+  onNextTurn,
+  onPreviousTurn,
   onClearMonsters,
 }: EncounterViewProps) => {
   const monsterCount = combatants.filter(
     combatant => !combatant.isPlayerCharacter,
   ).length;
+  const isStarted = roundNumber > 0;
 
   return (
     <Wrapper>
       <Toolbar>
-        <Round>
-          {roundNumber > 0 ? `Round ${roundNumber}` : 'Not started'}
-        </Round>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onClearMonsters}
-          disabled={monsterCount === 0}
-        >
-          Clear monsters
-        </Button>
+        <Round>{isStarted ? `Round ${roundNumber}` : 'Not started'}</Round>
+        <ToolbarActions>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onPreviousTurn}
+            disabled={!isStarted}
+          >
+            Back
+          </Button>
+          <Button
+            size="sm"
+            onClick={onNextTurn}
+            disabled={combatants.length === 0}
+          >
+            {isStarted ? 'Next turn' : 'Start fight'}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onClearMonsters}
+            disabled={monsterCount === 0}
+          >
+            Clear monsters
+          </Button>
+        </ToolbarActions>
       </Toolbar>
 
       <Body>
@@ -62,8 +87,10 @@ export const EncounterView = ({
           isPending={isPending}
           combatants={combatants}
           selectedCombatantId={selectedCombatantId}
+          activeCombatantId={activeCombatantId}
           onSelect={onSelect}
           onRemove={onRemove}
+          onToggleDelay={onToggleDelay}
         />
       </Body>
     </Wrapper>
@@ -72,15 +99,24 @@ export const EncounterView = ({
 
 type OrderBodyProps = Pick<
   EncounterViewProps,
-  'isPending' | 'combatants' | 'selectedCombatantId' | 'onSelect' | 'onRemove'
+  | 'isPending'
+  | 'combatants'
+  | 'selectedCombatantId'
+  | 'activeCombatantId'
+  | 'onSelect'
+  | 'onRemove'
+  | 'onToggleDelay'
 >;
 
+/** A named subcomponent, so the branches stay guard clauses. */
 const OrderBody = ({
   isPending,
   combatants,
   selectedCombatantId,
+  activeCombatantId,
   onSelect,
   onRemove,
+  onToggleDelay,
 }: OrderBodyProps) => {
   if (isPending)
     return <Skeleton role="status" aria-label="Loading the encounter" />;
@@ -114,8 +150,11 @@ const OrderBody = ({
               temporaryHitPoints={combatant.temporaryHitPoints}
               armorClass={combatant.armorClass}
               isHidden={combatant.isHidden}
+              isDelayed={combatant.isDelayed}
+              isActive={combatant.id === activeCombatantId}
               isSelected={combatant.id === selectedCombatantId}
               onSelect={() => onSelect(combatant.id)}
+              onToggleDelay={() => onToggleDelay(combatant.id)}
               onRemove={() => onRemove(combatant.id)}
             />
           </li>
@@ -138,6 +177,12 @@ const Toolbar = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: ${props => props.theme.space.md};
+  flex-wrap: wrap;
+`;
+
+const ToolbarActions = styled.div`
+  display: flex;
+  gap: ${props => props.theme.space.sm};
 `;
 
 const Round = styled.span`

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { nextTurn, previousTurn, sortCombatants } from '~/utils/sortCombatants';
+import {
+  nextRoundNumber,
+  nextTurn,
+  previousTurn,
+  sortCombatants,
+} from '~/utils/sortCombatants';
 
 const combatant = (
   id: string,
@@ -112,5 +117,57 @@ describe('previousTurn', () => {
     const forward = nextTurn(order, 'dragon').activeId;
 
     expect(previousTurn(order, forward).activeId).toBe('dragon');
+  });
+});
+
+describe('nextRoundNumber', () => {
+  it('leaves the round alone mid-order', () => {
+    expect(
+      nextRoundNumber({
+        roundNumber: 3,
+        didWrap: false,
+        direction: 'forward',
+      }),
+    ).toBe(3);
+  });
+
+  it('starts the fight at round one', () => {
+    expect(
+      nextRoundNumber({
+        roundNumber: 0,
+        didWrap: true,
+        direction: 'forward',
+      }),
+    ).toBe(1);
+  });
+
+  it('advances the round when the order wraps', () => {
+    expect(
+      nextRoundNumber({
+        roundNumber: 3,
+        didWrap: true,
+        direction: 'forward',
+      }),
+    ).toBe(4);
+  });
+
+  it('steps back a round when going backwards past the top', () => {
+    expect(
+      nextRoundNumber({
+        roundNumber: 4,
+        didWrap: true,
+        direction: 'backward',
+      }),
+    ).toBe(3);
+  });
+
+  it('never falls below round one mid-fight', () => {
+    expect(
+      nextRoundNumber({
+        roundNumber: 1,
+        didWrap: true,
+        direction: 'backward',
+      }),
+    ).toBe(1);
   });
 });

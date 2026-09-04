@@ -443,3 +443,153 @@ describe('encounter.clearNonPlayerCombatants', () => {
     ).resolves.toMatchObject({ initiative: 14 });
   });
 });
+
+describe('turn tracking', () => {
+  /** Three combatants at known, unambiguous initiatives. */
+  const buildOrder = async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 3 });
+    const rows = (await caller.encounter.get()).combatants;
+
+    await caller.encounter.update({ id: rows[0].id, initiative: 20 });
+    await caller.encounter.update({ id: rows[1].id, initiative: 15 });
+    await caller.encounter.update({ id: rows[2].id, initiative: 10 });
+
+    return (await caller.encounter.get()).combatants;
+  };
+
+  it('starts the fight at round one on the first combatant', async () => {
+    const order = await buildOrder();
+
+    const result = await caller.encounter.nextTurn();
+
+    expect(result.roundNumber).toBe(1);
+    expect(result.activeCombatantId).toBe(order[0].id);
+  });
+
+  it('walks down the order without advancing the round', async () => {
+    const order = await buildOrder();
+    await caller.encounter.nextTurn();
+
+    const result = await caller.encounter.nextTurn();
+
+    expect(result.activeCombatantId).toBe(order[1].id);
+    expect(result.roundNumber).toBe(1);
+  });
+
+  it('advances the round when the order wraps', async () => {
+    const order = await buildOrder();
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+
+    const result = await caller.encounter.nextTurn();
+
+    expect(result.activeCombatantId).toBe(order[0].id);
+    expect(result.roundNumber).toBe(2);
+  });
+
+  it('steps back through the order', async () => {
+    const order = await buildOrder();
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+
+    const result = await caller.encounter.previousTurn();
+
+    expect(result.activeCombatantId).toBe(order[0].id);
+  });
+
+  it('gives the round back when stepping past the top', async () => {
+    await buildOrder();
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+    await caller.encounter.nextTurn();
+    expect((await caller.encounter.get()).roundNumber).toBe(2);
+
+    const result = await caller.encounter.previousTurn();
+
+    expect(result.roundNumber).toBe(1);
+  });
+
+  it('persists whose turn it is', async () => {
+    const order = await buildOrder();
+
+    await caller.encounter.nextTurn();
+
+    expect((await caller.encounter.get()).activeCombatantId).toBe(order[0].id);
+  });
+
+  it('does nothing in an empty encounter', async () => {
+    const result = await caller.encounter.nextTurn();
+
+    expect(result.activeCombatantId).toBeNull();
+    expect(result.roundNumber).toBe(0);
+  });
+
+  it('recovers when the active combatant is removed mid-fight', async () => {
+    const order = await buildOrder();
+    await caller.encounter.nextTurn();
+
+    await caller.encounter.remove({ id: order[0].id });
+
+    const state = await caller.encounter.get();
+    expect(state.activeCombatantId).toBeNull();
+
+    const result = await caller.encounter.nextTurn();
+    expect(result.activeCombatantId).toBe(order[1].id);
+  });
+});
+
+describe('encounter.toggleDelay', () => {
+  it('drops a delayed combatant to the bottom of the order', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    const rows = (await caller.encounter.get()).combatants;
+    await caller.encounter.update({ id: rows[0].id, initiative: 20 });
+    await caller.encounter.update({ id: rows[1].id, initiative: 10 });
+    const [first] = (await caller.encounter.get()).combatants;
+
+    await caller.encounter.toggleDelay({ id: first.id });
+
+    const order = (await caller.encounter.get()).combatants;
+    expect(order.at(-1)?.id).toBe(first.id);
+    expect(order.at(-1)?.isDelayed).toBe(true);
+  });
+
+  it('skips a delayed combatant when advancing turns', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 3 });
+    const rows = (await caller.encounter.get()).combatants;
+    await caller.encounter.update({ id: rows[0].id, initiative: 20 });
+    await caller.encounter.update({ id: rows[1].id, initiative: 15 });
+    await caller.encounter.update({ id: rows[2].id, initiative: 10 });
+    const order = (await caller.encounter.get()).combatants;
+    await caller.encounter.toggleDelay({ id: order[1].id });
+
+    await caller.encounter.nextTurn();
+    const second = await caller.encounter.nextTurn();
+
+    expect(second.activeCombatantId).toBe(order[2].id);
+  });
+
+  it('leaves initiative untouched, so undoing is free', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    const [goblin] = (await caller.encounter.get()).combatants;
+    await caller.encounter.update({ id: goblin.id, initiative: 20 });
+
+    await caller.encounter.toggleDelay({ id: goblin.id });
+    await caller.encounter.toggleDelay({ id: goblin.id });
+
+    const [restored] = (await caller.encounter.get()).combatants;
+    expect(restored.isDelayed).toBe(false);
+    expect(restored.initiative).toBe(20);
+  });
+
+  it('gives up the turn when the active combatant delays', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.nextTurn();
+    const active = (await caller.encounter.get()).activeCombatantId!;
+
+    await caller.encounter.toggleDelay({ id: active });
+
+    expect((await caller.encounter.get()).activeCombatantId).toBeNull();
+  });
+});

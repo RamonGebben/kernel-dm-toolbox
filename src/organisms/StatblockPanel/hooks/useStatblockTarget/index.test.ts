@@ -7,7 +7,9 @@ const dragon = {
   creatureSlug: 'srd-2024_young-black-dragon',
   currentHitPoints: 35,
   maxHitPoints: 52,
+  temporaryHitPoints: 0,
   armorClass: 18,
+  isHidden: false,
 };
 
 const sigrid = {
@@ -16,7 +18,9 @@ const sigrid = {
   creatureSlug: null,
   currentHitPoints: 45,
   maxHitPoints: 45,
+  temporaryHitPoints: 0,
   armorClass: 20,
+  isHidden: false,
 };
 
 const combatants = [dragon, sigrid];

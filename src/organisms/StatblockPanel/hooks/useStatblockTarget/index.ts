@@ -10,7 +10,9 @@ type CombatantLike = {
   creatureSlug: string | null;
   currentHitPoints: number;
   maxHitPoints: number;
+  temporaryHitPoints: number;
   armorClass: number;
+  isHidden: boolean;
 };
 
 export type StatblockTarget =

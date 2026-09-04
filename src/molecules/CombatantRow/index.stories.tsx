@@ -14,7 +14,10 @@ const meta = {
     armorClass: 18,
     isSelected: false,
     isHidden: false,
+    isActive: false,
+    isDelayed: false,
     onSelect: fn(),
+    onToggleDelay: fn(),
     onRemove: fn(),
   },
 } satisfies Meta<typeof CombatantRow>;
@@ -66,6 +69,29 @@ export const WithTemporaryHitPoints: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('+8')).toBeVisible();
+  },
+};
+
+export const ActiveTurn: Story = {
+  args: { isActive: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('turn')).toBeVisible();
+  },
+};
+
+export const Delayed: Story = {
+  args: { isDelayed: true },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('delayed')).toBeVisible();
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Return Meat to the order' }),
+    );
+    await expect(args.onToggleDelay).toHaveBeenCalledOnce();
   },
 };
 

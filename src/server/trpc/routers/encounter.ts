@@ -24,6 +24,11 @@ import {
 import { buildCombatantNames } from '~/utils/buildCombatantNames';
 import { rollInitiative } from '~/utils/rollDice';
 import {
+  nextRoundNumber,
+  nextTurn,
+  previousTurn,
+} from '~/utils/sortCombatants';
+import {
   applyDamage,
   applyHealing,
   applyTemporaryHitPoints,
@@ -268,6 +273,42 @@ export const encounterRouter = createTRPCRouter({
       return { id: input.id };
     }),
 
+  /** Advance to the next combatant, rolling the round over at the top. */
+  nextTurn: publicProcedure.mutation(({ ctx }) =>
+    advanceTurn(ctx.db, 'forward'),
+  ),
+
+  /** Step back, for when a turn was advanced by mistake. */
+  previousTurn: publicProcedure.mutation(({ ctx }) =>
+    advanceTurn(ctx.db, 'backward'),
+  ),
+
+  /**
+   * Delay: the combatant steps out of the order and re-enters wherever the DM
+   * puts them. Their initiative is left alone so undoing is free.
+   */
+  toggleDelay: publicProcedure
+    .input(combatantIdInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await loadCombatant(ctx.db, input.id);
+
+      const [updated] = await ctx.db
+        .update(combatants)
+        .set({
+          isDelayed: !existing.isDelayed,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(combatants.id, input.id))
+        .returning();
+
+      // A delayed combatant is out of the order, so it cannot hold the turn.
+      if (updated?.isDelayed) await clearActiveIfRemoved(ctx.db, input.id);
+
+      publishEncounterChanged();
+
+      return updated;
+    }),
+
   /**
    * Between fights: the monsters go, the party stays. The single most-used
    * action in the whole tool, and the reason player characters are their own
@@ -301,6 +342,33 @@ export const encounterRouter = createTRPCRouter({
     return { removedCount: doomed.length };
   }),
 });
+
+/**
+ * Moves the turn pointer and keeps the round counter in step.
+ *
+ * The ordering itself is pure and tested in `~/utils/sortCombatants`; this
+ * only reads state, applies it, and writes the result back.
+ */
+const advanceTurn = async (db: Database, direction: 'forward' | 'backward') => {
+  const state = await readEncounterState(db);
+  const step = direction === 'forward' ? nextTurn : previousTurn;
+  const { activeId, didWrap } = step(state.combatants, state.activeCombatantId);
+
+  const roundNumber = nextRoundNumber({
+    roundNumber: state.roundNumber,
+    didWrap,
+    direction,
+  });
+
+  await db
+    .update(encounters)
+    .set({ activeCombatantId: activeId, roundNumber })
+    .where(eq(encounters.id, CURRENT_ENCOUNTER_ID));
+
+  publishEncounterChanged();
+
+  return { activeCombatantId: activeId, roundNumber };
+};
 
 /** A removed combatant must not stay the active one. */
 const clearActiveIfRemoved = async (db: Database, removedId: string) => {

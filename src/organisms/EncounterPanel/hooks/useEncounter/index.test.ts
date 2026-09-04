@@ -10,6 +10,7 @@ const combatant = {
   temporaryHitPoints: 0,
   armorClass: 18,
   isHidden: false,
+  isDelayed: false,
   isPlayerCharacter: false,
 };
 

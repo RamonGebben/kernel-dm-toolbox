@@ -13,6 +13,7 @@ const combatants = [
     temporaryHitPoints: 0,
     armorClass: 18,
     isHidden: false,
+    isDelayed: false,
     isPlayerCharacter: false,
   },
   {
@@ -24,6 +25,7 @@ const combatants = [
     temporaryHitPoints: 0,
     armorClass: 18,
     isHidden: false,
+    isDelayed: false,
     isPlayerCharacter: false,
   },
   {
@@ -35,6 +37,7 @@ const combatants = [
     temporaryHitPoints: 0,
     armorClass: 20,
     isHidden: false,
+    isDelayed: false,
     isPlayerCharacter: true,
   },
   {
@@ -46,6 +49,7 @@ const combatants = [
     temporaryHitPoints: 0,
     armorClass: 19,
     isHidden: false,
+    isDelayed: false,
     isPlayerCharacter: true,
   },
 ];
@@ -58,8 +62,12 @@ const meta = {
     roundNumber: 0,
     combatants,
     selectedCombatantId: 'dragon',
+    activeCombatantId: null,
     onSelect: fn(),
     onRemove: fn(),
+    onToggleDelay: fn(),
+    onNextTurn: fn(),
+    onPreviousTurn: fn(),
     onClearMonsters: fn(),
   },
 } satisfies Meta<typeof EncounterView>;
@@ -83,11 +91,48 @@ export const Loaded: Story = {
 };
 
 export const InRoundThree: Story = {
-  args: { roundNumber: 3 },
-  play: async ({ canvasElement }) => {
+  args: { roundNumber: 3, activeCombatantId: 'dragon' },
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('Round 3')).toBeVisible();
+    await expect(canvas.getByText('turn')).toBeVisible();
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Next turn' }));
+    await expect(args.onNextTurn).toHaveBeenCalledOnce();
+  },
+};
+
+/** Before the fight starts the action reads as starting it, not advancing. */
+export const NotStarted: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: 'Start fight' }),
+    ).toBeEnabled();
+    // There is no previous turn to go back to yet.
+    await expect(canvas.getByRole('button', { name: 'Back' })).toBeDisabled();
+  },
+};
+
+export const WithADelayedCombatant: Story = {
+  args: {
+    roundNumber: 2,
+    activeCombatantId: 'meat',
+    combatants: combatants.map(combatant =>
+      combatant.id === 'sigrid' ? { ...combatant, isDelayed: true } : combatant,
+    ),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('delayed')).toBeVisible();
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Return Sigrid to the order' }),
+    );
+    await expect(args.onToggleDelay).toHaveBeenCalledWith('sigrid');
   },
 };
 

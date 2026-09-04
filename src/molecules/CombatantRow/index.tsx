@@ -13,7 +13,11 @@ export type CombatantRowProps = {
   armorClass: number;
   isSelected: boolean;
   isHidden: boolean;
+  /** Whose turn it is right now. */
+  isActive: boolean;
+  isDelayed: boolean;
   onSelect: () => void;
+  onToggleDelay: () => void;
   onRemove: () => void;
 };
 
@@ -33,10 +37,13 @@ export const CombatantRow = ({
   armorClass,
   isSelected,
   isHidden,
+  isActive,
+  isDelayed,
   onSelect,
+  onToggleDelay,
   onRemove,
 }: CombatantRowProps) => (
-  <Row $isSelected={isSelected}>
+  <Row $isSelected={isSelected} $isActive={isActive}>
     <Initiative>{initiative}</Initiative>
     <SelectButton
       type="button"
@@ -45,8 +52,12 @@ export const CombatantRow = ({
       aria-label={`Select ${displayName}`}
     >
       {displayName}
+      {isActive && <Badge $tone="active">turn</Badge>}
+      {isDelayed && <Badge $tone="muted">delayed</Badge>}
       {isHidden && (
-        <HiddenBadge title="Hidden from the player view">hidden</HiddenBadge>
+        <Badge $tone="muted" title="Hidden from the player view">
+          hidden
+        </Badge>
       )}
     </SelectButton>
     <HitPoints $tone={toHitPointTone({ currentHitPoints, maxHitPoints })}>
@@ -55,6 +66,18 @@ export const CombatantRow = ({
     </HitPoints>
     <ArmorClass>{armorClass}</ArmorClass>
     <Actions>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onToggleDelay}
+        aria-label={
+          isDelayed
+            ? `Return ${displayName} to the order`
+            : `Delay ${displayName}`
+        }
+      >
+        {isDelayed ? '⏵' : '⏸'}
+      </Button>
       <Button
         variant="ghost"
         size="sm"
@@ -73,7 +96,7 @@ const toneColor = {
   down: (color: { danger: string }) => color.danger,
 } as const;
 
-const Row = styled.div<{ $isSelected: boolean }>`
+const Row = styled.div<{ $isSelected: boolean; $isActive: boolean }>`
   display: grid;
   grid-template-columns: 3rem minmax(0, 1fr) 5.5rem 3rem 2.5rem;
   align-items: center;
@@ -87,12 +110,18 @@ const Row = styled.div<{ $isSelected: boolean }>`
   border: 1px solid
     ${props =>
       props.$isSelected ? props.theme.color.success : props.theme.color.border};
+  /* Whose turn it is has to read from across the table, not on inspection. */
+  border-left: 3px solid
+    ${props => (props.$isActive ? props.theme.color.accent : 'transparent')};
   border-radius: ${props => props.theme.radius.sm};
   color: ${props => props.theme.color.textPrimary};
   font-size: ${props => props.theme.fontSize.md};
 
   &:hover {
     border-color: ${props => props.theme.color.accent};
+    /* Hover must not paint a turn marker on a row whose turn it is not. */
+    border-left-color: ${props =>
+      props.$isActive ? props.theme.color.accent : 'transparent'};
   }
 `;
 
@@ -119,12 +148,20 @@ const SelectButton = styled.button`
   white-space: nowrap;
 `;
 
-const HiddenBadge = styled.span`
+const Badge = styled.span<{ $tone: 'active' | 'muted' }>`
+  flex-shrink: 0;
   padding: 0 ${props => props.theme.space.xs};
-  border: 1px solid ${props => props.theme.color.accentMuted};
+  border: 1px solid
+    ${props =>
+      props.$tone === 'active'
+        ? props.theme.color.accent
+        : props.theme.color.accentMuted};
   border-radius: ${props => props.theme.radius.pill};
   font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
+  color: ${props =>
+    props.$tone === 'active'
+      ? props.theme.color.accent
+      : props.theme.color.textMuted};
 `;
 
 const HitPoints = styled.span<{ $tone: HitPointTone }>`
