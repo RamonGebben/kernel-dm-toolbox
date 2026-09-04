@@ -21,8 +21,11 @@ const meta = {
     creatures,
     search: '',
     selectedSlug: null,
+    quantity: 1,
     onSearchChange: fn(),
+    onQuantityChange: fn(),
     onSelect: fn(),
+    onAdd: fn(),
   },
 } satisfies Meta<typeof CreatureLibraryView>;
 
@@ -34,7 +37,9 @@ export const Loaded: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.click(canvas.getByRole('button', { name: /Aboleth/ }));
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Show the Aboleth statblock' }),
+    );
 
     await expect(args.onSelect).toHaveBeenCalledWith('srd-2024_aboleth');
   },
@@ -73,6 +78,23 @@ export const NoMatches: Story = {
 
 export const Selected: Story = {
   args: { selectedSlug: 'srd-2024_goblin' },
+};
+
+/** Adding four goblins at once is the common case the quantity field serves. */
+export const AddingAGroup: Story = {
+  args: { quantity: 4 },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByLabelText('How many to add')).toHaveValue(4);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Add Goblin to the encounter' }),
+    );
+
+    await expect(args.onAdd).toHaveBeenCalledWith('srd-2024_goblin');
+    await expect(args.onSelect).not.toHaveBeenCalled();
+  },
 };
 
 export const Filtering: Story = {

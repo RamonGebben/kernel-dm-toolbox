@@ -25,6 +25,9 @@ export type CharacterRosterViewProps = {
   characters: readonly RosterCharacter[];
   /** The character being edited, or 'new', or null when the form is closed. */
   editing: RosterCharacter | 'new' | null;
+  /** Ids already in the encounter, so they cannot be added a second time. */
+  combatantCharacterIds: readonly string[];
+  onAddToEncounter: (character: RosterCharacter) => void;
   onStartCreate: () => void;
   onStartEdit: (character: RosterCharacter) => void;
   onCancelEdit: () => void;
@@ -47,6 +50,8 @@ export const CharacterRosterView = ({
   isSaving,
   characters,
   editing,
+  combatantCharacterIds,
+  onAddToEncounter,
   onStartCreate,
   onStartEdit,
   onCancelEdit,
@@ -73,6 +78,8 @@ export const CharacterRosterView = ({
       <RosterBody
         isPending={isPending}
         characters={characters}
+        combatantCharacterIds={combatantCharacterIds}
+        onAddToEncounter={onAddToEncounter}
         onStartEdit={onStartEdit}
         onRemove={onRemove}
       />
@@ -82,13 +89,20 @@ export const CharacterRosterView = ({
 
 type RosterBodyProps = Pick<
   CharacterRosterViewProps,
-  'isPending' | 'characters' | 'onStartEdit' | 'onRemove'
+  | 'isPending'
+  | 'characters'
+  | 'combatantCharacterIds'
+  | 'onAddToEncounter'
+  | 'onStartEdit'
+  | 'onRemove'
 >;
 
 /** A named subcomponent rather than a local const, so the guards stay guards. */
 const RosterBody = ({
   isPending,
   characters,
+  combatantCharacterIds,
+  onAddToEncounter,
   onStartEdit,
   onRemove,
 }: RosterBodyProps) => {
@@ -115,6 +129,8 @@ const RosterBody = ({
             armorClass={character.armorClass}
             maxHitPoints={character.maxHitPoints}
             initiativeModifier={character.initiativeModifier}
+            isInEncounter={combatantCharacterIds.includes(character.id)}
+            onAddToEncounter={() => onAddToEncounter(character)}
             onEdit={() => onStartEdit(character)}
             onRemove={() => onRemove(character.id)}
           />

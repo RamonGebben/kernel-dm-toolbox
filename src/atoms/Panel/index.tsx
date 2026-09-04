@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import styled from 'styled-components';
 
 type PanelProps = {
@@ -25,15 +25,21 @@ export const Panel = ({
   action,
   isBodyScrollable = true,
   children,
-}: PanelProps) => (
-  <Frame>
-    <Header>
-      <Title>{title}</Title>
-      {action}
-    </Header>
-    <Body $isScrollable={isBodyScrollable}>{children}</Body>
-  </Frame>
-);
+}: PanelProps) => {
+  // Names the panel as a landmark, so assistive technology — and tests — can
+  // address "the Add Combatants panel" rather than the whole page.
+  const titleId = useId();
+
+  return (
+    <Frame aria-labelledby={titleId}>
+      <Header>
+        <Title id={titleId}>{title}</Title>
+        {action}
+      </Header>
+      <Body $isScrollable={isBodyScrollable}>{children}</Body>
+    </Frame>
+  );
+};
 
 const Frame = styled.section`
   display: flex;

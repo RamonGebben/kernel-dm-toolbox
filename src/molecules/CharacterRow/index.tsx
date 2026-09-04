@@ -11,6 +11,9 @@ export type CharacterRowProps = {
   armorClass: number;
   maxHitPoints: number;
   initiativeModifier: number;
+  /** True once they are already in the encounter — they cannot be added twice. */
+  isInEncounter: boolean;
+  onAddToEncounter: () => void;
   onEdit: () => void;
   onRemove: () => void;
 };
@@ -22,6 +25,8 @@ export const CharacterRow = ({
   armorClass,
   maxHitPoints,
   initiativeModifier,
+  isInEncounter,
+  onAddToEncounter,
   onEdit,
   onRemove,
 }: CharacterRowProps) => (
@@ -34,6 +39,15 @@ export const CharacterRow = ({
       </Meta>
     </Details>
     <Actions>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onAddToEncounter}
+        disabled={isInEncounter}
+        aria-label={`Add ${name} to the encounter`}
+      >
+        {isInEncounter ? 'In fight' : 'Add'}
+      </Button>
       <Button variant="ghost" size="sm" onClick={onEdit}>
         Edit
       </Button>

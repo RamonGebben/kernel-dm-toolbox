@@ -12,6 +12,8 @@ const meta = {
     armorClass: 20,
     maxHitPoints: 45,
     initiativeModifier: 2,
+    isInEncounter: false,
+    onAddToEncounter: fn(),
     onEdit: fn(),
     onRemove: fn(),
   },
@@ -47,6 +49,30 @@ export const NegativeInitiative: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText(/init -1/)).toBeVisible();
+  },
+};
+
+/** Already in the fight: the action is disabled rather than erroring. */
+export const AlreadyInEncounter: Story = {
+  args: { isInEncounter: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: 'Add Sigrid to the encounter' }),
+    ).toBeDisabled();
+  },
+};
+
+export const AddingToEncounter: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Add Sigrid to the encounter' }),
+    );
+
+    await expect(args.onAddToEncounter).toHaveBeenCalledOnce();
   },
 };
 

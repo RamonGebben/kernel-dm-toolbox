@@ -1,29 +1,23 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from '~/trpc/react';
 import { StatblockView } from '~/organisms/StatblockPanel/components/StatblockView';
-import { useSelectionStore } from '~/stores/selection';
+import { CharacterCard } from '~/organisms/StatblockPanel/components/CharacterCard';
+import { useStatblockTarget } from '~/organisms/StatblockPanel/hooks/useStatblockTarget';
 
 /** Connected boundary for the right-hand panel. */
 export const StatblockPanel = () => {
-  const trpc = useTRPC();
-  const selectedCreatureSlug = useSelectionStore(
-    state => state.selectedCreatureSlug,
-  );
+  const { target, isPending, statblock } = useStatblockTarget();
 
-  const { isPending, data } = useQuery({
-    ...trpc.library.getCreature.queryOptions({
-      slug: selectedCreatureSlug ?? '',
-    }),
-    enabled: selectedCreatureSlug !== null,
-  });
-
-  // A disabled query reports `isPending`, which would leave the panel showing
-  // a skeleton forever with nothing selected. Nothing selected is not loading.
-  if (selectedCreatureSlug === null) {
-    return <StatblockView isPending={false} statblock={null} />;
+  if (target.kind === 'character') {
+    return (
+      <CharacterCard
+        displayName={target.combatant.displayName}
+        currentHitPoints={target.combatant.currentHitPoints}
+        maxHitPoints={target.combatant.maxHitPoints}
+        armorClass={target.combatant.armorClass}
+      />
+    );
   }
 
-  return <StatblockView isPending={isPending} statblock={data ?? null} />;
+  return <StatblockView isPending={isPending} statblock={statblock} />;
 };

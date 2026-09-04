@@ -25,7 +25,9 @@ export const rawColors = {
   accentMuted: '#5c3d22',
 
   // Status.
-  danger: '#e05a5a',
+  // Lightened from #e05a5a, which measured 4.32:1 against `surfaceRaised` and
+  // failed WCAG AA — a selected combatant on 0 HP was the case that caught it.
+  danger: '#e86b6b',
   success: '#5ac08a',
   warning: '#d9b155',
 } as const;

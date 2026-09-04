@@ -10,6 +10,7 @@ const meta = {
     challengeRatingLabel: '7',
     isSelected: false,
     onSelect: fn(),
+    onAdd: fn(),
   },
   argTypes: {
     isSelected: { control: 'boolean' },
@@ -26,7 +27,11 @@ export const Default: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.click(canvas.getByRole('button'));
+    await userEvent.click(
+      canvas.getByRole('button', {
+        name: 'Show the Young Black Dragon statblock',
+      }),
+    );
 
     await expect(args.onSelect).toHaveBeenCalledOnce();
   },
@@ -37,10 +42,11 @@ export const Selected: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByRole('button')).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(
+      canvas.getByRole('button', {
+        name: 'Show the Young Black Dragon statblock',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
   },
 };
 
@@ -50,4 +56,20 @@ export const FractionalChallengeRating: Story = {
 
 export const LongName: Story = {
   args: { name: 'Ancient Brass Dragon of Considerable Renown' },
+};
+
+/** Adding is a distinct action from selecting; one must not trigger the other. */
+export const Adding: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', {
+        name: 'Add Young Black Dragon to the encounter',
+      }),
+    );
+
+    await expect(args.onAdd).toHaveBeenCalledOnce();
+    await expect(args.onSelect).not.toHaveBeenCalled();
+  },
 };

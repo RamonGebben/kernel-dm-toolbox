@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { toCharacterInput } from '~/organisms/CharacterRoster/hooks/useCharacterRoster';
+import {
+  toCharacterInput,
+  toCombatantCharacterIds,
+} from '~/organisms/CharacterRoster/hooks/useCharacterRoster';
 
 const values = {
   name: 'Sigrid',
@@ -48,5 +51,42 @@ describe('toCharacterInput', () => {
     toCharacterInput(values);
 
     expect(values).toEqual(original);
+  });
+});
+
+describe('toCombatantCharacterIds', () => {
+  it('reads an unloaded encounter as nobody in the fight', () => {
+    expect(toCombatantCharacterIds(undefined)).toEqual([]);
+  });
+
+  it('collects the character ids that are in the fight', () => {
+    expect(
+      toCombatantCharacterIds({
+        combatants: [
+          { playerCharacterId: 'sigrid' },
+          { playerCharacterId: 'hammie' },
+        ],
+      }),
+    ).toEqual(['sigrid', 'hammie']);
+  });
+
+  it('ignores monsters, which have no character id', () => {
+    expect(
+      toCombatantCharacterIds({
+        combatants: [
+          { playerCharacterId: null },
+          { playerCharacterId: 'sigrid' },
+          { playerCharacterId: null },
+        ],
+      }),
+    ).toEqual(['sigrid']);
+  });
+
+  it('returns nothing for an encounter with only monsters', () => {
+    expect(
+      toCombatantCharacterIds({
+        combatants: [{ playerCharacterId: null }],
+      }),
+    ).toEqual([]);
   });
 });

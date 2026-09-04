@@ -1,5 +1,11 @@
 import { sql } from 'drizzle-orm';
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  check,
+} from 'drizzle-orm/sqlite-core';
 
 /**
  * Every table in this app spreads `syncMeta`.
@@ -293,3 +299,67 @@ export const playerCharacters = sqliteTable('player_characters', {
 
 export type PlayerCharacter = typeof playerCharacters.$inferSelect;
 export type NewPlayerCharacter = typeof playerCharacters.$inferInsert;
+
+/**
+ * The encounter. There is exactly one (DECISIONS #14), held as a single row
+ * with a fixed id so there is never a "which encounter?" question to answer.
+ */
+export const CURRENT_ENCOUNTER_ID = 'current';
+
+export const encounters = sqliteTable('encounters', {
+  ...syncMeta,
+  roundNumber: integer('round_number').notNull().default(0),
+  /** Null before the fight starts and after it is cleared. */
+  activeCombatantId: text('active_combatant_id'),
+});
+
+/**
+ * A row in the initiative order.
+ *
+ * References the library rather than copying a statblock (DECISIONS #15): it
+ * carries only what changes during a fight. Exactly one of `creatureSlug` and
+ * `playerCharacterId` is set — the check constraint below enforces it, because
+ * a combatant that is both or neither has no statblock to show.
+ */
+export const combatants = sqliteTable(
+  'combatants',
+  {
+    ...syncMeta,
+    encounterId: text('encounter_id')
+      .notNull()
+      .references(() => encounters.id, { onDelete: 'cascade' }),
+    creatureSlug: text('creature_slug').references(() => creatures.slug),
+    playerCharacterId: text('player_character_id').references(
+      () => playerCharacters.id,
+    ),
+
+    /** "Goblin 3", or "Meat" for a renamed dragon. */
+    displayName: text('display_name').notNull(),
+    initiative: integer('initiative').notNull().default(0),
+    currentHitPoints: integer('current_hit_points').notNull(),
+    maxHitPoints: integer('max_hit_points').notNull(),
+    temporaryHitPoints: integer('temporary_hit_points').notNull().default(0),
+    armorClass: integer('armor_class').notNull(),
+
+    /** Omitted from the player view entirely — an ambush must stay hidden. */
+    isHidden: integer('is_hidden', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    /** Stepped out of the order, waiting to re-enter. */
+    isDelayed: integer('is_delayed', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    /** Tie-break and manual drag order. Never `order` — reserved word. */
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  table => [
+    check(
+      'combatant_has_exactly_one_source',
+      sql`(${table.creatureSlug} is not null) <> (${table.playerCharacterId} is not null)`,
+    ),
+  ],
+);
+
+export type Encounter = typeof encounters.$inferSelect;
+export type Combatant = typeof combatants.$inferSelect;
+export type NewCombatant = typeof combatants.$inferInsert;

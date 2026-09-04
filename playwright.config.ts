@@ -9,7 +9,13 @@ const baseURL = `http://127.0.0.1:${port}`;
  */
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  /**
+   * The encounter is a singleton by design — one instance serves one campaign
+   * — so parallel specs would fight over the same rows. This is a property of
+   * the app, not a limitation of the tests, so the suite runs sequentially.
+   */
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: 'html',

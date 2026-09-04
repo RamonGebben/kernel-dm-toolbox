@@ -13,6 +13,8 @@ export const CharacterRoster = () => {
       isSaving={roster.isSaving}
       characters={roster.characters}
       editing={roster.editing}
+      combatantCharacterIds={roster.combatantCharacterIds}
+      onAddToEncounter={roster.addToEncounter}
       onStartCreate={roster.startCreate}
       onStartEdit={roster.startEdit}
       onCancelEdit={roster.cancelEdit}

@@ -1,5 +1,6 @@
 import { LibraryPanel } from '~/organisms/LibraryPanel';
 import { StatblockPanel } from '~/organisms/StatblockPanel';
+import { EncounterPanel } from '~/organisms/EncounterPanel';
 import { TrackerTemplate } from '~/templates/TrackerTemplate';
 import { LibraryAttribution } from '~/molecules/LibraryAttribution';
 import { LIBRARY_ATTRIBUTION } from '~/server/library/source';
@@ -24,13 +25,10 @@ const HomePage = () => (
   <TrackerTemplate
     campaignName={env.CAMPAIGN_NAME}
     librarySlot={<LibraryPanel />}
-    encounterSlot={<EncounterPlaceholder />}
+    encounterSlot={<EncounterPanel />}
     statblockSlot={<StatblockPanel />}
     attribution={<LibraryAttribution {...LIBRARY_ATTRIBUTION} />}
   />
 );
-
-/** Replaced by the real combatant list in milestone 4. */
-const EncounterPlaceholder = () => <p>No combatants yet.</p>;
 
 export default HomePage;

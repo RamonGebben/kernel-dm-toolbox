@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 
@@ -41,12 +41,30 @@ export const toLibraryState = ({
   creatures: creatures ?? [],
 });
 
-export const useCreatureLibrary = (): CreatureLibraryState => {
+/** The quantity field is a free text input; nonsense must not reach the API. */
+export const clampQuantity = (value: number): number => {
+  if (!Number.isFinite(value)) return 1;
+
+  return Math.min(20, Math.max(1, Math.trunc(value)));
+};
+
+export const useCreatureLibrary = () => {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   const status = useQuery(trpc.library.status.queryOptions());
   const list = useQuery(trpc.library.listCreatures.queryOptions({ search }));
+
+  const addCreature = useMutation(
+    trpc.encounter.addCreature.mutationOptions({
+      onSuccess: () =>
+        queryClient.invalidateQueries({
+          queryKey: trpc.encounter.get.queryKey(),
+        }),
+    }),
+  );
 
   return {
     ...toLibraryState({
@@ -57,5 +75,9 @@ export const useCreatureLibrary = (): CreatureLibraryState => {
     }),
     search,
     setSearch,
+    quantity,
+    setQuantity: (next: number) => setQuantity(clampQuantity(next)),
+    addCreature: (slug: string) =>
+      addCreature.mutate({ slug, count: quantity }),
   };
 };

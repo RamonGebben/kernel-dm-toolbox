@@ -12,9 +12,13 @@ test.describe('browse the creature library', () => {
   }) => {
     await page.goto('/');
 
-    await page.getByLabel('Filter creatures').fill('young black dragon');
+    await page
+      .getByLabel('Filter creatures', { exact: true })
+      .fill('young black dragon');
 
-    const result = page.getByRole('button', { name: /Young Black Dragon/ });
+    const result = page.getByRole('button', {
+      name: 'Show the Young Black Dragon statblock',
+    });
     await expect(result).toBeVisible();
     await result.click();
 
@@ -33,7 +37,9 @@ test.describe('browse the creature library', () => {
   }) => {
     await page.goto('/');
 
-    await page.getByLabel('Filter creatures').fill('nothing matches this');
+    await page
+      .getByLabel('Filter creatures', { exact: true })
+      .fill('nothing matches this');
 
     await expect(page.getByText('No matches')).toBeVisible();
   });

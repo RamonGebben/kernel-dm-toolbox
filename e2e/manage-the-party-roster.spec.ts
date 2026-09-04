@@ -8,6 +8,10 @@ import { expect, test } from '@playwright/test';
  */
 const uniqueName = (prefix: string) => `${prefix}-${Date.now()}`;
 
+/** Scoped to the left panel: a character may also appear in the fight. */
+const roster = (page: import('@playwright/test').Page) =>
+  page.getByRole('region', { name: 'Add Combatants' });
+
 test.describe('manage the party roster', () => {
   test('adds a character and shows them on the roster', async ({ page }) => {
     const name = uniqueName('Sigrid');
@@ -15,17 +19,17 @@ test.describe('manage the party roster', () => {
     await page.getByRole('tab', { name: 'Characters' }).click();
 
     await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name').fill(name);
-    await page.getByLabel('Player').fill('Anna');
-    await page.getByLabel('Level').fill('5');
-    await page.getByLabel('AC').fill('20');
-    await page.getByLabel('Max HP').fill('45');
-    await page.getByLabel('Init').fill('2');
+    await page.getByLabel('Name', { exact: true }).fill(name);
+    await page.getByLabel('Player', { exact: true }).fill('Anna');
+    await page.getByLabel('Level', { exact: true }).fill('5');
+    await page.getByLabel('AC', { exact: true }).fill('20');
+    await page.getByLabel('Max HP', { exact: true }).fill('45');
+    await page.getByLabel('Init', { exact: true }).fill('2');
     await page.getByRole('button', { name: 'Add character' }).click();
 
-    await expect(page.getByText(name)).toBeVisible();
+    await expect(roster(page).getByText(name)).toBeVisible();
     await expect(
-      page.getByText(/Anna · Level 5 · AC 20 · 45 HP · init \+2/),
+      roster(page).getByText(/Anna · Level 5 · AC 20 · 45 HP · init \+2/),
     ).toBeVisible();
   });
 
@@ -36,14 +40,14 @@ test.describe('manage the party roster', () => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Characters' }).click();
     await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name').fill(name);
+    await page.getByLabel('Name', { exact: true }).fill(name);
     await page.getByRole('button', { name: 'Add character' }).click();
-    await expect(page.getByText(name)).toBeVisible();
+    await expect(roster(page).getByText(name)).toBeVisible();
 
     await page.reload();
     await page.getByRole('tab', { name: 'Characters' }).click();
 
-    await expect(page.getByText(name)).toBeVisible();
+    await expect(roster(page).getByText(name)).toBeVisible();
   });
 
   test('edits a character in place', async ({ page }) => {
@@ -51,21 +55,21 @@ test.describe('manage the party roster', () => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Characters' }).click();
     await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name').fill(name);
-    await page.getByLabel('Max HP').fill('52');
+    await page.getByLabel('Name', { exact: true }).fill(name);
+    await page.getByLabel('Max HP', { exact: true }).fill('52');
     await page.getByRole('button', { name: 'Add character' }).click();
-    await expect(page.getByText(name)).toBeVisible();
+    await expect(roster(page).getByText(name)).toBeVisible();
 
-    await page
+    await roster(page)
       .locator('li')
       .filter({ hasText: name })
       .getByRole('button', { name: 'Edit' })
       .click();
-    await page.getByLabel('Max HP').fill('60');
+    await page.getByLabel('Max HP', { exact: true }).fill('60');
     await page.getByRole('button', { name: 'Save changes' }).click();
 
     await expect(
-      page.locator('li').filter({ hasText: name }).getByText(/60 HP/),
+      roster(page).locator('li').filter({ hasText: name }).getByText(/60 HP/),
     ).toBeVisible();
   });
 
@@ -74,13 +78,13 @@ test.describe('manage the party roster', () => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Characters' }).click();
     await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name').fill(name);
+    await page.getByLabel('Name', { exact: true }).fill(name);
     await page.getByRole('button', { name: 'Add character' }).click();
-    await expect(page.getByText(name)).toBeVisible();
+    await expect(roster(page).getByText(name)).toBeVisible();
 
     await page.getByRole('button', { name: `Remove ${name}` }).click();
 
-    await expect(page.getByText(name)).toBeHidden();
+    await expect(roster(page).getByText(name)).toBeHidden();
   });
 
   test('switches back to the creature library', async ({ page }) => {

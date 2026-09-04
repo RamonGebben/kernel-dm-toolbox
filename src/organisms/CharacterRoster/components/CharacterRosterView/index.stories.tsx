@@ -30,6 +30,8 @@ const meta = {
     isSaving: false,
     characters: [hammie, sigrid],
     editing: null,
+    combatantCharacterIds: [],
+    onAddToEncounter: fn(),
     onStartCreate: fn(),
     onStartEdit: fn(),
     onCancelEdit: fn(),
@@ -74,6 +76,33 @@ export const Empty: Story = {
       canvas.getByRole('button', { name: 'Add character' }),
     );
     await expect(args.onStartCreate).toHaveBeenCalledOnce();
+  },
+};
+
+export const AddingToEncounter: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Add Sigrid to the encounter' }),
+    );
+
+    await expect(args.onAddToEncounter).toHaveBeenCalledWith(sigrid);
+  },
+};
+
+/** Someone already in the fight cannot be added again. */
+export const PartlyInEncounter: Story = {
+  args: { combatantCharacterIds: [sigrid.id] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: 'Add Sigrid to the encounter' }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole('button', { name: 'Add Hammie to the encounter' }),
+    ).toBeEnabled();
   },
 };
 

@@ -9,8 +9,7 @@ import { useSelectionStore } from '~/stores/selection';
  * `CreatureLibraryView`, which is where the stories live.
  */
 export const CreatureLibrary = () => {
-  const { isPending, isLibraryImported, creatures, search, setSearch } =
-    useCreatureLibrary();
+  const library = useCreatureLibrary();
   const selectedCreatureSlug = useSelectionStore(
     state => state.selectedCreatureSlug,
   );
@@ -18,13 +17,16 @@ export const CreatureLibrary = () => {
 
   return (
     <CreatureLibraryView
-      isPending={isPending}
-      isLibraryImported={isLibraryImported}
-      creatures={creatures}
-      search={search}
+      isPending={library.isPending}
+      isLibraryImported={library.isLibraryImported}
+      creatures={library.creatures}
+      search={library.search}
       selectedSlug={selectedCreatureSlug}
-      onSearchChange={setSearch}
+      quantity={library.quantity}
+      onSearchChange={library.setSearch}
+      onQuantityChange={library.setQuantity}
       onSelect={selectCreature}
+      onAdd={library.addCreature}
     />
   );
 };

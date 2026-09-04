@@ -24,12 +24,26 @@ export const toCharacterInput = (values: CharacterFormValues) => ({
   level: values.level,
 });
 
+/**
+ * Which characters are already in the fight.
+ *
+ * Pure so the empty and loading cases are pinned: an undefined encounter must
+ * read as "nobody is in the fight", never crash a `.includes`.
+ */
+export const toCombatantCharacterIds = (
+  encounter: { combatants: { playerCharacterId: string | null }[] } | undefined,
+): string[] =>
+  (encounter?.combatants ?? [])
+    .map(combatant => combatant.playerCharacterId)
+    .filter((id): id is string => id !== null);
+
 export const useCharacterRoster = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<EditingTarget>(null);
 
   const list = useQuery(trpc.characters.list.queryOptions());
+  const encounter = useQuery(trpc.encounter.get.queryOptions());
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -58,6 +72,15 @@ export const useCharacterRoster = () => {
     trpc.characters.remove.mutationOptions({ onSuccess: invalidate }),
   );
 
+  const addToEncounter = useMutation(
+    trpc.encounter.addCharacter.mutationOptions({
+      onSuccess: () =>
+        queryClient.invalidateQueries({
+          queryKey: trpc.encounter.get.queryKey(),
+        }),
+    }),
+  );
+
   const submit = (values: CharacterFormValues) => {
     const input = toCharacterInput(values);
 
@@ -71,6 +94,7 @@ export const useCharacterRoster = () => {
 
   return {
     isPending: list.isPending,
+    combatantCharacterIds: toCombatantCharacterIds(encounter.data),
     isSaving: create.isPending || update.isPending,
     characters: list.data ?? [],
     editing,
@@ -79,5 +103,12 @@ export const useCharacterRoster = () => {
     cancelEdit: () => setEditing(null),
     submit,
     remove: (id: string) => remove.mutate({ id }),
+    addToEncounter: (character: RosterCharacter) =>
+      addToEncounter.mutate({
+        playerCharacterId: character.id,
+        // The player rolls; this is the modifier they add to it, used as a
+        // sensible starting value the DM overwrites with the real roll.
+        initiative: character.initiativeModifier,
+      }),
   };
 };

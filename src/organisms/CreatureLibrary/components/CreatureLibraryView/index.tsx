@@ -18,8 +18,12 @@ export type CreatureLibraryViewProps = {
   creatures: readonly CreatureSummary[];
   search: string;
   selectedSlug: string | null;
+  /** How many of the next creature to add — four goblins in one action. */
+  quantity: number;
   onSearchChange: (search: string) => void;
+  onQuantityChange: (quantity: number) => void;
   onSelect: (slug: string) => void;
+  onAdd: (slug: string) => void;
 };
 
 /**
@@ -35,17 +39,34 @@ export const CreatureLibraryView = ({
   creatures,
   search,
   selectedSlug,
+  quantity,
   onSearchChange,
+  onQuantityChange,
   onSelect,
+  onAdd,
 }: CreatureLibraryViewProps) => (
   <Wrapper>
-    <TextInput
-      value={search}
-      onChange={event => onSearchChange(event.target.value)}
-      placeholder="Filter…"
-      aria-label="Filter creatures"
-      disabled={!isLibraryImported}
-    />
+    <Controls>
+      <TextInput
+        value={search}
+        onChange={event => onSearchChange(event.target.value)}
+        placeholder="Filter…"
+        aria-label="Filter creatures"
+        disabled={!isLibraryImported}
+      />
+      <QuantityField>
+        <TextInput
+          id="add-quantity"
+          type="number"
+          min={1}
+          max={20}
+          value={quantity}
+          aria-label="How many to add"
+          disabled={!isLibraryImported}
+          onChange={event => onQuantityChange(Number(event.target.value) || 1)}
+        />
+      </QuantityField>
+    </Controls>
     <Results>
       <ResultsBody
         isPending={isPending}
@@ -54,12 +75,16 @@ export const CreatureLibraryView = ({
         search={search}
         selectedSlug={selectedSlug}
         onSelect={onSelect}
+        onAdd={onAdd}
       />
     </Results>
   </Wrapper>
 );
 
-type ResultsBodyProps = Omit<CreatureLibraryViewProps, 'onSearchChange'>;
+type ResultsBodyProps = Omit<
+  CreatureLibraryViewProps,
+  'onSearchChange' | 'onQuantityChange' | 'quantity'
+>;
 
 /**
  * A real named subcomponent rather than a local JSX const, so the three
@@ -72,6 +97,7 @@ const ResultsBody = ({
   search,
   selectedSlug,
   onSelect,
+  onAdd,
 }: ResultsBodyProps) => {
   if (isPending)
     return <Skeleton role="status" aria-label="Loading creatures" />;
@@ -104,12 +130,23 @@ const ResultsBody = ({
             challengeRatingLabel={creature.challengeRatingLabel}
             isSelected={creature.slug === selectedSlug}
             onSelect={() => onSelect(creature.slug)}
+            onAdd={() => onAdd(creature.slug)}
           />
         </li>
       ))}
     </List>
   );
 };
+
+const Controls = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem;
+  gap: ${props => props.theme.space.sm};
+`;
+
+const QuantityField = styled.div`
+  display: flex;
+`;
 
 const Wrapper = styled.div`
   display: flex;
