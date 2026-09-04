@@ -3,8 +3,10 @@
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
+import { Modal } from '~/atoms/Modal';
 import { CombatantRow } from '~/molecules/CombatantRow';
 import { DifficultyReadout } from '~/molecules/DifficultyReadout';
+import { InitiativeRollForm } from '~/molecules/InitiativeRollForm';
 import type { EncounterDifficulty } from '~/content/encounterDifficulty';
 
 export type EncounterCombatantSummary = {
@@ -18,6 +20,8 @@ export type EncounterCombatantSummary = {
   isHidden: boolean;
   isDelayed: boolean;
   isPlayerCharacter: boolean;
+  /** Null for a player character; drives the reroll in the initiative form. */
+  initiativeBonus: number | null;
   conditions: {
     id: string;
     name: string;
@@ -39,9 +43,16 @@ export type EncounterViewProps = {
   combatants: readonly EncounterCombatantSummary[];
   selectedCombatantId: string | null;
   activeCombatantId: string | null;
+  /** Whether the "Roll for initiative" dialog is open. */
+  isRollingInitiative: boolean;
+  isStarting: boolean;
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onToggleDelay: (id: string) => void;
+  onOpenInitiativeRoll: () => void;
+  onCloseInitiativeRoll: () => void;
+  onStart: (initiatives: { id: string; initiative: number }[]) => void;
+  onEndCombat: () => void;
   onNextTurn: () => void;
   onPreviousTurn: () => void;
   onClearMonsters: () => void;
@@ -55,9 +66,15 @@ export const EncounterView = ({
   combatants,
   selectedCombatantId,
   activeCombatantId,
+  isRollingInitiative,
+  isStarting,
   onSelect,
   onRemove,
   onToggleDelay,
+  onOpenInitiativeRoll,
+  onCloseInitiativeRoll,
+  onStart,
+  onEndCombat,
   onNextTurn,
   onPreviousTurn,
   onClearMonsters,
@@ -79,21 +96,14 @@ export const EncounterView = ({
           />
         </Status>
         <ToolbarActions>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onPreviousTurn}
-            disabled={!isStarted}
-          >
-            Back
-          </Button>
-          <Button
-            size="sm"
-            onClick={onNextTurn}
-            disabled={combatants.length === 0}
-          >
-            {isStarted ? 'Next turn' : 'Start fight'}
-          </Button>
+          <TurnActions
+            isStarted={isStarted}
+            hasCombatants={combatants.length > 0}
+            onOpenInitiativeRoll={onOpenInitiativeRoll}
+            onNextTurn={onNextTurn}
+            onPreviousTurn={onPreviousTurn}
+            onEndCombat={onEndCombat}
+          />
           <Button
             variant="secondary"
             size="sm"
@@ -116,7 +126,75 @@ export const EncounterView = ({
           onToggleDelay={onToggleDelay}
         />
       </Body>
+
+      <Modal
+        title="Roll for initiative"
+        isOpen={isRollingInitiative}
+        onClose={onCloseInitiativeRoll}
+      >
+        <InitiativeRollForm
+          rows={combatants.map(combatant => ({
+            id: combatant.id,
+            displayName: combatant.displayName,
+            isPlayerCharacter: combatant.isPlayerCharacter,
+            initiative: combatant.initiative,
+            initiativeBonus: combatant.initiativeBonus,
+          }))}
+          isSaving={isStarting}
+          onSubmit={onStart}
+          onCancel={onCloseInitiativeRoll}
+        />
+      </Modal>
     </Wrapper>
+  );
+};
+
+type TurnActionsProps = {
+  isStarted: boolean;
+  hasCombatants: boolean;
+} & Pick<
+  EncounterViewProps,
+  'onOpenInitiativeRoll' | 'onNextTurn' | 'onPreviousTurn' | 'onEndCombat'
+>;
+
+/**
+ * Before and during a fight are two different toolbars, not one toolbar with
+ * disabled buttons: "Back" and "End combat" are meaningless before initiative
+ * is rolled, and the single most important control changes from "Roll for
+ * initiative" to "Next turn".
+ */
+const TurnActions = ({
+  isStarted,
+  hasCombatants,
+  onOpenInitiativeRoll,
+  onNextTurn,
+  onPreviousTurn,
+  onEndCombat,
+}: TurnActionsProps) => {
+  if (!isStarted) {
+    return (
+      <Button
+        size="sm"
+        onClick={onOpenInitiativeRoll}
+        disabled={!hasCombatants}
+      >
+        Roll for initiative
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" onClick={onPreviousTurn}>
+        Back
+      </Button>
+      <Button size="sm" onClick={onNextTurn}>
+        Next turn
+      </Button>
+      <Button variant="secondary" size="sm" onClick={onEndCombat}>
+        End combat
+      </Button>
+    </>
   );
 };
 

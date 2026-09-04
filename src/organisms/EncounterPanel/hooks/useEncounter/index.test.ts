@@ -13,6 +13,7 @@ const combatant = {
   isDelayed: false,
   conditions: [],
   isPlayerCharacter: false,
+  initiativeBonus: 2,
 };
 
 describe('toEncounterState', () => {

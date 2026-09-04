@@ -14,6 +14,28 @@ export const addCharacterInputSchema = z.object({
 
 export const combatantIdInputSchema = z.object({ id: z.uuid() });
 
+/**
+ * Starting a fight: every combatant's initiative in one write.
+ *
+ * The whole order arrives together because that is how it is settled at the
+ * table — the DM goes round asking, then the fight begins. Sending them one at
+ * a time would put the encounter through states where half the party has
+ * rolled and half has not.
+ */
+export const startEncounterInputSchema = z.object({
+  initiatives: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        initiative: z.number().int().min(-20).max(50),
+      }),
+    )
+    .max(200)
+    .default([]),
+});
+
+export type StartEncounterInput = z.infer<typeof startEncounterInputSchema>;
+
 export const updateCombatantInputSchema = z.object({
   id: z.uuid(),
   displayName: z.string().trim().min(1).max(80).optional(),

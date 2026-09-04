@@ -65,6 +65,8 @@ export type EncounterCombatant = {
   sortOrder: number;
   /** Null for a player character. */
   creatureSlug: string | null;
+  /** The monster's precomputed initiative bonus, for a reroll. */
+  initiativeBonus: number | null;
   playerCharacterId: string | null;
   isPlayerCharacter: boolean;
   healthStatus: 'healthy' | 'bloodied' | 'unconscious';
@@ -105,6 +107,7 @@ export const readEncounterState = async (
       sortOrder: combatants.sortOrder,
       creatureSlug: combatants.creatureSlug,
       playerCharacterId: combatants.playerCharacterId,
+      initiativeBonus: creatures.initiativeBonus,
       challengeRating: creatures.challengeRating,
       partyLevel: playerCharacters.level,
     })

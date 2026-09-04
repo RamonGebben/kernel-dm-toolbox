@@ -878,3 +878,93 @@ describe('encounter difficulty', () => {
     expect(difficulty.difficulty).toBe('trivial');
   });
 });
+
+describe('encounter.start', () => {
+  it('writes the rolled order and opens round one on the top of it', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    const character = await addCharacter('Sigrid');
+    await caller.encounter.addCharacter({
+      playerCharacterId: character.id,
+      initiative: 0,
+    });
+
+    const before = await caller.encounter.get();
+    const cleric = before.combatants.find(row => row.isPlayerCharacter)!;
+    const goblins = before.combatants.filter(row => !row.isPlayerCharacter);
+
+    const result = await caller.encounter.start({
+      initiatives: [
+        { id: cleric.id, initiative: 21 },
+        { id: goblins[0].id, initiative: 9 },
+        { id: goblins[1].id, initiative: 4 },
+      ],
+    });
+
+    expect(result.roundNumber).toBe(1);
+    expect(result.activeCombatantId).toBe(cleric.id);
+
+    const after = await caller.encounter.get();
+    expect(after.combatants.map(row => row.initiative)).toEqual([21, 9, 4]);
+  });
+
+  it('leaves a combatant the DM did not touch at its automatic roll', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    const [goblin] = (await caller.encounter.get()).combatants;
+
+    await caller.encounter.start({ initiatives: [] });
+
+    const { combatants: rows } = await caller.encounter.get();
+    expect(rows[0].initiative).toBe(goblin.initiative);
+  });
+
+  it('brings a delayed combatant back into the new order', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    const [goblin] = (await caller.encounter.get()).combatants;
+    await caller.encounter.toggleDelay({ id: goblin.id });
+
+    await caller.encounter.start({
+      initiatives: [{ id: goblin.id, initiative: 12 }],
+    });
+
+    const { combatants: rows, activeCombatantId } =
+      await caller.encounter.get();
+    expect(rows[0].isDelayed).toBe(false);
+    expect(activeCombatantId).toBe(goblin.id);
+  });
+
+  it('refuses to start a fight with nobody in it', async () => {
+    await expect(caller.encounter.start({ initiatives: [] })).rejects.toThrow(
+      /before starting/,
+    );
+  });
+});
+
+describe('encounter.end', () => {
+  it('stops the round counter and clears the turn, keeping the board', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.start({ initiatives: [] });
+    await caller.encounter.nextTurn();
+
+    const result = await caller.encounter.end();
+
+    expect(result).toEqual({ roundNumber: 0, activeCombatantId: null });
+
+    const state = await caller.encounter.get();
+    expect(state.roundNumber).toBe(0);
+    expect(state.activeCombatantId).toBeNull();
+    // Ending a fight is not the same as clearing it.
+    expect(state.combatants).toHaveLength(2);
+  });
+
+  it('releases anyone still holding their action', async () => {
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.start({ initiatives: [] });
+    const [first] = (await caller.encounter.get()).combatants;
+    await caller.encounter.toggleDelay({ id: first.id });
+
+    await caller.encounter.end();
+
+    const { combatants: rows } = await caller.encounter.get();
+    expect(rows.every(row => !row.isDelayed)).toBe(true);
+  });
+});

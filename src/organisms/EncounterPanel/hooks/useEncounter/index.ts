@@ -59,6 +59,12 @@ export const useEncounter = () => {
   const toggleDelay = useMutation(
     trpc.encounter.toggleDelay.mutationOptions({ onSuccess: invalidate }),
   );
+  const start = useMutation(
+    trpc.encounter.start.mutationOptions({ onSuccess: invalidate }),
+  );
+  const end = useMutation(
+    trpc.encounter.end.mutationOptions({ onSuccess: invalidate }),
+  );
   const nextTurn = useMutation(
     trpc.encounter.nextTurn.mutationOptions({ onSuccess: invalidate }),
   );
@@ -90,6 +96,12 @@ export const useEncounter = () => {
     isPending: encounter.isPending,
     ...toEncounterState(encounter.data),
     isAdjusting: damage.isPending || heal.isPending || grantTemporary.isPending,
+    isStarting: start.isPending,
+    start: (
+      initiatives: { id: string; initiative: number }[],
+      onSettled?: () => void,
+    ) => start.mutate({ initiatives }, { onSuccess: onSettled }),
+    end: () => end.mutate(),
     remove: (id: string) => remove.mutate({ id }),
     clearMonsters: () => clearMonsters.mutate(),
     toggleDelay: (id: string) => toggleDelay.mutate({ id }),

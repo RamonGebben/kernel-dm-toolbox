@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { startFight } from './support/combat';
 import { clearEncounter } from './support/reset';
 
 /**
@@ -25,7 +26,7 @@ test.describe('watch the player screen', () => {
     await dm
       .getByRole('button', { name: 'Add Goblin Warrior to the encounter' })
       .click();
-    await dm.getByRole('button', { name: 'Start fight' }).click();
+    await startFight(dm);
     await expect(dm.getByText('Round 1')).toBeVisible();
 
     await page.goto('/player');
@@ -53,7 +54,7 @@ test.describe('watch the player screen', () => {
     await expect(page.getByText('Goblin Warrior 1')).toBeVisible();
 
     // No reload on the player screen: the stream has to deliver this.
-    await dm.getByRole('button', { name: 'Start fight' }).click();
+    await startFight(dm);
 
     await expect(page.getByText('Round 1')).toBeVisible();
     await dm.close();

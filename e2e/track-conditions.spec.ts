@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { startFight } from './support/combat';
 
 /**
  * User task: mark that a creature is poisoned for three rounds and have the
@@ -56,7 +57,7 @@ test.describe('track conditions', () => {
     await page.getByLabel('Rounds', { exact: true }).fill('3');
     await page.getByRole('button', { name: 'Apply' }).click();
 
-    await page.getByRole('button', { name: 'Start fight' }).click();
+    await startFight(page);
     await expect(page.getByText('Round 1')).toBeVisible();
 
     const rowCount = await order(page).getByRole('listitem').count();
@@ -81,7 +82,7 @@ test.describe('track conditions', () => {
     const row = order(page).locator('li').filter({ hasText: 'Goblin Warrior' });
     await expect(row.getByText('Stunned')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Start fight' }).click();
+    await startFight(page);
     const rowCount = await order(page).getByRole('listitem').count();
     for (let turn = 0; turn < rowCount; turn += 1) {
       await page.getByRole('button', { name: 'Next turn' }).click();

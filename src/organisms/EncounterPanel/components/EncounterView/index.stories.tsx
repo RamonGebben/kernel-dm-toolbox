@@ -16,6 +16,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: false,
+    initiativeBonus: 2,
   },
   {
     id: 'dragon',
@@ -29,6 +30,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: false,
+    initiativeBonus: 2,
   },
   {
     id: 'sigrid',
@@ -42,6 +44,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: true,
+    initiativeBonus: null,
   },
   {
     id: 'hammie',
@@ -55,6 +58,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: true,
+    initiativeBonus: null,
   },
 ];
 
@@ -72,9 +76,15 @@ const meta = {
     combatants,
     selectedCombatantId: 'dragon',
     activeCombatantId: null,
+    isRollingInitiative: false,
+    isStarting: false,
     onSelect: fn(),
     onRemove: fn(),
     onToggleDelay: fn(),
+    onOpenInitiativeRoll: fn(),
+    onCloseInitiativeRoll: fn(),
+    onStart: fn(),
+    onEndCombat: fn(),
     onNextTurn: fn(),
     onPreviousTurn: fn(),
     onClearMonsters: fn(),
@@ -112,16 +122,61 @@ export const InRoundThree: Story = {
   },
 };
 
-/** Before the fight starts the action reads as starting it, not advancing. */
+/** Before the fight starts the only turn action is rolling initiative. */
 export const NotStarted: Story = {
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Roll for initiative' }),
+    );
+    await expect(args.onOpenInitiativeRoll).toHaveBeenCalledOnce();
+
+    // Back and End combat mean nothing before initiative is rolled.
     await expect(
-      canvas.getByRole('button', { name: 'Start fight' }),
-    ).toBeEnabled();
-    // There is no previous turn to go back to yet.
-    await expect(canvas.getByRole('button', { name: 'Back' })).toBeDisabled();
+      canvas.queryByRole('button', { name: 'Back' }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole('button', { name: 'End combat' }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+/** The dialog is where the party's physical rolls get typed in. */
+export const RollingForInitiative: Story = {
+  args: { isRollingInitiative: true },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Scoped to the dialog: the order behind it labels its rows by name too.
+    const dialog = within(
+      canvas.getByRole('dialog', { name: 'Roll for initiative' }),
+    );
+
+    // Monsters are prefilled with the roll the tool already made for them.
+    await expect(dialog.getByLabelText(/Young Black Dragon/)).toHaveValue(17);
+    await expect(dialog.getByLabelText(/Sigrid/)).toHaveValue(null);
+
+    await userEvent.type(dialog.getByLabelText(/Sigrid/), '14');
+    await userEvent.click(dialog.getByRole('button', { name: 'Start combat' }));
+
+    await expect(args.onStart).toHaveBeenCalledWith([
+      { id: 'meat', initiative: 19 },
+      { id: 'dragon', initiative: 17 },
+      { id: 'sigrid', initiative: 14 },
+      { id: 'hammie', initiative: 5 },
+    ]);
+  },
+};
+
+/** A fight has to be endable, not only clearable. */
+export const EndingCombat: Story = {
+  args: { roundNumber: 4, activeCombatantId: 'meat' },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: 'End combat' }));
+
+    await expect(args.onEndCombat).toHaveBeenCalledOnce();
   },
 };
 
@@ -170,6 +225,10 @@ export const Empty: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('No combatants yet')).toBeVisible();
+    // Nobody to roll for, so the fight cannot be started.
+    await expect(
+      canvas.getByRole('button', { name: 'Roll for initiative' }),
+    ).toBeDisabled();
     // Nothing to clear, so the action is unavailable rather than a no-op.
     await expect(
       canvas.getByRole('button', { name: 'Clear monsters' }),

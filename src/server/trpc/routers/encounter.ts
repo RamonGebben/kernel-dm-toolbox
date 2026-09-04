@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
@@ -6,7 +6,6 @@ import {
   combatantConditions,
   combatants,
   conditions,
-  creatures,
   encounters,
   playerCharacters,
 } from '~/server/db/schema';
@@ -17,16 +16,19 @@ import {
   adjustHitPointsInputSchema,
   combatantIdInputSchema,
   conditionIdInputSchema,
+  startEncounterInputSchema,
   updateCombatantInputSchema,
 } from '~/server/trpc/schemas/encounter';
 import { ensureEncounter, readEncounterState } from '~/server/encounter/state';
+import {
+  addCreaturesToEncounter,
+  nextSortOrder,
+} from '~/server/encounter/addCreatures';
 import { publishEncounterChanged } from '~/server/encounter/events';
 import {
   tombstoneSyncMeta,
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
-import { buildCombatantNames } from '~/utils/buildCombatantNames';
-import { rollInitiative } from '~/utils/rollDice';
 import { tickConditions } from '~/utils/tickConditions';
 import {
   nextRoundNumber,
@@ -62,16 +64,6 @@ const loadCombatant = async (db: Database, id: string) => {
   return combatant;
 };
 
-/** Appended below everything currently present, so ties keep insertion order. */
-const nextSortOrder = async (db: Database): Promise<number> => {
-  const [row] = await db
-    .select({ highest: sql<number | null>`max(${combatants.sortOrder})` })
-    .from(combatants)
-    .where(inCurrentEncounter);
-
-  return (row?.highest ?? -1) + 1;
-};
-
 export const encounterRouter = createTRPCRouter({
   get: publicProcedure.query(({ ctx }) => readEncounterState(ctx.db)),
 
@@ -84,47 +76,7 @@ export const encounterRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await ensureEncounter(ctx.db);
 
-      const creature = await ctx.db.query.creatures.findFirst({
-        where: eq(creatures.slug, input.slug),
-      });
-
-      if (!creature) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That creature is not in the library.',
-        });
-      }
-
-      const existing = await ctx.db
-        .select({ displayName: combatants.displayName })
-        .from(combatants)
-        .where(inCurrentEncounter);
-
-      const names = buildCombatantNames({
-        baseName: creature.name,
-        count: input.count,
-        existingNames: existing.map(row => row.displayName),
-      });
-
-      const startOrder = await nextSortOrder(ctx.db);
-
-      const created = await ctx.db
-        .insert(combatants)
-        .values(
-          names.map((displayName, index) => ({
-            encounterId: CURRENT_ENCOUNTER_ID,
-            creatureSlug: creature.slug,
-            displayName,
-            // Monsters roll for themselves; the book average is the starting
-            // hit point total and stays editable.
-            initiative: rollInitiative(creature.initiativeBonus),
-            currentHitPoints: creature.hitPoints,
-            maxHitPoints: creature.hitPoints,
-            armorClass: creature.armorClass,
-            sortOrder: startOrder + index,
-          })),
-        )
-        .returning();
+      const created = await addCreaturesToEncounter(ctx.db, input);
 
       publishEncounterChanged();
 
@@ -363,6 +315,105 @@ export const encounterRouter = createTRPCRouter({
 
       return { id: input.id };
     }),
+
+  /**
+   * "Roll for initiative": writes the whole order and opens round one.
+   *
+   * The initiatives arrive together rather than one at a time because that is
+   * how the table settles them — the DM asks each player what they rolled,
+   * types it in, and the fight begins. The turn pointer lands on whoever ends
+   * up at the top of the resulting order, which is why it is read back after
+   * the write rather than computed from the input.
+   */
+  start: publicProcedure
+    .input(startEncounterInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      await ensureEncounter(ctx.db);
+
+      const now = new Date();
+      const present = await ctx.db
+        .select({ id: combatants.id, version: combatants.version })
+        .from(combatants)
+        .where(inCurrentEncounter);
+
+      if (!present.length) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Add someone to the encounter before starting it.',
+        });
+      }
+
+      const versions = new Map(present.map(row => [row.id, row.version]));
+
+      await Promise.all(
+        input.initiatives
+          .filter(entry => versions.has(entry.id))
+          .map(entry =>
+            ctx.db
+              .update(combatants)
+              .set({
+                initiative: entry.initiative,
+                // A fight that is starting has nobody holding their action.
+                isDelayed: false,
+                ...touchSyncMeta({ version: versions.get(entry.id)!, now }),
+              })
+              .where(eq(combatants.id, entry.id)),
+          ),
+      );
+
+      const state = await readEncounterState(ctx.db);
+      const { activeId } = nextTurn(state.combatants, null);
+
+      await ctx.db
+        .update(encounters)
+        .set({ roundNumber: 1, activeCombatantId: activeId })
+        .where(eq(encounters.id, CURRENT_ENCOUNTER_ID));
+
+      publishEncounterChanged();
+
+      return { roundNumber: 1, activeCombatantId: activeId };
+    }),
+
+  /**
+   * The fight is over, but the board stays.
+   *
+   * Deliberately separate from `clearNonPlayerCombatants`: ending combat is
+   * something a DM does the moment the last enemy drops, while the monsters'
+   * corpses are still worth looking at for loot and for the XP readout. The
+   * two used to be the same action, which meant the only way to stop the round
+   * counter was to throw the encounter away.
+   */
+  end: publicProcedure.mutation(async ({ ctx }) => {
+    await ensureEncounter(ctx.db);
+
+    const now = new Date();
+    const delayed = await ctx.db
+      .select({ id: combatants.id, version: combatants.version })
+      .from(combatants)
+      .where(and(inCurrentEncounter, eq(combatants.isDelayed, true)));
+
+    // Holding your action means nothing once there is no order to re-enter.
+    await Promise.all(
+      delayed.map(combatant =>
+        ctx.db
+          .update(combatants)
+          .set({
+            isDelayed: false,
+            ...touchSyncMeta({ version: combatant.version, now }),
+          })
+          .where(eq(combatants.id, combatant.id)),
+      ),
+    );
+
+    await ctx.db
+      .update(encounters)
+      .set({ roundNumber: 0, activeCombatantId: null })
+      .where(eq(encounters.id, CURRENT_ENCOUNTER_ID));
+
+    publishEncounterChanged();
+
+    return { roundNumber: 0, activeCombatantId: null };
+  }),
 
   /** Advance to the next combatant, rolling the round over at the top. */
   nextTurn: publicProcedure.mutation(({ ctx }) =>
