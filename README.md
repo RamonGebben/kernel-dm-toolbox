@@ -7,9 +7,9 @@ to sit on a machine on your home network and be opened from a laptop or tablet
 in the same room. Running a second campaign means running a second container.
 
 The initiative tracker is built: browse the SRD 5.2 creature library, keep a
-reusable party roster, build an encounter, run it round by round with damage
-and conditions, and put a read-only order on a second screen for the table to
-watch.
+reusable party roster, build an encounter, roll for initiative, run it round by
+round with damage and conditions, save the fights you will run again, and put a
+read-only order on a second screen for the table to watch.
 
 ## Requirements
 
@@ -25,9 +25,14 @@ pnpm install
 pnpm exec playwright install chromium   # for story tests and e2e
 cp .env.example .env.local              # then edit CAMPAIGN_NAME
 pnpm db:migrate                         # creates .data/kernel-dm-toolbox.db
-pnpm db:import                          # pulls the SRD 5.2 creature library
+pnpm db:import                          # pulls the SRD 5.2 library
 pnpm dev
 ```
+
+`pnpm db:import` is optional on a fresh database — the server imports the
+library itself the first time it boots into an empty one. Run it by hand to
+**refresh** an instance that already has data, which is what you want after
+upgrading, since the automatic import only fires when the library is empty.
 
 The app is on <http://localhost:3000>. `.env.local` is optional — every variable
 has a working default — but you will want to set `CAMPAIGN_NAME`.
@@ -53,12 +58,35 @@ a minute.
 
 ## Running it for real
 
+If you only have Docker, pull the published image — there is nothing to clone:
+
+```bash
+docker run -d \
+  --name kernel-dm-toolbox \
+  -p 3000:3000 \
+  -v campaign-data:/data \
+  -e CAMPAIGN_NAME="Curse of Strahd" \
+  ramongebben/kernel-dm-toolbox:latest
+```
+
+Or from a clone, building locally:
+
 ```bash
 CAMPAIGN_NAME="Curse of Strahd" docker compose up -d --build
 ```
 
+Either way the container has no creature library the first time it starts, so
+it imports one before serving requests — first boot takes an extra few seconds
+and logs what it is doing. Set `LIBRARY_AUTO_IMPORT=false` on an instance that
+must not reach GitHub at startup.
+
 The campaign database lives in the `campaign-data` volume, so rebuilding or
 replacing the container does not touch your data.
+
+To run the published image through Compose instead of building it, swap the
+`build: .` line in `compose.yaml` for `image: ramongebben/kernel-dm-toolbox:latest`.
+Images are published from `main` and from every `v*` tag by
+`.github/workflows/publish-image.yml`, for `linux/amd64` and `linux/arm64`.
 
 For a second campaign, copy the `toolbox` service in `compose.yaml`, then change
 the container name, the published port and the volume name:
@@ -81,15 +109,48 @@ toolbox-dragonheist:
 Everything is environment variables, all documented in `.env.example` and
 validated in `src/env.ts`. The ones you are likely to touch:
 
-| Variable                     | What it does                                      |
-| ---------------------------- | ------------------------------------------------- |
-| `CAMPAIGN_NAME`              | Name shown in the app and the browser tab         |
-| `DATABASE_URL`               | libSQL/SQLite connection string                   |
-| `NEXT_PUBLIC_APP_URL`        | This instance's origin, used during server render |
-| `FEATURE_INITIATIVE_TRACKER` | Feature gate — `"true"` to enable                 |
+| Variable                     | What it does                                          |
+| ---------------------------- | ----------------------------------------------------- |
+| `CAMPAIGN_NAME`              | Name shown in the browser tab                         |
+| `DATABASE_URL`               | libSQL/SQLite connection string                       |
+| `LIBRARY_AUTO_IMPORT`        | Import the library on first boot — `"false"` opts out |
+| `NEXT_PUBLIC_APP_URL`        | This instance's origin, used during server render     |
+| `FEATURE_INITIATIVE_TRACKER` | Feature gate — `"true"` to enable                     |
 
 Feature gates are plain server-side environment variables. Changing one takes
 effect on the next container restart.
+
+## Attribution
+
+Creature, condition and spell data comes from the
+[System Reference Document 5.2](https://github.com/open5e/open5e-api) by
+Wizards of the Coast, as published in the
+[Open5e API](https://github.com/open5e/open5e-api) fixtures, and is licensed
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+This project is not affiliated with or endorsed by Wizards of the Coast.
+
+## Roadmap
+
+Built and in use: the initiative tracker, end to end.
+
+Next, in rough order:
+
+1. **The virtual tabletop.**
+   [Kernels-Virtual-Table-Top](https://github.com/RamonGebben/Kernels-Virtual-Table-Top)
+   folds into this toolbox as the second tool — the Maps entry already on the
+   nav rail. Not planned in detail yet.
+2. **The Spells tab.** Quick lookup of what a spell does. The data is already
+   imported (`spells`, `spell_casting_options`) and readable through
+   `library.listSpells` and `library.getSpell`; only the page is missing.
+3. **Drag to reorder the initiative list**, for the ties and the corrections a
+   number field makes awkward.
+4. **In-app dice rolling for attacks.** The structured attack rows
+   (`creature_action_attacks`: to-hit, damage dice, reach) are already imported
+   for exactly this.
+5. **A rules glossary.** Open5e's `Rule`, `RuleSet` and the small `*Description`
+   files would make statblock terms explainable in place. See `DECISIONS.md`
+   #24 for the survey of what else is importable and what was ruled out.
 
 ## Storybook
 

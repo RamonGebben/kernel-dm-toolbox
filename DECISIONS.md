@@ -421,3 +421,138 @@ order. Accepted: the DM is watching, and can clear it by hand.
 until it is removed. Most conditions at the table are like this — Prone lasts
 until someone stands up — and inventing a number for them would be worse than
 tracking none.
+
+---
+
+## 21. Combat is started and ended explicitly, not implied by the turn counter
+
+**Decision.** "Roll for initiative" opens a dialog listing every combatant with
+a number field beside their name — monsters prefilled with the roll the tool
+made for them, players blank — and submitting it writes the whole order and
+opens round one. "End combat" stops the fight and leaves the board alone.
+
+**Why.** Starting a fight used to be a side effect of pressing "Next turn" when
+the round was zero, and ending one was only possible by clearing the monsters.
+Both were wrong about what happens at a table. Initiative is a moment: the DM
+goes round asking what everybody rolled, and there is no point in the app where
+that number can be typed except by editing each row afterwards. And a fight
+ends long before the bodies are cleared — there is looting, and the XP readout
+is still worth reading.
+
+**Why one write, not one per row.** The initiatives arrive together so the
+encounter never sits in a state where half the party has rolled. It also means
+the turn pointer can be placed by reading the resulting order back, rather than
+inferred from the input.
+
+**What ending does not do.** It does not remove anyone. `clearNonPlayerCombatants`
+is still the separate, deliberate action it always was. Ending only resets the
+round counter and the turn pointer, and releases anyone still holding their
+action — a delay means nothing once there is no order to re-enter.
+
+---
+
+## 22. Saved encounters store composition, not a snapshot
+
+**Decision.** A saved encounter is a name plus "how many of each creature". It
+holds no hit points, no initiative, no conditions and no player characters.
+Applying one rolls fresh initiative and starts every monster at full health.
+
+**Why.** The thing worth keeping between sessions is "the ambush at the bridge
+is four goblins and a hobgoblin", not the state of one evening's dice. A
+snapshot would restore a half-dead goblin into a fight it has no business being
+in, and would need a policy for what happens when the library is re-imported
+underneath it. Counts sidestep both.
+
+**Why the party is excluded.** For the same reason `clearNonPlayerCombatants`
+exists: the party is a roster that outlives every fight (#14). A preset that
+carried player characters would fight with the roster over who owns them.
+
+---
+
+## 23. The library imports itself on first boot
+
+**Decision.** After migrations, an instance whose `creatures` table is empty
+imports the library before it accepts requests. `LIBRARY_AUTO_IMPORT=false`
+opts out.
+
+**Why.** The library cannot be baked into the image: it lives in the campaign
+database, and that database is a volume created at `docker run` time. That left
+`pnpm db:import`, which is not a thing you can ask of someone whose only
+dependency is Docker — it needs a clone, pnpm, and a shell inside the running
+container. Boot is the one moment where the volume exists and the app is in
+charge of it.
+
+**Why awaited rather than backgrounded.** So that a boot which finishes has a
+library, and so a failure surfaces at the point it happened rather than as an
+unhandled rejection later. Next.js may already be serving while `register` runs,
+so on a first boot the creature browser can show its empty state for a few
+seconds before the import lands — acceptable, and self-explaining. Every boot
+after the first is a single `count(*)`.
+
+**Why it cannot fail the boot.** A failed import logs, records itself in
+`import_runs`, and lets the server start. The creature browser already has an
+explanatory empty state, and a toolbox that will not start because GitHub is
+down is worse than one with no monsters in it.
+
+**Refreshing is still manual.** The guard is "is it empty", not "is it stale",
+so an existing instance does not silently re-fetch on every restart. `pnpm
+db:import` re-runs the upserts when a refresh is actually wanted.
+
+---
+
+## 24. Spells are imported alongside the creatures
+
+**Decision.** `Spell.json` and `SpellCastingOption.json` are imported into
+`spells` and `spell_casting_options`, and `library.listSpells` / `getSpell`
+read them. The Spells tab that will use them is not built yet.
+
+**Why.** Open5e's `data/v2/wizards-of-the-coast/srd-2024` holds far more than
+creatures. Surveying it, the files fall into three groups:
+
+- **Worth importing now.** `Spell` (339) and `SpellCastingOption` (671). Same
+  document, same licence, same fetch, and the one lookup a DM reaches for
+  mid-session that the toolbox could not answer.
+- **Worth importing when something reads it.** `Rule` (56) and `RuleSet` (11)
+  are the rules text; the small `*Description` files — `Condition` (already in),
+  `DamageType` (13), `Skill` (18), `Ability` (6), `CreatureType` (14),
+  `Alignment` (9) — are one-line glossary entries that would make statblock
+  terms explainable in place. Cheap, but dead weight until there is a surface
+  for them.
+- **Out of scope.** `MagicItem`, `Item`, `Weapon`, `Armor`, `Background`,
+  `CharacterClass`, `ClassFeature`, `Feat`, `Species` are character-building
+  and treasure data. This is a DM's combat toolbox, not a character builder.
+
+**Why import spells before the page exists.** The import is the part that has
+to be right and is expensive to change — schema, mappers, upserts, a migration.
+Doing it with the creature import means one pipeline and one `import_runs` row
+rather than a second one bolted on later.
+
+**One deviation from the mirror.** `material_cost` is null in every upstream
+record and is not mirrored, the same way `proficiency_bonus` is not on
+creatures (#17).
+
+---
+
+## 25. Navigation is a vertical tool rail, and there is no campaign header
+
+**Decision.** A vertical icon rail down the left edge, one entry per tool.
+Initiative is the only one built; Maps and Spells are on the rail but disabled.
+The campaign name banner and the on-screen SRD attribution are both gone.
+
+**Why a rail.** The toolbox is about to stop being one tool. The virtual
+tabletop is the next thing to come in, and a rail that already has a slot for
+it costs nothing now and avoids a layout change later.
+
+**Why the unbuilt tools are visible.** They say what this is going to be, which
+is worth something on a tool you run for yourself. They render disabled and
+say so, because a nav item that silently does nothing is worse than one that
+explains itself.
+
+**Why the header went.** One container serves one campaign. A banner repeating
+the campaign name every time the DM looks at the screen was chrome, not
+information — it is still in the browser tab title, which is where it is
+actually useful when three campaigns are open.
+
+**Where the attribution went.** SRD 5.2 is CC-BY-4.0 and the credit is a
+licence obligation, so it moved to the README rather than disappearing. The
+obligation is to credit, not to credit in a footer of every screen.

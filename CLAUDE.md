@@ -4,8 +4,8 @@
 
 A dungeon master's toolbox for **one campaign**. One Docker container is run per
 campaign; there is no login, no accounts and no multi-tenancy, and the app is
-reached over a trusted local network. The first feature will be an initiative
-tracker; today the repo is a scaffold plus one vertical slice.
+reached over a trusted local network. The initiative tracker is built; a
+vertical icon rail down the left edge is where the next tools hang off.
 
 The _why_ behind the choices below lives in `DECISIONS.md`. This file is the
 _how_.
@@ -130,6 +130,7 @@ Reference implementations to copy:
 | Component-scoped hook + test  | `src/organisms/ConnectionStatus/hooks/useConnectionStatus/`       |
 | Connected organism            | `src/organisms/ConnectionStatus/`                                 |
 | Presentational view + stories | `src/organisms/ConnectionStatus/components/ConnectionStatusView/` |
+| Modal / dialog                | `src/atoms/Modal/`                                                |
 | Template                      | `src/templates/DashboardTemplate/`                                |
 | Page wiring it together       | `src/app/page.tsx`                                                |
 
@@ -235,6 +236,9 @@ combination cannot be represented — see `ConnectionStatus` in
   config files and CLI scripts.
 - `SKIP_ENV_VALIDATION=1` bypasses validation for lint, typecheck, Storybook and
   the Docker image build.
+- **`LIBRARY_AUTO_IMPORT` is not a feature gate**, despite looking like one: it
+  defaults to **on**, because a Docker-only user has no other way to get a
+  library. Do not fold it into `src/flags.ts`.
 - **Feature gates are server-only env vars, not a flags SDK.** A gate is a
   `z.enum(['true','false']).optional()` server var plus a named helper in
   `src/flags.ts` (e.g. `isInitiativeTrackerEnabled()`), evaluated **server-side**
@@ -297,6 +301,17 @@ Check the `next build` route table: env-dependent routes must be `ƒ`, not `○`
 - Before opening a PR: `pnpm lint && pnpm typecheck && pnpm test &&
 pnpm test:storybook && pnpm build`.
 
+## Navigation
+
+One vertical icon rail down the left edge, one entry per tool, configured in
+`src/content/tools/`. A tool with no `href` has not been built and renders as a
+disabled control — which is also what keeps `typedRoutes` honest, since there
+is no route to get wrong. Icons are inline SVG in `src/atoms/Icon/`; adding one
+is a key in that map, not a dependency.
+
+There is **no campaign header**. The campaign name is in the browser tab title
+only (DECISIONS #25).
+
 ## The initiative tracker
 
 The first real feature. A replacement for Improved Initiative: a three-panel
@@ -321,8 +336,15 @@ creature_actions         action_type: ACTION | BONUS_ACTION | REACTION |
 creature_action_attacks  to-hit, damage dice, reach/range
 creature_traits          name + desc
 conditions               from ConditionDescription.json
+spells                   from Spell.json; no UI yet, read by library.listSpells
+spell_casting_options    what changes at a higher slot; parented to a spell
 import_runs              which git ref was imported, when, row counts
 ```
+
+`spell_casting_options` is keyed by the stringified upstream **integer** pk —
+one of the few Open5e models with no slug. `fixtures.ts` has a
+`numericPkFixtureRecord` for exactly this, so every library table still has a
+text primary key.
 
 Library tables are **the one exception to `syncMeta`**. They are not user data:
 never edited, nothing to reconcile, no soft deletes. Everything else in the app
@@ -337,6 +359,8 @@ combatants          creature_id XOR player_character_id, display_name,
                     initiative, current_hp, max_hp, temp_hp,
                     is_hidden, is_delayed, sort_order
 combatant_conditions condition_id, rounds_remaining, note
+encounter_presets       a saved encounter: name + note
+encounter_preset_entries creature_slug + count + sort_order
 ```
 
 A combatant **references** the library; it never copies a statblock. It stores
@@ -364,13 +388,32 @@ single delete and why renaming a dragon to "Meat" cannot corrupt the template.
 - **Initiative:** monsters roll `d20 + initiative_bonus` on add, players are
   typed in, everything stays editable. Duplicates are separate auto-numbered
   rows, each rolled and tracked independently.
+- **Starting and ending a fight are explicit.** `encounter.start` takes the
+  whole order in one write and opens round one; `encounter.end` resets the
+  round and turn pointer and leaves the board alone. Neither is a side effect
+  of `nextTurn`, and ending is not the same as `clearNonPlayerCombatants`
+  (DECISIONS #21).
+- **A saved encounter is composition, not a snapshot** — counts of creatures,
+  never hit points or initiative, never the party. Applying one rolls fresh
+  (DECISIONS #22).
+- **Adding monsters goes through `addCreaturesToEncounter`**
+  (`src/server/encounter/addCreatures.ts`), not through duplicated resolver
+  code. Both the library and a saved encounter use it, which is what keeps
+  auto-numbering consistent. Apply presets **sequentially** — the numbering
+  reads the names already on the board, so parallel writes race for "Goblin 3".
 - **Max HP** starts at Open5e's `hit_points` (already the average) and is
   editable per combatant.
-- **The library can be empty.** Before the first `pnpm db:import`, every
-  creature list is empty by design. Render an explanatory empty state, not a
-  spinner and not an error.
-- **Attribution is required.** SRD 5.2 is CC-BY-4.0; the credit belongs in the
-  UI, not just in a comment.
+- **The library imports itself on first boot.** `src/server/db/seedLibrary.ts`
+  runs after migrations and fills an empty `creatures` table, because a volume
+  created by `docker run` has no other way to get one (DECISIONS #23). It is
+  guarded on "is it empty", never "is it stale", and a failure logs rather than
+  taking the server down. `LIBRARY_AUTO_IMPORT=false` opts out.
+- **The library can still be empty.** If the boot import could not reach
+  GitHub, every creature list is empty. Render an explanatory empty state, not
+  a spinner and not an error.
+- **Attribution is required.** SRD 5.2 is CC-BY-4.0. The credit lives in the
+  README, not in the UI (DECISIONS #25) — but it has to exist somewhere, so do
+  not drop it.
 - **`DATABASE_URL` must be absolute in production.** The generated standalone
   `server.js` calls `process.chdir(__dirname)`, so a relative `file:` path
   resolves inside `.next/standalone` and you get a silently empty database.
@@ -397,7 +440,16 @@ One branch each, in this order. All eight are built and tested.
 | 7   | Player view      | `/player` fed entirely by SSE; hidden combatants filtered server-side         |
 | 8   | XP difficulty    | CR→XP and per-level budget tables, live difficulty readout                    |
 
-Not started, in rough order of usefulness: saved encounter presets (the
-Encounters tab from the reference tool), drag-to-reorder the initiative list,
-the Spells tab, and in-app dice rolling for attacks — the structured attack
-rows are already imported for it.
+Since then, in response to the first round of feedback: the tool rail replaced
+the campaign header, "Roll for initiative" and "End combat" replaced starting a
+fight by side effect, saved encounters landed as the Encounters tab, the spell
+data was imported, and the library now imports itself on first boot.
+
+Not started, in rough order of usefulness: folding in
+[Kernels-Virtual-Table-Top](https://github.com/RamonGebben/Kernels-Virtual-Table-Top)
+as the Maps tool, the Spells tab (the data is already imported and readable
+through `library.listSpells` / `getSpell` — only the page is missing),
+drag-to-reorder the initiative list, in-app dice rolling for attacks, and a
+rules glossary from Open5e's `Rule` / `*Description` files. `README.md` holds
+the roadmap and `DECISIONS.md` #24 the survey of what else upstream is worth
+importing.
