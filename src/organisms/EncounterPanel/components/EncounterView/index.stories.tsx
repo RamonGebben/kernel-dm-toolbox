@@ -64,6 +64,11 @@ const meta = {
   args: {
     isPending: false,
     roundNumber: 0,
+    difficulty: {
+      difficulty: 'moderate' as const,
+      totalExperience: 2900,
+      hasParty: true,
+    },
     combatants,
     selectedCombatantId: 'dragon',
     activeCombatantId: null,
@@ -137,6 +142,16 @@ export const WithADelayedCombatant: Story = {
       canvas.getByRole('button', { name: 'Return Sigrid to the order' }),
     );
     await expect(args.onToggleDelay).toHaveBeenCalledWith('sigrid');
+  },
+};
+
+/** The reference tool's readout: a CR 7 dragon against four level fives. */
+export const ShowsEncounterDifficulty: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Moderate')).toBeVisible();
+    await expect(canvas.getByText('2,900 XP')).toBeVisible();
   },
 };
 

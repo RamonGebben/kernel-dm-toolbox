@@ -23,9 +23,18 @@ const combatant = (
   ...overrides,
 });
 
+/** Difficulty is DM-facing only; the player view must never carry it. */
+const difficulty = {
+  totalExperience: 2900,
+  budget: { low: 2000, moderate: 3000, high: 4400 },
+  difficulty: 'moderate' as const,
+  hasParty: true,
+};
+
 const state: EncounterState = {
   roundNumber: 3,
   activeCombatantId: 'dragon',
+  difficulty,
   combatants: [
     combatant({ id: 'dragon', displayName: 'Young Black Dragon' }),
     combatant({
@@ -79,13 +88,25 @@ describe('toPlayerView', () => {
     expect(view.combatants.some(c => c.isActive)).toBe(false);
   });
 
+  it('never sends the difficulty rating to the players', () => {
+    const serialised = JSON.stringify(toPlayerView(state));
+
+    expect(serialised).not.toContain('difficulty');
+    expect(serialised).not.toContain('2900');
+  });
+
   it('carries the round number through', () => {
     expect(toPlayerView(state).roundNumber).toBe(3);
   });
 
   it('handles an empty encounter', () => {
     expect(
-      toPlayerView({ roundNumber: 0, activeCombatantId: null, combatants: [] }),
+      toPlayerView({
+        roundNumber: 0,
+        activeCombatantId: null,
+        combatants: [],
+        difficulty,
+      }),
     ).toEqual({ roundNumber: 0, combatants: [] });
   });
 });

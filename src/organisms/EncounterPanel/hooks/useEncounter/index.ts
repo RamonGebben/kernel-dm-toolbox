@@ -10,6 +10,11 @@ type EncounterQueryData =
       roundNumber: number;
       activeCombatantId: string | null;
       combatants: EncounterCombatantSummary[];
+      difficulty: {
+        difficulty: 'trivial' | 'low' | 'moderate' | 'high' | 'deadly';
+        totalExperience: number;
+        hasParty: boolean;
+      };
     }
   | undefined;
 
@@ -21,6 +26,11 @@ export const toEncounterState = (data: EncounterQueryData) => ({
   roundNumber: data?.roundNumber ?? 0,
   activeCombatantId: data?.activeCombatantId ?? null,
   combatants: data?.combatants ?? [],
+  difficulty: data?.difficulty ?? {
+    difficulty: 'trivial' as const,
+    totalExperience: 0,
+    hasParty: false,
+  },
 });
 
 export const useEncounter = () => {

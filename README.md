@@ -6,9 +6,10 @@ One container runs one campaign. There is no login and no accounts — it is mea
 to sit on a machine on your home network and be opened from a laptop or tablet
 in the same room. Running a second campaign means running a second container.
 
-The first feature will be an initiative tracker. Right now the repository is a
-scaffold: the architecture, the conventions, and one working vertical slice that
-every future feature can be copied from.
+The initiative tracker is built: browse the SRD 5.2 creature library, keep a
+reusable party roster, build an encounter, run it round by round with damage
+and conditions, and put a read-only order on a second screen for the table to
+watch.
 
 ## Requirements
 
@@ -130,6 +131,15 @@ src/server/db/    drizzle schema, client, migrations
 src/theme/        the single dark theme
 e2e/              Playwright specs, one per user task
 ```
+
+## The second screen
+
+`/player` is a read-only initiative order meant for a TV or tablet the table can
+see. It shows the order, whose turn it is, and healthy/bloodied/down — never
+exact monster hit points, and never a combatant you have marked hidden. The
+filtering happens on the server, so nothing secret reaches that browser at all.
+
+Open it from the link in the footer of the DM screen.
 
 ## The vertical slice
 

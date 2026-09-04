@@ -83,7 +83,7 @@ describe('encounter.get', () => {
   it('works before anything has been added, creating the encounter lazily', async () => {
     const state = await caller.encounter.get();
 
-    expect(state).toEqual({
+    expect(state).toMatchObject({
       roundNumber: 0,
       activeCombatantId: null,
       combatants: [],
@@ -780,5 +780,101 @@ describe('conditions', () => {
         conditionSlug: 'srd-2024_prone',
       }),
     ).rejects.toThrow(/no longer in the encounter/);
+  });
+});
+
+describe('encounter difficulty', () => {
+  it('is trivial with nothing in the fight', async () => {
+    const { difficulty } = await caller.encounter.get();
+
+    expect(difficulty).toMatchObject({
+      totalExperience: 0,
+      difficulty: 'trivial',
+      hasParty: false,
+    });
+  });
+
+  it('reports no party when only monsters are present', async () => {
+    await caller.encounter.addCreature({
+      slug: 'srd-2024_young-black-dragon',
+    });
+
+    const { difficulty } = await caller.encounter.get();
+
+    expect(difficulty.hasParty).toBe(false);
+    expect(difficulty.totalExperience).toBe(2900);
+  });
+
+  it('rates a CR 7 dragon against four level fives', async () => {
+    for (const name of ['Sigrid', 'Hammie', 'Meat', 'Bo']) {
+      const character = await caller.characters.create({
+        name,
+        armorClass: 18,
+        maxHitPoints: 40,
+        level: 5,
+      });
+      await caller.encounter.addCharacter({
+        playerCharacterId: character.id,
+        initiative: 10,
+      });
+    }
+    await caller.encounter.addCreature({
+      slug: 'srd-2024_young-black-dragon',
+    });
+
+    const { difficulty } = await caller.encounter.get();
+
+    expect(difficulty).toMatchObject({
+      totalExperience: 2900,
+      budget: { low: 2000, moderate: 3000, high: 4400 },
+      difficulty: 'moderate',
+      hasParty: true,
+    });
+  });
+
+  it('rises as more monsters join', async () => {
+    const character = await caller.characters.create({
+      name: 'Solo',
+      armorClass: 18,
+      maxHitPoints: 40,
+      level: 5,
+    });
+    await caller.encounter.addCharacter({
+      playerCharacterId: character.id,
+      initiative: 10,
+    });
+
+    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    const easy = (await caller.encounter.get()).difficulty.difficulty;
+
+    await caller.encounter.addCreature({
+      slug: 'srd-2024_young-black-dragon',
+    });
+    const hard = (await caller.encounter.get()).difficulty;
+
+    expect(easy).toBe('low');
+    expect(hard.difficulty).toBe('deadly');
+  });
+
+  it('falls again when the monsters are cleared', async () => {
+    const character = await caller.characters.create({
+      name: 'Solo',
+      armorClass: 18,
+      maxHitPoints: 40,
+      level: 5,
+    });
+    await caller.encounter.addCharacter({
+      playerCharacterId: character.id,
+      initiative: 10,
+    });
+    await caller.encounter.addCreature({
+      slug: 'srd-2024_young-black-dragon',
+    });
+
+    await caller.encounter.clearNonPlayerCombatants();
+
+    const { difficulty } = await caller.encounter.get();
+    expect(difficulty.totalExperience).toBe(0);
+    expect(difficulty.difficulty).toBe('trivial');
   });
 });

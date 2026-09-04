@@ -16,6 +16,7 @@ export const EncounterPanel = () => {
     <EncounterView
       isPending={encounter.isPending}
       roundNumber={encounter.roundNumber}
+      difficulty={encounter.difficulty}
       combatants={encounter.combatants}
       selectedCombatantId={selectedCombatantId}
       activeCombatantId={encounter.activeCombatantId}

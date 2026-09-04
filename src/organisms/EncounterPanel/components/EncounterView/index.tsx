@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { CombatantRow } from '~/molecules/CombatantRow';
+import { DifficultyReadout } from '~/molecules/DifficultyReadout';
+import type { EncounterDifficulty } from '~/content/encounterDifficulty';
 
 export type EncounterCombatantSummary = {
   id: string;
@@ -24,9 +26,16 @@ export type EncounterCombatantSummary = {
   }[];
 };
 
+export type EncounterDifficultySummary = {
+  difficulty: EncounterDifficulty;
+  totalExperience: number;
+  hasParty: boolean;
+};
+
 export type EncounterViewProps = {
   isPending: boolean;
   roundNumber: number;
+  difficulty: EncounterDifficultySummary;
   combatants: readonly EncounterCombatantSummary[];
   selectedCombatantId: string | null;
   activeCombatantId: string | null;
@@ -42,6 +51,7 @@ export type EncounterViewProps = {
 export const EncounterView = ({
   isPending,
   roundNumber,
+  difficulty,
   combatants,
   selectedCombatantId,
   activeCombatantId,
@@ -60,7 +70,14 @@ export const EncounterView = ({
   return (
     <Wrapper>
       <Toolbar>
-        <Round>{isStarted ? `Round ${roundNumber}` : 'Not started'}</Round>
+        <Status>
+          <Round>{isStarted ? `Round ${roundNumber}` : 'Not started'}</Round>
+          <DifficultyReadout
+            difficulty={difficulty.difficulty}
+            totalExperience={difficulty.totalExperience}
+            hasParty={difficulty.hasParty}
+          />
+        </Status>
         <ToolbarActions>
           <Button
             variant="ghost"
@@ -185,6 +202,12 @@ const Toolbar = styled.div`
   justify-content: space-between;
   gap: ${props => props.theme.space.md};
   flex-wrap: wrap;
+`;
+
+const Status = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${props => props.theme.space.xs};
 `;
 
 const ToolbarActions = styled.div`

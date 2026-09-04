@@ -13,6 +13,10 @@ import {
 import type { Database } from '~/server/db';
 import { sortCombatants } from '~/utils/sortCombatants';
 import { toHealthStatus } from '~/utils/applyDamage';
+import {
+  calculateEncounterDifficulty,
+  type DifficultyResult,
+} from '~/utils/calculateEncounterDifficulty';
 
 /**
  * There is one encounter and it always exists. Creating it lazily on first
@@ -73,6 +77,8 @@ export type EncounterState = {
   roundNumber: number;
   activeCombatantId: string | null;
   combatants: EncounterCombatant[];
+  /** Derived, not stored — it changes whenever the board does. */
+  difficulty: DifficultyResult;
 };
 
 /**
@@ -100,6 +106,7 @@ export const readEncounterState = async (
       creatureSlug: combatants.creatureSlug,
       playerCharacterId: combatants.playerCharacterId,
       challengeRating: creatures.challengeRating,
+      partyLevel: playerCharacters.level,
     })
     .from(combatants)
     .leftJoin(creatures, eq(combatants.creatureSlug, creatures.slug))
@@ -132,16 +139,28 @@ export const readEncounterState = async (
     .where(isNull(combatantConditions.deletedAt))
     .orderBy(asc(conditions.name));
 
+  const difficulty = calculateEncounterDifficulty({
+    partyLevels: rows
+      .map(row => row.partyLevel)
+      .filter((level): level is number => level !== null),
+    monsterChallengeRatings: rows
+      .map(row => row.challengeRating)
+      .filter((rating): rating is number => rating !== null),
+  });
+
   return {
     roundNumber: encounter.roundNumber,
     activeCombatantId: encounter.activeCombatantId,
-    combatants: sortCombatants(rows).map(row => ({
-      ...row,
-      isPlayerCharacter: row.playerCharacterId !== null,
-      healthStatus: toHealthStatus(row),
-      conditions: appliedConditions
-        .filter(applied => applied.combatantId === row.id)
-        .map(({ combatantId: _combatantId, ...applied }) => applied),
-    })),
+    difficulty,
+    combatants: sortCombatants(rows).map(
+      ({ partyLevel: _partyLevel, ...row }) => ({
+        ...row,
+        isPlayerCharacter: row.playerCharacterId !== null,
+        healthStatus: toHealthStatus(row),
+        conditions: appliedConditions
+          .filter(applied => applied.combatantId === row.id)
+          .map(({ combatantId: _combatantId, ...applied }) => applied),
+      }),
+    ),
   };
 };

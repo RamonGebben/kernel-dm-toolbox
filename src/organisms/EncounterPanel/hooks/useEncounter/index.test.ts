@@ -16,11 +16,22 @@ const combatant = {
 };
 
 describe('toEncounterState', () => {
+  const difficulty = {
+    difficulty: 'moderate' as const,
+    totalExperience: 2900,
+    hasParty: true,
+  };
+
   it('reads an absent query result as an empty encounter', () => {
     expect(toEncounterState(undefined)).toEqual({
       roundNumber: 0,
       activeCombatantId: null,
       combatants: [],
+      difficulty: {
+        difficulty: 'trivial',
+        totalExperience: 0,
+        hasParty: false,
+      },
     });
   });
 
@@ -30,11 +41,13 @@ describe('toEncounterState', () => {
         roundNumber: 3,
         activeCombatantId: 'meat',
         combatants: [combatant],
+        difficulty,
       }),
     ).toEqual({
       roundNumber: 3,
       activeCombatantId: 'meat',
       combatants: [combatant],
+      difficulty,
     });
   });
 

@@ -354,9 +354,13 @@ single delete and why renaming a dragon to "Meat" cannot corrupt the template.
 - **The player view must never leak hidden combatants or exact monster HP.**
   Filter on the _server_, in the query that feeds the stream — not in the
   component. A hidden ambusher must not be in the payload at all.
-- **XP and proficiency bonus are derived from CR**, via the lookup table in
-  `src/content/`. They are null in the imported data; do not read them off the
-  creature row.
+- **XP and proficiency bonus are derived from CR**, via the lookup tables in
+  `src/content/challengeRating/`. They are null in the imported data; do not
+  read them off the creature row. The encounter budget per character level is
+  in `src/content/encounterDifficulty/`, on the 2024 three-band scale.
+- **The player view is a filtered payload, not a filtered render.** Anything
+  the players must not know is dropped in `toPlayerView`, on the server. A
+  component that chooses not to draw something has still shipped it.
 - **Initiative:** monsters roll `d20 + initiative_bonus` on add, players are
   typed in, everything stays editable. Duplicates are separate auto-numbered
   rows, each rolled and tracked independently.
@@ -380,18 +384,20 @@ single delete and why renaming a dragon to "Meat" cannot corrupt the template.
 
 ### Milestones
 
-One branch each, in this order. Each ends in something usable.
+One branch each, in this order. All eight are built and tested.
 
-| #   | Milestone        | Done when                                                                  |
-| --- | ---------------- | -------------------------------------------------------------------------- |
-| 1   | Import pipeline  | `pnpm db:import` lands 331 creatures with actions and traits, idempotently |
-| 2   | Creature browser | Left panel lists and filters; right panel renders a full statblock         |
-| 3   | PC roster        | Characters can be created, edited and reused across fights                 |
-| 4   | Encounter core   | Add/remove combatants, auto-numbering, HP editing, clear non-PCs           |
-| 5   | Running a fight  | Rounds, active turn, next/previous, delay, damage/heal/temp HP             |
-| 6   | Conditions       | Apply, count down per round, auto-expire                                   |
-| 7   | Player view      | SSE stream, hidden flag respected server-side                              |
-| 8   | XP difficulty    | CR→XP table, party level, difficulty readout                               |
+| #   | Milestone        | Delivered                                                                     |
+| --- | ---------------- | ----------------------------------------------------------------------------- |
+| 1   | Import pipeline  | `pnpm db:import`, idempotent; creatures, actions, attacks, traits, conditions |
+| 2   | Creature browser | Filterable library, full statblock panel, empty-library state                 |
+| 3   | PC roster        | Create/edit/remove, soft-deleted, reused across fights                        |
+| 4   | Encounter core   | Add/remove, auto-numbering, HP editing, clear non-PCs; SSE channel proven     |
+| 5   | Running a fight  | Rounds, active turn, next/back, delay, damage/heal/temp HP                    |
+| 6   | Conditions       | Optional countdown, ticked per round, auto-expiring                           |
+| 7   | Player view      | `/player` fed entirely by SSE; hidden combatants filtered server-side         |
+| 8   | XP difficulty    | CR→XP and per-level budget tables, live difficulty readout                    |
 
-Milestone 4 should include a **throwaway SSE spike** — prove the channel
-survives Docker before milestone 7 depends on it.
+Not started, in rough order of usefulness: saved encounter presets (the
+Encounters tab from the reference tool), drag-to-reorder the initiative list,
+the Spells tab, and in-app dice rolling for attacks — the structured attack
+rows are already imported for it.

@@ -373,3 +373,51 @@ is what they can actually perceive.
 in SQLite, not in React state — because two clients render it. This is the
 constraint that most shapes the encounter code, and it is why the state lives
 where it does.
+
+---
+
+## 19. Encounter difficulty uses the 2024 three-band scale
+
+**Decision.** Difficulty is Low / Moderate / High, measured against a per-
+character XP budget summed across the party, with no multiplier for the number
+of monsters. Fights above the High budget are reported as Deadly.
+
+**Why.** The reference tool's screenshot says "Hard: 2900 XP", which is the
+older four-band scale (Easy/Medium/Hard/Deadly) plus a multiplier that scaled
+the monsters' XP by how many there were. The library here is SRD 5.2, and the
+2024 rules replaced both: three bands, and a straight comparison of totals.
+Matching the rules the statblocks come from matters more than matching the old
+tool's wording — otherwise the tracker and the monsters disagree about the game
+being played.
+
+**Deadly is ours, not the book's.** The published table stops at High, so an
+encounter above that budget has no rating. Clamping it to High would hide
+exactly the case a DM most needs warning about, so anything over the High
+budget is reported as Deadly.
+
+**Where the data lives.** `src/content/encounterDifficulty/` holds the budget
+table and `src/content/challengeRating/` the CR→XP and CR→proficiency tables.
+Static rules data belongs in `content/`; the functions that read it live in
+`src/utils/`.
+
+---
+
+## 20. Conditions tick per round, not per turn
+
+**Decision.** A condition's duration counts down when the round advances, not
+at a specific point inside the affected creature's turn.
+
+**Why.** This is a deliberate simplification of the rules, taken for two
+reasons. "Three rounds left" is what actually gets said at the table, so the
+counter matches the language. And a counter that only moves on one combatant's
+turn looks broken when the DM glances at the list — every other row's number
+sits still while one ticks, which reads as a bug rather than as precision.
+
+**What it costs.** A condition that should end at the start of its caster's
+next turn will expire up to one turn late or early depending on initiative
+order. Accepted: the DM is watching, and can clear it by hand.
+
+**Indefinite is the default.** An absent duration means the condition lasts
+until it is removed. Most conditions at the table are like this — Prone lasts
+until someone stands up — and inventing a number for them would be worse than
+tracking none.
