@@ -12,6 +12,10 @@ services:
     environment:
       CAMPAIGN_NAME: ${CAMPAIGN_NAME:-Untitled Campaign}
       DATABASE_URL: file:/data/kernel-dm-toolbox.db
+      # A fresh volume has no creature library, and `pnpm db:import` is not
+      # available to someone whose only dependency is Docker — so the server
+      # imports it the first time it boots. Set to "false" to opt out.
+      LIBRARY_AUTO_IMPORT: ${LIBRARY_AUTO_IMPORT:-true}
       FEATURE_INITIATIVE_TRACKER: ${FEATURE_INITIATIVE_TRACKER:-false}
     volumes:
       - campaign-data:/data

@@ -36,6 +36,20 @@
       "when": 1788503346405,
       "tag": "0004_jittery_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788521508169,
+      "tag": "0005_careful_peter_quill",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788521841160,
+      "tag": "0006_shiny_sleeper",
+      "breakpoints": true
     }
   ]
 }

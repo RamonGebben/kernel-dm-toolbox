@@ -39,9 +39,14 @@ const run = async (): Promise<void> => {
   console.log(`  attacks    ${result.attackCount}`);
   console.log(`  traits     ${result.traitCount}`);
   console.log(`  conditions ${result.conditionCount}`);
+  console.log(`  spells     ${result.spellCount}`);
+  console.log(`  options    ${result.castingOptionCount}`);
 
   const orphaned =
-    result.orphanedActions + result.orphanedAttacks + result.orphanedTraits;
+    result.orphanedActions +
+    result.orphanedAttacks +
+    result.orphanedTraits +
+    result.orphanedCastingOptions;
   if (orphaned > 0) {
     console.log('');
     console.log(

@@ -257,7 +257,100 @@ export const importRuns = sqliteTable('import_runs', {
   attackCount: integer('attack_count').notNull().default(0),
   traitCount: integer('trait_count').notNull().default(0),
   conditionCount: integer('condition_count').notNull().default(0),
+  spellCount: integer('spell_count').notNull().default(0),
+  castingOptionCount: integer('casting_option_count').notNull().default(0),
   error: text('error'),
+});
+
+/**
+ * The SRD 5.2 spell list.
+ *
+ * Imported alongside the creatures because it is the same document, the same
+ * licence and the same fetch: a DM who wants to know what Hold Person does
+ * should not have to leave the toolbox. Like every other library table it is
+ * keyed by the upstream slug and exempt from `syncMeta`.
+ *
+ * `material_cost` is null in every upstream record and is not mirrored.
+ */
+export const spells = sqliteTable('spells', {
+  /** The upstream primary key, e.g. `srd-2024_acid-arrow`. */
+  slug: text('slug').primaryKey(),
+  document: text('document').notNull(),
+  name: text('name').notNull(),
+  desc: text('desc').notNull(),
+  /** 0 for a cantrip. */
+  level: integer('level').notNull(),
+  school: text('school').notNull(),
+  higherLevel: text('higher_level'),
+
+  targetType: text('target_type'),
+  /** The prose upstream renders ("90 feet"), kept beside the number. */
+  rangeText: text('range_text'),
+  range: real('range').notNull().default(0),
+  rangeUnit: text('range_unit'),
+  targetCount: integer('target_count').notNull().default(0),
+
+  castingTime: text('casting_time').notNull(),
+  /** Set only for a reaction: what triggers it. */
+  reactionCondition: text('reaction_condition'),
+  ritual: integer('ritual', { mode: 'boolean' }).notNull().default(false),
+  concentration: integer('concentration', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  duration: text('duration').notNull(),
+
+  verbal: integer('verbal', { mode: 'boolean' }).notNull().default(false),
+  somatic: integer('somatic', { mode: 'boolean' }).notNull().default(false),
+  material: integer('material', { mode: 'boolean' }).notNull().default(false),
+  materialSpecified: text('material_specified'),
+  materialConsumed: integer('material_consumed', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+
+  /** Empty upstream when the spell allows no saving throw. */
+  savingThrowAbility: text('saving_throw_ability'),
+  attackRoll: integer('attack_roll', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  damageRoll: text('damage_roll'),
+  damageTypes: text('damage_types', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+
+  shapeType: text('shape_type'),
+  shapeSize: real('shape_size'),
+  shapeSizeUnit: text('shape_size_unit'),
+
+  /** Which classes get it, as upstream class slugs. */
+  classes: text('classes', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+});
+
+/**
+ * What changes when a spell is cast with a higher slot — the structured form
+ * of the "At Higher Levels" paragraph.
+ *
+ * Keyed by the stringified upstream integer pk, because this is one of the few
+ * Open5e models without a slug.
+ */
+export const spellCastingOptions = sqliteTable('spell_casting_options', {
+  id: text('id').primaryKey(),
+  spellSlug: text('spell_slug')
+    .notNull()
+    .references(() => spells.slug, { onDelete: 'cascade' }),
+  /** `slot_level_3`, `pact_slot`, … */
+  type: text('type').notNull(),
+  desc: text('desc'),
+  damageRoll: text('damage_roll'),
+  duration: text('duration'),
+  /** Prose upstream, unlike the spell's numeric range. */
+  range: text('range'),
+  targetCount: integer('target_count'),
+  shapeSize: real('shape_size'),
+  concentration: integer('concentration', { mode: 'boolean' }),
 });
 
 export type Creature = typeof creatures.$inferSelect;
@@ -270,6 +363,10 @@ export type CreatureTrait = typeof creatureTraits.$inferSelect;
 export type NewCreatureTrait = typeof creatureTraits.$inferInsert;
 export type Condition = typeof conditions.$inferSelect;
 export type NewCondition = typeof conditions.$inferInsert;
+export type Spell = typeof spells.$inferSelect;
+export type NewSpell = typeof spells.$inferInsert;
+export type SpellCastingOption = typeof spellCastingOptions.$inferSelect;
+export type NewSpellCastingOption = typeof spellCastingOptions.$inferInsert;
 export type ImportRun = typeof importRuns.$inferSelect;
 
 /* ---------------------------------------------------------------------------
@@ -386,3 +483,44 @@ export const combatantConditions = sqliteTable('combatant_conditions', {
 
 export type CombatantCondition = typeof combatantConditions.$inferSelect;
 export type NewCombatantCondition = typeof combatantConditions.$inferInsert;
+
+/**
+ * A saved encounter: a named set of monsters, with how many of each.
+ *
+ * Deliberately not a snapshot of the fight. Hit points, initiative, conditions
+ * and the round counter are all state of one evening; what is worth keeping is
+ * "the ambush at the bridge is three goblins and a hobgoblin". Player
+ * characters are excluded for the same reason `clearNonPlayerCombatants`
+ * exists — the party is a roster, not part of an encounter (DECISIONS #14).
+ */
+export const encounterPresets = sqliteTable('encounter_presets', {
+  ...syncMeta,
+  name: text('name').notNull(),
+  note: text('note'),
+});
+
+/**
+ * One creature line of a saved encounter.
+ *
+ * A count rather than one row per monster, because that is how a preset is
+ * read and edited — "4 goblins", not four goblins. The individual rows are
+ * created when the preset is applied.
+ */
+export const encounterPresetEntries = sqliteTable('encounter_preset_entries', {
+  ...syncMeta,
+  presetId: text('preset_id')
+    .notNull()
+    .references(() => encounterPresets.id, { onDelete: 'cascade' }),
+  creatureSlug: text('creature_slug')
+    .notNull()
+    .references(() => creatures.slug),
+  count: integer('count').notNull().default(1),
+  /** Display order within the preset. Never `order` — reserved word. */
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+export type EncounterPreset = typeof encounterPresets.$inferSelect;
+export type NewEncounterPreset = typeof encounterPresets.$inferInsert;
+export type EncounterPresetEntry = typeof encounterPresetEntries.$inferSelect;
+export type NewEncounterPresetEntry =
+  typeof encounterPresetEntries.$inferInsert;

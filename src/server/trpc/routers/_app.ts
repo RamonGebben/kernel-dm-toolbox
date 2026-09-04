@@ -3,6 +3,7 @@ import { healthRouter } from '~/server/trpc/routers/health';
 import { libraryRouter } from '~/server/trpc/routers/library';
 import { charactersRouter } from '~/server/trpc/routers/characters';
 import { encounterRouter } from '~/server/trpc/routers/encounter';
+import { presetsRouter } from '~/server/trpc/routers/presets';
 
 /**
  * The root router. One domain router per file beside this one; register it
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   library: libraryRouter,
   characters: charactersRouter,
   encounter: encounterRouter,
+  presets: presetsRouter,
 });
 
 /**

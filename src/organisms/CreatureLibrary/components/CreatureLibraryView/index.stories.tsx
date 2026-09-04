@@ -54,7 +54,7 @@ export const Pending: Story = {
   },
 };
 
-/** The state before `pnpm db:import` has ever run on this instance. */
+/** The state when the boot-time import has not (yet) succeeded here. */
 export const LibraryNotImported: Story = {
   args: { isLibraryImported: false, creatures: [] },
   play: async ({ canvasElement }) => {

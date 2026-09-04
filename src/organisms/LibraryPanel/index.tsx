@@ -5,13 +5,15 @@ import styled from 'styled-components';
 import { Tabs, type TabOption } from '~/atoms/Tabs';
 import { CreatureLibrary } from '~/organisms/CreatureLibrary';
 import { CharacterRoster } from '~/organisms/CharacterRoster';
+import { SavedEncounters } from '~/organisms/SavedEncounters';
 
-type LibraryTab = 'creatures' | 'characters';
+type LibraryTab = 'creatures' | 'characters' | 'encounters';
 
-/** Encounters and Spells are later milestones; the tab strip grows with them. */
+/** Spells is a later milestone; the tab strip grows with it. */
 const TAB_OPTIONS: readonly TabOption<LibraryTab>[] = [
   { value: 'creatures', label: 'Creatures' },
   { value: 'characters', label: 'Characters' },
+  { value: 'encounters', label: 'Encounters' },
 ] as const;
 
 /**
@@ -32,10 +34,21 @@ export const LibraryPanel = () => {
         label="Combatant source"
       />
       <Content>
-        {tab === 'creatures' ? <CreatureLibrary /> : <CharacterRoster />}
+        <TabContent tab={tab} />
       </Content>
     </Wrapper>
   );
+};
+
+/**
+ * A named subcomponent rather than a ternary chain, so each tab stays a guard
+ * clause and adding the Spells tab is one more of them.
+ */
+const TabContent = ({ tab }: { tab: LibraryTab }) => {
+  if (tab === 'creatures') return <CreatureLibrary />;
+  if (tab === 'characters') return <CharacterRoster />;
+
+  return <SavedEncounters />;
 };
 
 const Wrapper = styled.div`

@@ -6,6 +6,8 @@ import {
   creatureTraits,
   creatures,
   importRuns,
+  spellCastingOptions,
+  spells,
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import {
@@ -19,6 +21,8 @@ import { toActionRow } from '~/server/library/mappers/toActionRow';
 import { toAttackRow } from '~/server/library/mappers/toAttackRow';
 import { toTraitRow } from '~/server/library/mappers/toTraitRow';
 import { toConditionRow } from '~/server/library/mappers/toConditionRow';
+import { toSpellRow } from '~/server/library/mappers/toSpellRow';
+import { toSpellCastingOptionRow } from '~/server/library/mappers/toSpellCastingOptionRow';
 import { partitionByParent } from '~/server/library/mappers/partitionByParent';
 import { chunk } from '~/utils/chunk';
 
@@ -33,6 +37,8 @@ const CHUNK_SIZES = {
   attacks: 50,
   traits: 120,
   conditions: 120,
+  spells: 20,
+  castingOptions: 60,
 } as const;
 
 export type ImportProgress = (message: string) => void;
@@ -51,9 +57,12 @@ export type ImportLibraryResult = {
   attackCount: number;
   traitCount: number;
   conditionCount: number;
+  spellCount: number;
+  castingOptionCount: number;
   orphanedActions: number;
   orphanedAttacks: number;
   orphanedTraits: number;
+  orphanedCastingOptions: number;
 };
 
 /**
@@ -101,12 +110,16 @@ export const importLibrary = async ({
       attackFixtures,
       traitFixtures,
       conditionFixtures,
+      spellFixtures,
+      castingOptionFixtures,
     ] = await Promise.all([
       loadFixture('Creature', { gitRef, fetchJson }),
       loadFixture('CreatureAction', { gitRef, fetchJson }),
       loadFixture('CreatureActionAttack', { gitRef, fetchJson }),
       loadFixture('CreatureTrait', { gitRef, fetchJson }),
       loadFixture('ConditionDescription', { gitRef, fetchJson }),
+      loadFixture('Spell', { gitRef, fetchJson }),
+      loadFixture('SpellCastingOption', { gitRef, fetchJson }),
     ]);
 
     const creatureRows = creatureFixtures.map(toCreatureRow);
@@ -130,6 +143,14 @@ export const importLibrary = async ({
       creatureSlugs,
     );
     const conditionRows = conditionFixtures.map(toConditionRow);
+
+    const spellRows = spellFixtures.map(toSpellRow);
+    const spellSlugs = new Set(spellRows.map(row => row.slug));
+    const castingOptionPartition = partitionByParent(
+      castingOptionFixtures.map(toSpellCastingOptionRow),
+      'spellSlug',
+      spellSlugs,
+    );
 
     // Parents before children, so a foreign key is never briefly unsatisfied.
     onProgress(`Writing ${creatureRows.length} creatures`);
@@ -187,6 +208,33 @@ export const importLibrary = async ({
         });
     }
 
+    onProgress(`Writing ${spellRows.length} spells`);
+    for (const rows of chunk(spellRows, CHUNK_SIZES.spells)) {
+      await db
+        .insert(spells)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: spells.slug,
+          set: conflictUpdateSet(spells, rows[0]),
+        });
+    }
+
+    onProgress(
+      `Writing ${castingOptionPartition.kept.length} spell casting options`,
+    );
+    for (const rows of chunk(
+      castingOptionPartition.kept,
+      CHUNK_SIZES.castingOptions,
+    )) {
+      await db
+        .insert(spellCastingOptions)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: spellCastingOptions.id,
+          set: conflictUpdateSet(spellCastingOptions, rows[0]),
+        });
+    }
+
     const result: ImportLibraryResult = {
       gitRef,
       creatureCount: creatureRows.length,
@@ -194,9 +242,12 @@ export const importLibrary = async ({
       attackCount: attackPartition.kept.length,
       traitCount: traitPartition.kept.length,
       conditionCount: conditionRows.length,
+      spellCount: spellRows.length,
+      castingOptionCount: castingOptionPartition.kept.length,
       orphanedActions: actionPartition.orphaned.length,
       orphanedAttacks: attackPartition.orphaned.length,
       orphanedTraits: traitPartition.orphaned.length,
+      orphanedCastingOptions: castingOptionPartition.orphaned.length,
     };
 
     await db
@@ -208,6 +259,8 @@ export const importLibrary = async ({
         attackCount: result.attackCount,
         traitCount: result.traitCount,
         conditionCount: result.conditionCount,
+        spellCount: result.spellCount,
+        castingOptionCount: result.castingOptionCount,
       })
       .where(sql`${importRuns.id} = ${run.id}`);
 
@@ -227,7 +280,7 @@ const conflictUpdateSet = <TTable extends { _: { columns: object } }>(
 ): Record<string, unknown> =>
   Object.fromEntries(
     Object.keys(sampleRow)
-      .filter(column => column !== 'slug')
+      .filter(column => column !== 'slug' && column !== 'id')
       .map(column => [column, sql.raw(`excluded.${toSnakeCase(column)}`)]),
   );
 

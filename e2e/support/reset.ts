@@ -27,3 +27,25 @@ export const clearEncounter = async (
     });
   }
 };
+
+/**
+ * Deletes every saved encounter.
+ *
+ * Presets outlive an encounter by design, so clearing the board is not enough
+ * to isolate a spec that asserts on the list of them.
+ */
+export const clearSavedEncounters = async (
+  request: APIRequestContext,
+  baseURL: string,
+): Promise<void> => {
+  const response = await request.get(`${baseURL}/api/trpc/presets.list`);
+  const body = (await response.json()) as {
+    result: { data: { json: { id: string }[] } };
+  };
+
+  for (const preset of body.result.data.json) {
+    await request.post(`${baseURL}/api/trpc/presets.remove`, {
+      data: { json: { id: preset.id } },
+    });
+  }
+};

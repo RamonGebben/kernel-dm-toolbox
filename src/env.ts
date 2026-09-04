@@ -33,6 +33,16 @@ export const env = createEnv({
     CAMPAIGN_NAME: z.string().min(1).default('Untitled Campaign'),
 
     /**
+     * Whether an empty library imports itself on boot.
+     *
+     * Not a feature gate, and deliberately the other way round: unset means
+     * **on**, because a container started with nothing but `docker run` has no
+     * other way to get a creature library. Set it to `"false"` for an instance
+     * that must not reach the network at startup.
+     */
+    LIBRARY_AUTO_IMPORT: z.enum(['true', 'false']).default('true'),
+
+    /**
      * Feature gate: the initiative tracker. Server-only on purpose — importing
      * this module from a Client Component is a build error, which is what keeps
      * gates from leaking into the browser bundle.

@@ -13,7 +13,7 @@ export type CreatureSummary = {
 
 export type CreatureLibraryViewProps = {
   isPending: boolean;
-  /** False until `pnpm db:import` has been run at least once. */
+  /** False until the library has been imported on this instance. */
   isLibraryImported: boolean;
   creatures: readonly CreatureSummary[];
   search: string;
@@ -106,7 +106,7 @@ const ResultsBody = ({
     return (
       <EmptyState
         title="No library yet"
-        description="The creature library has not been imported on this instance."
+        description="An instance imports the creature library the first time it boots. If this stayed empty, the import could not reach GitHub — restart, or run it by hand."
         detail={<Command>pnpm db:import</Command>}
       />
     );

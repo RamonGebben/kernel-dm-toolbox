@@ -6,10 +6,14 @@ import {
   creatureTraits,
   creatures,
   importRuns,
+  spellCastingOptions,
+  spells,
 } from '~/server/db/schema';
 import {
   creatureSlugInputSchema,
   listCreaturesInputSchema,
+  listSpellsInputSchema,
+  spellSlugInputSchema,
 } from '~/server/trpc/schemas/library';
 import { buildStatblock } from '~/server/trpc/helpers/buildStatblock';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
@@ -38,8 +42,13 @@ export const libraryRouter = createTRPCRouter({
       .orderBy(sql`${importRuns.startedAt} desc`)
       .limit(1);
 
+    const [spellCounts] = await ctx.db
+      .select({ spellCount: sql<number>`count(*)` })
+      .from(spells);
+
     return {
       creatureCount: counts?.creatureCount ?? 0,
+      spellCount: spellCounts?.spellCount ?? 0,
       isImported: (counts?.creatureCount ?? 0) > 0,
       lastImportedAt: lastRun?.finishedAt ?? null,
       lastImportRef: lastRun?.gitRef ?? null,
@@ -118,4 +127,66 @@ export const libraryRouter = createTRPCRouter({
   listConditions: publicProcedure.query(({ ctx }) =>
     ctx.db.select().from(conditions).orderBy(asc(conditions.name)),
   ),
+
+  /**
+   * The spell list, summary fields only.
+   *
+   * `desc` is deliberately absent: it is by far the largest column, and a list
+   * of 339 descriptions is a payload nobody reads. `getSpell` fetches the one
+   * that is actually opened.
+   */
+  listSpells: publicProcedure
+    .input(listSpellsInputSchema)
+    .query(({ ctx, input }) => {
+      const filters = [
+        input.search
+          ? like(spells.name, `%${input.search.trim()}%`)
+          : undefined,
+        input.level != null ? eq(spells.level, input.level) : undefined,
+        // `classes` is a JSON array; SQLite has no array containment operator,
+        // so membership is tested with json_each rather than a LIKE over the
+        // serialised text, which would match a class whose slug is a prefix of
+        // another's.
+        input.classSlug
+          ? sql`exists (select 1 from json_each(${spells.classes}) where json_each.value = ${input.classSlug})`
+          : undefined,
+      ].filter(filter => filter !== undefined);
+
+      return ctx.db
+        .select({
+          slug: spells.slug,
+          name: spells.name,
+          level: spells.level,
+          school: spells.school,
+          castingTime: spells.castingTime,
+          rangeText: spells.rangeText,
+          duration: spells.duration,
+          concentration: spells.concentration,
+          ritual: spells.ritual,
+          classes: spells.classes,
+        })
+        .from(spells)
+        .where(filters.length ? and(...filters) : undefined)
+        .orderBy(asc(spells.level), asc(spells.name))
+        .limit(input.limit);
+    }),
+
+  /** One spell in full, with what changes at a higher slot. */
+  getSpell: publicProcedure
+    .input(spellSlugInputSchema)
+    .query(async ({ ctx, input }) => {
+      const spell = await ctx.db.query.spells.findFirst({
+        where: eq(spells.slug, input.slug),
+      });
+
+      if (!spell) return null;
+
+      const castingOptions = await ctx.db
+        .select()
+        .from(spellCastingOptions)
+        .where(eq(spellCastingOptions.spellSlug, input.slug))
+        .orderBy(asc(spellCastingOptions.type));
+
+      return { ...spell, castingOptions };
+    }),
 });

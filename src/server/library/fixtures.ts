@@ -19,6 +19,20 @@ const fixtureRecord = <TFields extends z.ZodTypeAny>(fields: TFields) =>
     fields,
   });
 
+/**
+ * The same shape, for the handful of models Open5e keys by an auto-increment
+ * integer rather than a slug. Coerced to a string here so every library table
+ * in this app has a text primary key and there is one rule, not two.
+ */
+const numericPkFixtureRecord = <TFields extends z.ZodTypeAny>(
+  fields: TFields,
+) =>
+  z.object({
+    model: z.string(),
+    pk: z.number().int().transform(String),
+    fields,
+  });
+
 const nullableInt = z.number().int().nullable().default(null);
 const slugList = z.array(z.string()).default([]);
 
@@ -157,6 +171,69 @@ export const conditionFixtureSchema = fixtureRecord(
   }),
 );
 
+/**
+ * A spell.
+ *
+ * `material_cost` is null in every record upstream and is left out, the same
+ * way `proficiency_bonus` is on creatures.
+ */
+export const spellFixtureSchema = fixtureRecord(
+  z.object({
+    name: z.string(),
+    desc: z.string(),
+    document: z.string(),
+    level: z.number().int(),
+    school: z.string(),
+    higher_level: z.string().default(''),
+    target_type: z.string().default(''),
+    range_text: z.string().default(''),
+    range: z.number(),
+    range_unit: z.string().nullable().default(null),
+    ritual: z.boolean().default(false),
+    casting_time: z.string(),
+    reaction_condition: z.string().nullable().default(null),
+    verbal: z.boolean().default(false),
+    somatic: z.boolean().default(false),
+    material: z.boolean().default(false),
+    material_specified: z.string().default(''),
+    material_consumed: z.boolean().default(false),
+    target_count: z.number().int().default(0),
+    /** Empty string upstream when the spell allows no save. */
+    saving_throw_ability: z.string().default(''),
+    attack_roll: z.boolean().default(false),
+    damage_roll: z.string().default(''),
+    damage_types: slugList,
+    duration: z.string(),
+    shape_type: z.string().nullable().default(null),
+    shape_size: z.number().nullable().default(null),
+    shape_size_unit: z.string().nullable().default(null),
+    concentration: z.boolean().default(false),
+    classes: slugList,
+  }),
+);
+
+/**
+ * What changes when a spell is cast with a higher slot, or by a higher-level
+ * caster. `type` is the upstream discriminator (`slot_level_3`, `pact_slot`).
+ *
+ * Note `range` is a string here, unlike the numeric `range` on the spell —
+ * upstream models the upgrade as prose.
+ */
+export const spellCastingOptionFixtureSchema = numericPkFixtureRecord(
+  z.object({
+    /** `parent` is the spell's pk. */
+    parent: z.string(),
+    type: z.string(),
+    desc: z.string().nullable().default(null),
+    damage_roll: z.string().nullable().default(null),
+    duration: z.string().nullable().default(null),
+    range: z.string().nullable().default(null),
+    target_count: nullableInt,
+    shape_size: z.number().nullable().default(null),
+    concentration: z.boolean().nullable().default(null),
+  }),
+);
+
 export type CreatureFixture = z.infer<typeof creatureFixtureSchema>;
 export type CreatureActionFixture = z.infer<typeof creatureActionFixtureSchema>;
 export type CreatureActionAttackFixture = z.infer<
@@ -164,14 +241,20 @@ export type CreatureActionAttackFixture = z.infer<
 >;
 export type CreatureTraitFixture = z.infer<typeof creatureTraitFixtureSchema>;
 export type ConditionFixture = z.infer<typeof conditionFixtureSchema>;
+export type SpellFixture = z.infer<typeof spellFixtureSchema>;
+export type SpellCastingOptionFixture = z.infer<
+  typeof spellCastingOptionFixtureSchema
+>;
 
-/** The five files we pull, and the schema each is parsed with. */
+/** The files we pull, and the schema each is parsed with. */
 export const fixtureFiles = {
   Creature: creatureFixtureSchema,
   CreatureAction: creatureActionFixtureSchema,
   CreatureActionAttack: creatureActionAttackFixtureSchema,
   CreatureTrait: creatureTraitFixtureSchema,
   ConditionDescription: conditionFixtureSchema,
+  Spell: spellFixtureSchema,
+  SpellCastingOption: spellCastingOptionFixtureSchema,
 } as const;
 
 export type FixtureFileName = keyof typeof fixtureFiles;
