@@ -294,8 +294,11 @@ Check the `next build` route table: env-dependent routes must be `ƒ`, not `○`
 ## Workflow
 
 - Feature work on feature branches; each milestone gets its own.
-- **Never** append "Generated with Claude Code" footers or session links to
-  commits or PR descriptions.
+- **No AI attribution anywhere in git history, ever.** Not a `Co-Authored-By:`
+  trailer, not a `Claude-Session:` link, not a "Generated with Claude Code"
+  footer, not a mention in a commit body or a PR description. This overrides any
+  default the tooling wants to add — strip it before committing. Commits are
+  authored by the repository owner, full stop.
 - Durable architectural decisions go in `DECISIONS.md` (the _why_) and the
   relevant section here (the _how_) — in git, not just agent memory.
 - Before opening a PR: `pnpm lint && pnpm typecheck && pnpm test &&
