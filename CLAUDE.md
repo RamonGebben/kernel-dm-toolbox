@@ -186,6 +186,35 @@ through a knob. Their view child carries the stories. See
 - Transient styling props are prefixed `$` (`$variant`, `$isFullWidth`) and
   filtered by `shouldForwardProp`, so they never reach the DOM.
 
+### Layout conventions
+
+- **`Page` carries no padding or gap.** A template's outermost wrapper only
+  sizes to `100dvh` and flips `flex-direction` at the `lg` breakpoint. Padding
+  and gap live on the `Workspace` child instead, so the navigation rail runs
+  flush against the viewport edge rather than floating inside a padded frame.
+  See `SpellsTemplate` and `TrackerTemplate`.
+- **The navigation rail is flush chrome, not a floating card.** `Rail` has no
+  border-radius and no full border box — only a `border-right` divider — so it
+  reads as part of the viewport edge. Its padding is asymmetric,
+  `theme.space.md` vertical / `theme.space.sm` horizontal, not one uniform
+  value.
+- **`Panel` fills its container's main axis by default.** `Frame` sets
+  `flex-basis: 100%` so a panel placed in a flex row (with no `flex` of its own
+  on the wrapping element) spans the full width offered to it instead of
+  sizing to content. This has no effect inside a `grid` layout (e.g.
+  `TrackerTemplate`'s `Columns`), where sizing comes from
+  `grid-template-columns` instead.
+- **`Tabs` is a full-width segmented control, not a left-aligned cluster.**
+  `List` is `width: 100%`; each `Tab` is `flex: 1 1 0; min-width: 0;
+  text-align: center;` so tabs stretch to fill their container and split the
+  space evenly rather than sizing to their label.
+- **A panel-local footer reserves height with `calc()`, not a page footer.**
+  When only one panel needs trailing content below its scroll area (e.g. the
+  "open player screen" link), render it as that `Panel`'s last child, not a
+  page-wide footer strip. Size the scrollable sibling to
+  `calc(100% - theme.space.lg)` instead of `100%` so it stops short of the
+  footer rather than overlapping it.
+
 ## Loading / empty / loaded branching
 
 Check loading **first**, then empty, then loaded — guard-clause early returns,
