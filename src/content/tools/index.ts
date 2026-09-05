@@ -21,7 +21,7 @@ export type Tool = {
    * Set only for a tool that has a route. An unbuilt tool has none, which is
    * what keeps `typedRoutes` honest — there is no href to get wrong.
    */
-  href?: '/';
+  href?: '/' | '/spells';
 };
 
 export const tools: readonly Tool[] = [
@@ -41,7 +41,8 @@ export const tools: readonly Tool[] = [
   {
     id: 'spells',
     label: 'Spells',
-    description: 'Quick spell lookup — not built yet',
+    description: 'Quick spell lookup',
     icon: 'spellbook',
+    href: '/spells',
   },
 ] as const;

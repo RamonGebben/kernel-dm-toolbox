@@ -16,6 +16,7 @@ import {
   spellSlugInputSchema,
 } from '~/server/trpc/schemas/library';
 import { buildStatblock } from '~/server/trpc/helpers/buildStatblock';
+import { buildSpellDetail } from '~/server/trpc/helpers/buildSpellDetail';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
 import { LIBRARY_ATTRIBUTION } from '~/server/library/source';
 
@@ -187,6 +188,6 @@ export const libraryRouter = createTRPCRouter({
         .where(eq(spellCastingOptions.spellSlug, input.slug))
         .orderBy(asc(spellCastingOptions.type));
 
-      return { ...spell, castingOptions };
+      return buildSpellDetail({ spell, castingOptions });
     }),
 });

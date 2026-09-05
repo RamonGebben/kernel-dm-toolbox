@@ -29,7 +29,7 @@ export const Default: Story = {
   },
 };
 
-/** The unbuilt tools are on the rail but cannot be clicked into nothing. */
+/** An unbuilt tool is on the rail but cannot be clicked into nothing. */
 export const UnbuiltToolsAreDisabled: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -37,8 +37,16 @@ export const UnbuiltToolsAreDisabled: Story = {
     await expect(
       canvas.getByRole('button', { name: 'Maps — coming soon' }),
     ).toBeDisabled();
+  },
+};
+
+/** Spells is built: a real link, not a disabled placeholder. */
+export const SpellsIsLinked: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
     await expect(
-      canvas.getByRole('button', { name: 'Spells — coming soon' }),
-    ).toBeDisabled();
+      canvas.getByRole('link', { name: 'Quick spell lookup' }),
+    ).toHaveAttribute('href', '/spells');
   },
 };

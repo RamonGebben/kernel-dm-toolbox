@@ -446,13 +446,17 @@ One branch each, in this order. All eight are built and tested.
 Since then, in response to the first round of feedback: the tool rail replaced
 the campaign header, "Roll for initiative" and "End combat" replaced starting a
 fight by side effect, saved encounters landed as the Encounters tab, the spell
-data was imported, and the library now imports itself on first boot.
+data was imported, the library now imports itself on first boot, and the
+Spells tab landed: `/spells`, a filterable list with the selected spell's full
+description in a `SidePanel` that slides in from the right rather than taking
+a column of its own. The list summary comes from `library.listSpells`; the
+detail pane's derived fields (subtitle, components string, duration prefix,
+casting-option labels, …) come from `buildSpellDetail`, which wraps
+`library.getSpell`.
 
 Not started, in rough order of usefulness: folding in
 [Kernels-Virtual-Table-Top](https://github.com/RamonGebben/Kernels-Virtual-Table-Top)
-as the Maps tool, the Spells tab (the data is already imported and readable
-through `library.listSpells` / `getSpell` — only the page is missing),
-drag-to-reorder the initiative list, in-app dice rolling for attacks, and a
-rules glossary from Open5e's `Rule` / `*Description` files. `README.md` holds
-the roadmap and `DECISIONS.md` #24 the survey of what else upstream is worth
-importing.
+as the Maps tool, drag-to-reorder the initiative list, in-app dice rolling for
+attacks, and a rules glossary from Open5e's `Rule` / `*Description` files.
+`README.md` holds the roadmap and `DECISIONS.md` #24 the survey of what else
+upstream is worth importing.
