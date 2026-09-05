@@ -22,9 +22,7 @@ export const CreatureLibrary = () => {
       creatures={library.creatures}
       search={library.search}
       selectedSlug={selectedCreatureSlug}
-      quantity={library.quantity}
       onSearchChange={library.setSearch}
-      onQuantityChange={library.setQuantity}
       onSelect={selectCreature}
       onAdd={library.addCreature}
     />

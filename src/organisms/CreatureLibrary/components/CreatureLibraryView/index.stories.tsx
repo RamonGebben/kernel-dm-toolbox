@@ -21,9 +21,7 @@ const meta = {
     creatures,
     search: '',
     selectedSlug: null,
-    quantity: 1,
     onSearchChange: fn(),
-    onQuantityChange: fn(),
     onSelect: fn(),
     onAdd: fn(),
   },
@@ -80,13 +78,9 @@ export const Selected: Story = {
   args: { selectedSlug: 'srd-2024_goblin' },
 };
 
-/** Adding four goblins at once is the common case the quantity field serves. */
-export const AddingAGroup: Story = {
-  args: { quantity: 4 },
+export const Adding: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-
-    await expect(canvas.getByLabelText('How many to add')).toHaveValue(4);
 
     await userEvent.click(
       canvas.getByRole('button', { name: 'Add Goblin to the encounter' }),

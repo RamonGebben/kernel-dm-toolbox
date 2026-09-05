@@ -36,15 +36,16 @@ export const TrackerTemplate = ({
         <Panel title="Add Combatants" isBodyScrollable={false}>
           {librarySlot}
         </Panel>
-        <Panel title="Combatants by Initiative">{encounterSlot}</Panel>
+        <Panel title="Combatants by Initiative">
+          {encounterSlot}
+          <Footer>
+            <PlayerLink href="/player" target="_blank" rel="noreferrer">
+              Open the player screen ↗
+            </PlayerLink>
+          </Footer>
+        </Panel>
         <Panel title="Selected Combatant">{statblockSlot}</Panel>
       </Columns>
-
-      <Footer>
-        <PlayerLink href="/player" target="_blank" rel="noreferrer">
-          Open the player screen ↗
-        </PlayerLink>
-      </Footer>
     </Workspace>
   </Page>
 );
@@ -52,9 +53,7 @@ export const TrackerTemplate = ({
 const Page = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${props => props.theme.space.md};
   height: 100dvh;
-  padding: ${props => props.theme.space.md};
 
   ${props => props.theme.media.lg} {
     flex-direction: row;
@@ -66,6 +65,7 @@ const Workspace = styled.div`
   flex: 1;
   flex-direction: column;
   gap: ${props => props.theme.space.md};
+  padding: ${props => props.theme.space.md};
   min-width: 0;
   min-height: 0;
 `;

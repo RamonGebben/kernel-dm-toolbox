@@ -39,10 +39,14 @@ export const Tabs = <TValue extends string>({
 const List = styled.div`
   display: flex;
   gap: ${props => props.theme.space.xs};
+  width: 100%;
 `;
 
 const Tab = styled.button<{ $isActive: boolean }>`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.md};
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
   background: ${props =>
     props.$isActive ? props.theme.color.accent : 'transparent'};
   border: 1px solid

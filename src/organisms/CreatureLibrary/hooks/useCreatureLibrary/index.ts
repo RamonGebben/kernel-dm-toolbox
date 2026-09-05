@@ -41,18 +41,10 @@ export const toLibraryState = ({
   creatures: creatures ?? [],
 });
 
-/** The quantity field is a free text input; nonsense must not reach the API. */
-export const clampQuantity = (value: number): number => {
-  if (!Number.isFinite(value)) return 1;
-
-  return Math.min(20, Math.max(1, Math.trunc(value)));
-};
-
 export const useCreatureLibrary = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [quantity, setQuantity] = useState(1);
 
   const status = useQuery(trpc.library.status.queryOptions());
   const list = useQuery(trpc.library.listCreatures.queryOptions({ search }));
@@ -75,9 +67,6 @@ export const useCreatureLibrary = () => {
     }),
     search,
     setSearch,
-    quantity,
-    setQuantity: (next: number) => setQuantity(clampQuantity(next)),
-    addCreature: (slug: string) =>
-      addCreature.mutate({ slug, count: quantity }),
+    addCreature: (slug: string) => addCreature.mutate({ slug }),
   };
 };

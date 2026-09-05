@@ -36,9 +36,7 @@ export const SpellsTemplate = ({
 const Page = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${props => props.theme.space.md};
   height: 100dvh;
-  padding: ${props => props.theme.space.md};
 
   ${props => props.theme.media.lg} {
     flex-direction: row;
@@ -50,8 +48,5 @@ const Workspace = styled.div`
   flex: 1;
   min-width: 0;
   min-height: 0;
-
-  ${props => props.theme.media.lg} {
-    max-width: 28rem;
-  }
+  padding: ${props => props.theme.space.md};
 `;

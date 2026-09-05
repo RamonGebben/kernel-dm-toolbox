@@ -45,6 +45,7 @@ const Frame = styled.section`
   display: flex;
   flex-direction: column;
   min-height: 0;
+  flex-basis: 100%;
   background: ${props => props.theme.color.surface};
   border: 1px solid ${props => props.theme.color.border};
   border-top: 2px solid ${props => props.theme.color.accent};

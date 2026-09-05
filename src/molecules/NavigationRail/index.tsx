@@ -78,10 +78,9 @@ const ToolButton = ({ tool, isActive }: ToolButtonProps) => {
 const Rail = styled.nav`
   display: flex;
   flex-direction: column;
-  padding: ${props => props.theme.space.sm};
+  padding: ${props => props.theme.space.md} ${props => props.theme.space.sm};
   background: ${props => props.theme.color.surface};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.md};
+  border-right: 1px solid ${props => props.theme.color.border};
 `;
 
 const List = styled.ul`

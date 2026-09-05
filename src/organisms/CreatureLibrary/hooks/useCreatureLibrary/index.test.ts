@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  clampQuantity,
-  toLibraryState,
-} from '~/organisms/CreatureLibrary/hooks/useCreatureLibrary';
+import { toLibraryState } from '~/organisms/CreatureLibrary/hooks/useCreatureLibrary';
 
 const creature = {
   slug: 'srd-2024_goblin',
@@ -81,28 +78,5 @@ describe('toLibraryState', () => {
         creatures: [creature],
       }).creatures,
     ).toEqual([creature]);
-  });
-});
-
-describe('clampQuantity', () => {
-  it('keeps a sensible value', () => {
-    expect(clampQuantity(4)).toBe(4);
-  });
-
-  it('never lets the field reach zero or go negative', () => {
-    expect(clampQuantity(0)).toBe(1);
-    expect(clampQuantity(-3)).toBe(1);
-  });
-
-  it('caps at the API limit rather than sending a rejected request', () => {
-    expect(clampQuantity(999)).toBe(20);
-  });
-
-  it('truncates a fractional value', () => {
-    expect(clampQuantity(3.9)).toBe(3);
-  });
-
-  it('recovers from an emptied number input', () => {
-    expect(clampQuantity(Number.NaN)).toBe(1);
   });
 });

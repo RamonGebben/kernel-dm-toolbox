@@ -18,10 +18,7 @@ export type CreatureLibraryViewProps = {
   creatures: readonly CreatureSummary[];
   search: string;
   selectedSlug: string | null;
-  /** How many of the next creature to add — four goblins in one action. */
-  quantity: number;
   onSearchChange: (search: string) => void;
-  onQuantityChange: (quantity: number) => void;
   onSelect: (slug: string) => void;
   onAdd: (slug: string) => void;
 };
@@ -39,9 +36,7 @@ export const CreatureLibraryView = ({
   creatures,
   search,
   selectedSlug,
-  quantity,
   onSearchChange,
-  onQuantityChange,
   onSelect,
   onAdd,
 }: CreatureLibraryViewProps) => (
@@ -54,18 +49,6 @@ export const CreatureLibraryView = ({
         aria-label="Filter creatures"
         disabled={!isLibraryImported}
       />
-      <QuantityField>
-        <TextInput
-          id="add-quantity"
-          type="number"
-          min={1}
-          max={20}
-          value={quantity}
-          aria-label="How many to add"
-          disabled={!isLibraryImported}
-          onChange={event => onQuantityChange(Number(event.target.value) || 1)}
-        />
-      </QuantityField>
     </Controls>
     <Results>
       <ResultsBody
@@ -81,10 +64,7 @@ export const CreatureLibraryView = ({
   </Wrapper>
 );
 
-type ResultsBodyProps = Omit<
-  CreatureLibraryViewProps,
-  'onSearchChange' | 'onQuantityChange' | 'quantity'
->;
+type ResultsBodyProps = Omit<CreatureLibraryViewProps, 'onSearchChange'>;
 
 /**
  * A real named subcomponent rather than a local JSX const, so the three
@@ -140,12 +120,6 @@ const ResultsBody = ({
 
 const Controls = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5rem;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const QuantityField = styled.div`
-  display: flex;
 `;
 
 const Wrapper = styled.div`

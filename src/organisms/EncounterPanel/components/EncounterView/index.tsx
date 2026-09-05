@@ -270,7 +270,7 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.space.md};
-  height: 100%;
+  height: calc(100% - ${props => props.theme.space.lg});
   min-height: 0;
 `;
 
