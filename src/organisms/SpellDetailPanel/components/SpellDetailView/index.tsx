@@ -2,6 +2,7 @@
 
 import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
+import { FormattedText } from '~/molecules/FormattedText';
 import type { SpellDetail } from '~/server/trpc/helpers/buildSpellDetail';
 
 export type SpellDetailViewProps = {
@@ -63,12 +64,16 @@ export const SpellDetailView = ({ isPending, spell }: SpellDetailViewProps) => {
 
       <Rule />
 
-      <Desc>{spell.desc}</Desc>
+      <Desc>
+        <FormattedText text={spell.desc} />
+      </Desc>
 
       {spell.higherLevel && (
         <>
           <SectionTitle>At Higher Levels</SectionTitle>
-          <Desc>{spell.higherLevel}</Desc>
+          <Desc>
+            <FormattedText text={spell.higherLevel} />
+          </Desc>
         </>
       )}
 
@@ -94,7 +99,11 @@ type CastingOptionDetailProps = {
 /** Everything upstream supplies for a scaling slot — omitting whatever it left blank. */
 const CastingOptionDetail = ({ option }: CastingOptionDetailProps) => (
   <>
-    {option.desc && <EntryDesc>{option.desc}</EntryDesc>}
+    {option.desc && (
+      <EntryDesc>
+        <FormattedText text={option.desc} />
+      </EntryDesc>
+    )}
     {option.damageRoll && (
       <Line>
         <Key>Damage</Key> {option.damageRoll}
@@ -161,7 +170,11 @@ const Key = styled.strong`
   color: ${props => props.theme.color.accent};
 `;
 
-const Desc = styled.p`
+/**
+ * A `div`, not a `p`: `FormattedText` can render block-level children (a
+ * list, a table) that are invalid inside a `<p>`.
+ */
+const Desc = styled.div`
   margin: 0;
   white-space: pre-line;
   font-size: ${props => props.theme.fontSize.sm};
@@ -186,7 +199,7 @@ const EntryName = styled.strong`
   color: ${props => props.theme.color.textPrimary};
 `;
 
-const EntryDesc = styled.p`
+const EntryDesc = styled.div`
   margin: 0 0 ${props => props.theme.space.xs};
   white-space: pre-line;
   color: ${props => props.theme.color.textMuted};

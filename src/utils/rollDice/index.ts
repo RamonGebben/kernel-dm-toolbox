@@ -17,3 +17,21 @@ export const rollInitiative = (
   initiativeBonus: number | null,
   roll: RollD20 = rollD20,
 ): number => roll() + (initiativeBonus ?? 0);
+
+/** Same injected-randomness shape as `RollD20`, generalised to any die size. */
+export type RollDie = (sides: number) => number;
+
+export const rollDie: RollDie = sides => Math.floor(Math.random() * sides) + 1;
+
+export type DiceRollResult = { rolls: number[]; total: number };
+
+/** Rolls an arbitrary `NdM + K` expression, e.g. 8d6 + 4. */
+export const rollExpression = (
+  count: number,
+  sides: number,
+  modifier: number,
+  roll: RollDie = rollDie,
+): DiceRollResult => {
+  const rolls = Array.from({ length: count }, () => roll(sides));
+  return { rolls, total: rolls.reduce((sum, value) => sum + value, 0) + modifier };
+};

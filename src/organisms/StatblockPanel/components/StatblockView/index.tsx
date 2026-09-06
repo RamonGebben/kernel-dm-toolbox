@@ -2,6 +2,7 @@
 
 import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
+import { FormattedText } from '~/molecules/FormattedText';
 import type { Statblock } from '~/server/trpc/helpers/buildStatblock';
 
 export type StatblockViewProps = {
@@ -89,7 +90,9 @@ export const StatblockView = ({ isPending, statblock }: StatblockViewProps) => {
           {statblock.traits.map(trait => (
             <Entry key={trait.slug}>
               <EntryName>{trait.name}.</EntryName>
-              <EntryDesc>{trait.desc}</EntryDesc>
+              <EntryDesc>
+                <FormattedText text={trait.desc} canApplyToCombatants />
+              </EntryDesc>
             </Entry>
           ))}
         </>
@@ -107,7 +110,9 @@ export const StatblockView = ({ isPending, statblock }: StatblockViewProps) => {
                   : ''}
                 .
               </EntryName>
-              <EntryDesc>{action.desc}</EntryDesc>
+              <EntryDesc>
+                <FormattedText text={action.desc} canApplyToCombatants />
+              </EntryDesc>
             </Entry>
           ))}
         </section>
@@ -226,7 +231,11 @@ const EntryName = styled.strong`
   color: ${props => props.theme.color.textPrimary};
 `;
 
-const EntryDesc = styled.p`
+/**
+ * A `div`, not a `p`: `FormattedText` can render block-level children (a
+ * list, a table) that are invalid inside a `<p>`.
+ */
+const EntryDesc = styled.div`
   margin: 0;
   white-space: pre-line;
   color: ${props => props.theme.color.textMuted};

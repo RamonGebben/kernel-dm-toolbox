@@ -6,6 +6,7 @@ import { StyledComponentsRegistry } from '~/app/registry';
 import { TRPCProvider } from '~/trpc/provider';
 import { GlobalStyle } from '~/theme/GlobalStyle';
 import { theme } from '~/theme';
+import { DiceRollModal } from '~/organisms/DiceRollModal';
 
 type AppProvidersProps = {
   children: ReactNode;
@@ -23,7 +24,10 @@ export const AppProviders = ({ children }: AppProvidersProps) => (
   <StyledComponentsRegistry>
     <ThemeProvider theme={theme}>
       <GlobalStyle />
-      <TRPCProvider>{children}</TRPCProvider>
+      <TRPCProvider>
+        {children}
+        <DiceRollModal />
+      </TRPCProvider>
     </ThemeProvider>
   </StyledComponentsRegistry>
 );
