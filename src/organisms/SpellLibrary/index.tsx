@@ -24,6 +24,12 @@ export const SpellLibrary = () => {
       selectedSlug={selectedSpellSlug}
       onSearchChange={library.setSearch}
       onSelect={selectSpell}
+      levelOptions={library.levelOptions}
+      selectedLevels={library.selectedLevels}
+      onLevelsChange={library.setSelectedLevels}
+      classOptions={library.classOptions}
+      selectedClassSlugs={library.selectedClassSlugs}
+      onClassSlugsChange={library.setSelectedClassSlugs}
     />
   );
 };

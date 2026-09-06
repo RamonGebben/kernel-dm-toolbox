@@ -476,12 +476,19 @@ Since then, in response to the first round of feedback: the tool rail replaced
 the campaign header, "Roll for initiative" and "End combat" replaced starting a
 fight by side effect, saved encounters landed as the Encounters tab, the spell
 data was imported, the library now imports itself on first boot, and the
-Spells tab landed: `/spells`, a filterable list with the selected spell's full
-description in a `SidePanel` that slides in from the right rather than taking
-a column of its own. The list summary comes from `library.listSpells`; the
-detail pane's derived fields (subtitle, components string, duration prefix,
-casting-option labels, …) come from `buildSpellDetail`, which wraps
-`library.getSpell`.
+Spells tab landed: `/spells`, a two-panel layout — a filterable list beside a
+fixed panel showing the selected spell's full description, the same
+fixed-panel shape as the initiative tracker rather than a slide-in overlay.
+The list summary comes from `library.listSpells`; the detail panel's derived
+fields (subtitle, components string, duration prefix, casting-option labels,
+…) come from `buildSpellDetail`, which wraps `library.getSpell`. The list can
+be filtered by several levels and several classes at once, checkbox-in-a-
+dropdown style, via `~/atoms/MultiSelectFilter` — a generic atom, reusable
+wherever a facet is multi-choice rather than the single-choice `<select>`
+`ConditionPicker` uses. The class options come from `library.listSpellClasses`,
+which derives the list from the classes actually present on an imported spell
+(`buildSpellClassOptions`) rather than a hardcoded roster, since which classes
+have spells depends on what got imported.
 
 Not started, in rough order of usefulness: folding in
 [Kernels-Virtual-Table-Top](https://github.com/RamonGebben/Kernels-Virtual-Table-Top)

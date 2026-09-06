@@ -16,6 +16,7 @@ describe('toSpellLibraryState', () => {
         isListPending: false,
         status: undefined,
         spells: [],
+        classOptions: [],
       }).isPending,
     ).toBe(true);
 
@@ -25,6 +26,7 @@ describe('toSpellLibraryState', () => {
         isListPending: true,
         status: { isImported: true },
         spells: undefined,
+        classOptions: [],
       }).isPending,
     ).toBe(true);
   });
@@ -36,6 +38,7 @@ describe('toSpellLibraryState', () => {
         isListPending: false,
         status: undefined,
         spells: [],
+        classOptions: [],
       }).isLibraryImported,
     ).toBe(false);
   });
@@ -46,12 +49,14 @@ describe('toSpellLibraryState', () => {
       isListPending: false,
       status: { isImported: false },
       spells: [],
+      classOptions: [],
     });
     const noMatches = toSpellLibraryState({
       isStatusPending: false,
       isListPending: false,
       status: { isImported: true },
       spells: [],
+      classOptions: [],
     });
 
     expect(neverImported.isLibraryImported).toBe(false);
@@ -66,6 +71,7 @@ describe('toSpellLibraryState', () => {
         isListPending: false,
         status: { isImported: true },
         spells: undefined,
+        classOptions: [],
       }).spells,
     ).toEqual([]);
   });
@@ -77,6 +83,7 @@ describe('toSpellLibraryState', () => {
         isListPending: false,
         status: { isImported: true },
         spells: [fireball],
+        classOptions: [],
       }).spells,
     ).toEqual([
       {
@@ -95,7 +102,30 @@ describe('toSpellLibraryState', () => {
         isListPending: false,
         status: { isImported: true },
         spells: [{ ...fireball, level: 0 }],
+        classOptions: [],
       }).spells[0]?.levelLabel,
     ).toBe('Cantrip');
+  });
+
+  it('maps class options to filter options, defaulting an absent list to empty', () => {
+    expect(
+      toSpellLibraryState({
+        isStatusPending: false,
+        isListPending: false,
+        status: { isImported: true },
+        spells: [],
+        classOptions: [{ slug: 'srd-2024_wizard', label: 'Wizard' }],
+      }).classOptions,
+    ).toEqual([{ value: 'srd-2024_wizard', label: 'Wizard' }]);
+
+    expect(
+      toSpellLibraryState({
+        isStatusPending: false,
+        isListPending: false,
+        status: { isImported: true },
+        spells: [],
+        classOptions: undefined,
+      }).classOptions,
+    ).toEqual([]);
   });
 });

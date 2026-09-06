@@ -1,4 +1,4 @@
-import { and, asc, gte, like, lte, eq, sql } from 'drizzle-orm';
+import { and, asc, gte, inArray, like, lte, or, eq, sql } from 'drizzle-orm';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
   conditions,
@@ -17,6 +17,7 @@ import {
 } from '~/server/trpc/schemas/library';
 import { buildStatblock } from '~/server/trpc/helpers/buildStatblock';
 import { buildSpellDetail } from '~/server/trpc/helpers/buildSpellDetail';
+import { buildSpellClassOptions } from '~/server/trpc/helpers/buildSpellClassOptions';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
 import { LIBRARY_ATTRIBUTION } from '~/server/library/source';
 
@@ -130,6 +131,16 @@ export const libraryRouter = createTRPCRouter({
   ),
 
   /**
+   * The classes that actually appear on an imported spell, for the class
+   * filter's checkbox list. Derived from the data rather than a hardcoded
+   * roster — see `buildSpellClassOptions`.
+   */
+  listSpellClasses: publicProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db.select({ classes: spells.classes }).from(spells);
+    return buildSpellClassOptions(rows.map(row => row.classes));
+  }),
+
+  /**
    * The spell list, summary fields only.
    *
    * `desc` is deliberately absent: it is by far the largest column, and a list
@@ -143,13 +154,18 @@ export const libraryRouter = createTRPCRouter({
         input.search
           ? like(spells.name, `%${input.search.trim()}%`)
           : undefined,
-        input.level != null ? eq(spells.level, input.level) : undefined,
+        input.levels.length ? inArray(spells.level, input.levels) : undefined,
         // `classes` is a JSON array; SQLite has no array containment operator,
         // so membership is tested with json_each rather than a LIKE over the
         // serialised text, which would match a class whose slug is a prefix of
-        // another's.
-        input.classSlug
-          ? sql`exists (select 1 from json_each(${spells.classes}) where json_each.value = ${input.classSlug})`
+        // another's. A spell matches if it has any of the selected classes.
+        input.classSlugs.length
+          ? or(
+              ...input.classSlugs.map(
+                classSlug =>
+                  sql`exists (select 1 from json_each(${spells.classes}) where json_each.value = ${classSlug})`,
+              ),
+            )
           : undefined,
       ].filter(filter => filter !== undefined);
 

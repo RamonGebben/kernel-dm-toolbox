@@ -22,10 +22,10 @@ export type CreatureSlugInput = z.infer<typeof creatureSlugInputSchema>;
 /** The spell list, for the quick-lookup tab. */
 export const listSpellsInputSchema = z.object({
   search: z.string().max(120).default(''),
-  /** 0 is cantrips, so `undefined` — not 0 — means "any level". */
-  level: z.number().int().min(0).max(9).optional(),
-  /** An upstream class slug, e.g. `srd-2024_wizard`. */
-  classSlug: z.string().max(120).optional(),
+  /** Empty means "any level"; 0 is cantrips. */
+  levels: z.array(z.number().int().min(0).max(9)).default([]),
+  /** Upstream class slugs, e.g. `srd-2024_wizard`. Empty means "any class". */
+  classSlugs: z.array(z.string().max(120)).default([]),
   limit: z.number().int().min(1).max(500).default(500),
 });
 

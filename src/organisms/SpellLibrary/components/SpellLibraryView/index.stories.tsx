@@ -8,6 +8,18 @@ const spells = [
   { slug: 'srd-2024_hold-person', name: 'Hold Person', levelLabel: '2nd-level', school: 'Enchantment' },
 ];
 
+const levelOptions = [
+  { value: '0', label: 'Cantrip' },
+  { value: '1', label: '1st-level' },
+  { value: '2', label: '2nd-level' },
+  { value: '3', label: '3rd-level' },
+];
+
+const classOptions = [
+  { value: 'srd-2024_bard', label: 'Bard' },
+  { value: 'srd-2024_wizard', label: 'Wizard' },
+];
+
 const meta = {
   title: 'Organisms/SpellLibrary/SpellLibraryView',
   component: SpellLibraryView,
@@ -19,6 +31,12 @@ const meta = {
     selectedSlug: null,
     onSearchChange: fn(),
     onSelect: fn(),
+    levelOptions,
+    selectedLevels: [],
+    onLevelsChange: fn(),
+    classOptions,
+    selectedClassSlugs: [],
+    onClassSlugsChange: fn(),
   },
 } satisfies Meta<typeof SpellLibraryView>;
 
@@ -79,5 +97,36 @@ export const Filtering: Story = {
     await userEvent.type(canvas.getByLabelText('Filter spells'), 'fire');
 
     await expect(args.onSearchChange).toHaveBeenCalled();
+  },
+};
+
+/** Several levels and several classes can be checked at once. */
+export const FilteringByLevelAndClass: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: /level/i }));
+    await userEvent.click(canvas.getByRole('checkbox', { name: '1st-level' }));
+    await expect(args.onLevelsChange).toHaveBeenCalledWith(['1']);
+
+    await userEvent.click(canvas.getByRole('button', { name: /class/i }));
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Bard' }));
+    await expect(args.onClassSlugsChange).toHaveBeenCalledWith([
+      'srd-2024_bard',
+    ]);
+  },
+};
+
+export const WithActiveFilters: Story = {
+  args: { selectedLevels: ['1', '2'], selectedClassSlugs: ['srd-2024_wizard'] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: /level \(2\)/i }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole('button', { name: /class \(1\)/i }),
+    ).toBeVisible();
   },
 };

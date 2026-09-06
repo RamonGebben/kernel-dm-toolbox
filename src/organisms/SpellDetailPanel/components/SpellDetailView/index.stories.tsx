@@ -108,11 +108,11 @@ export const Pending: Story = {
   },
 };
 
-export const NotFound: Story = {
+export const NothingSelected: Story = {
   args: { spell: null },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByText('Not found')).toBeVisible();
+    await expect(canvas.getByText('Nothing selected')).toBeVisible();
   },
 };

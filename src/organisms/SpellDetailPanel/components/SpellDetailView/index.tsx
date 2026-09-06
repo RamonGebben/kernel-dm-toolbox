@@ -21,14 +21,15 @@ export const SpellDetailView = ({ isPending, spell }: SpellDetailViewProps) => {
   if (!spell) {
     return (
       <EmptyState
-        title="Not found"
-        description="This spell could not be loaded."
+        title="Nothing selected"
+        description="Pick a spell from the list to see its description."
       />
     );
   }
 
   return (
     <article>
+      <Name>{spell.name}</Name>
       <Subtitle>{spell.subtitle}</Subtitle>
 
       <Rule />
@@ -147,6 +148,13 @@ const ValueLine = ({
     </Line>
   );
 };
+
+const Name = styled.h3`
+  margin: 0;
+  font-size: ${props => props.theme.fontSize.xl};
+  letter-spacing: 0.02em;
+  color: ${props => props.theme.color.accent};
+`;
 
 const Subtitle = styled.p`
   margin: 0 0 ${props => props.theme.space.sm};

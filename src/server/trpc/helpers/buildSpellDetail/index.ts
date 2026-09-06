@@ -1,6 +1,7 @@
 import type { Spell, SpellCastingOption } from '~/server/db/schema';
 import { formatSpellLevel } from '~/utils/formatSpellLevel';
 import { slugToTitle } from '~/utils/slugToTitle';
+import { stripDocumentPrefix } from '~/utils/stripDocumentPrefix';
 
 /**
  * Turns the raw library rows into everything the spell lookup pane needs to
@@ -46,10 +47,6 @@ export type SpellDetail = {
   higherLevel: string | null;
   castingOptions: SpellCastingOptionDetail[];
 };
-
-/** A spell's upstream slug is document-prefixed (`srd-2024_wizard`); a class one may be too. */
-const stripDocumentPrefix = (slug: string): string =>
-  slug.replace(/^[a-z0-9]+(?:-[a-z0-9]+)*_/, '');
 
 export const buildSubtitle = (spell: Spell): string => {
   const school = slugToTitle(stripDocumentPrefix(spell.school));

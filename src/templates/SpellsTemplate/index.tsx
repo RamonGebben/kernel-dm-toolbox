@@ -8,14 +8,13 @@ type SpellsTemplateProps = {
   /** The vertical tool rail, injected by the page. */
   navigationSlot: ReactNode;
   librarySlot: ReactNode;
-  /** The slide-in pane; positioned fixed, so it sits outside the column flow. */
   detailSlot: ReactNode;
 };
 
 /**
- * The quick spell lookup: a filterable list, with the selected spell's full
- * description sliding in from the right rather than taking a column of its
- * own — the list stays the only thing on screen until something is picked.
+ * The quick spell lookup: a filterable list beside the selected spell's full
+ * description, laptop-first two columns side by side, stacking on narrow
+ * screens — the same fixed-panel shape as the initiative tracker.
  */
 export const SpellsTemplate = ({
   navigationSlot,
@@ -26,10 +25,11 @@ export const SpellsTemplate = ({
     {navigationSlot}
 
     <Workspace>
-      <Panel title="Spells">{librarySlot}</Panel>
+      <Columns>
+        <Panel title="Spells">{librarySlot}</Panel>
+        <Panel title="Selected Spell">{detailSlot}</Panel>
+      </Columns>
     </Workspace>
-
-    {detailSlot}
   </Page>
 );
 
@@ -49,4 +49,22 @@ const Workspace = styled.div`
   min-width: 0;
   min-height: 0;
   padding: ${props => props.theme.space.md};
+`;
+
+const Columns = styled.div`
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  gap: ${props => props.theme.space.md};
+  grid-template-columns: 1fr;
+  /* Stacked on a tablet: each panel scrolls within a readable height. */
+  grid-auto-rows: minmax(16rem, auto);
+  overflow-y: auto;
+
+  ${props => props.theme.media.lg} {
+    /* The library gets roughly a third of the workspace, the description the rest. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    grid-auto-rows: unset;
+    overflow-y: visible;
+  }
 `;

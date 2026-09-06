@@ -3,6 +3,10 @@
 import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
+import {
+  MultiSelectFilter,
+  type MultiSelectFilterOption,
+} from '~/atoms/MultiSelectFilter';
 import { SpellListItem } from '~/molecules/SpellListItem';
 
 export type SpellSummary = {
@@ -21,6 +25,12 @@ export type SpellLibraryViewProps = {
   selectedSlug: string | null;
   onSearchChange: (search: string) => void;
   onSelect: (slug: string) => void;
+  levelOptions: readonly MultiSelectFilterOption[];
+  selectedLevels: readonly string[];
+  onLevelsChange: (levels: string[]) => void;
+  classOptions: readonly MultiSelectFilterOption[];
+  selectedClassSlugs: readonly string[];
+  onClassSlugsChange: (classSlugs: string[]) => void;
 };
 
 /**
@@ -36,6 +46,12 @@ export const SpellLibraryView = ({
   selectedSlug,
   onSearchChange,
   onSelect,
+  levelOptions,
+  selectedLevels,
+  onLevelsChange,
+  classOptions,
+  selectedClassSlugs,
+  onClassSlugsChange,
 }: SpellLibraryViewProps) => (
   <Wrapper>
     <TextInput
@@ -45,6 +61,22 @@ export const SpellLibraryView = ({
       aria-label="Filter spells"
       disabled={!isLibraryImported}
     />
+    <Filters>
+      <MultiSelectFilter
+        label="Level"
+        options={levelOptions}
+        selectedValues={selectedLevels}
+        onChange={onLevelsChange}
+        disabled={!isLibraryImported}
+      />
+      <MultiSelectFilter
+        label="Class"
+        options={classOptions}
+        selectedValues={selectedClassSlugs}
+        onChange={onClassSlugsChange}
+        disabled={!isLibraryImported}
+      />
+    </Filters>
     <Results>
       <ResultsBody
         isPending={isPending}
@@ -58,7 +90,16 @@ export const SpellLibraryView = ({
   </Wrapper>
 );
 
-type ResultsBodyProps = Omit<SpellLibraryViewProps, 'onSearchChange'>;
+type ResultsBodyProps = Omit<
+  SpellLibraryViewProps,
+  | 'onSearchChange'
+  | 'levelOptions'
+  | 'selectedLevels'
+  | 'onLevelsChange'
+  | 'classOptions'
+  | 'selectedClassSlugs'
+  | 'onClassSlugsChange'
+>;
 
 /**
  * A real named subcomponent rather than a local JSX const, so the three
@@ -116,6 +157,12 @@ const Wrapper = styled.div`
   gap: ${props => props.theme.space.md};
   min-height: 0;
   height: 100%;
+`;
+
+const Filters = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${props => props.theme.space.sm};
 `;
 
 /** The scroll container, so the filter box above it stays put. */
