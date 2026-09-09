@@ -86,7 +86,7 @@ const ResultsBody = ({
     return (
       <EmptyState
         title="No library yet"
-        description="An instance imports the creature library the first time it boots. If this stayed empty, the import could not reach GitHub — restart, or run it by hand."
+        description="An instance imports the creature library the first time it boots. If this stayed empty, the import could not reach GitHub. Restart, or run it by hand."
         detail={<Command>pnpm db:import</Command>}
       />
     );

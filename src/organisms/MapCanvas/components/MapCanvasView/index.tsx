@@ -182,7 +182,9 @@ export const MapCanvasView = ({
     lensLockedRef.current = lensLocked;
   }, [lensLocked]);
 
-  const lensScreenSizeRef = useRef(lensScreenSize ?? { width: 1920, height: 1080 });
+  const lensScreenSizeRef = useRef(
+    lensScreenSize ?? { width: 1920, height: 1080 },
+  );
   useEffect(() => {
     lensScreenSizeRef.current = lensScreenSize ?? { width: 1920, height: 1080 };
   }, [lensScreenSize]);
@@ -349,7 +351,9 @@ export const MapCanvasView = ({
         ctx.setLineDash([]);
 
         ctx.globalAlpha = 0.12;
-        ctx.fillStyle = isReveal ? 'rgba(255, 255, 255, 1)' : 'rgba(0, 0, 0, 1)';
+        ctx.fillStyle = isReveal
+          ? 'rgba(255, 255, 255, 1)'
+          : 'rgba(0, 0, 0, 1)';
         if (tool.shape === 'circle') {
           ctx.beginPath();
           ctx.arc(cursor.x, cursor.y, tool.size, 0, Math.PI * 2);
@@ -469,7 +473,9 @@ export const MapCanvasView = ({
   return (
     <Wrapper>
       <Canvas ref={canvasRef} aria-label="Map canvas" />
-      {!map && <EmptyOverlay>No map selected — preview one from Maps.</EmptyOverlay>}
+      {!map && (
+        <EmptyOverlay>No map selected. Preview one from Maps.</EmptyOverlay>
+      )}
     </Wrapper>
   );
 };

@@ -52,7 +52,7 @@ const ToolButton = ({ tool, isActive }: ToolButtonProps) => {
         disabled
         $isActive={false}
         title={tool.description}
-        aria-label={`${tool.label} — coming soon`}
+        aria-label={`${tool.label} (coming soon)`}
       >
         <Icon name={tool.icon} />
         <Label>{tool.label}</Label>

@@ -58,7 +58,7 @@ export const UnbuiltToolsAreDisabled: Story = {
     const canvas = within(canvasElement);
 
     await expect(
-      canvas.getByRole('button', { name: 'Unbuilt — coming soon' }),
+      canvas.getByRole('button', { name: 'Unbuilt (coming soon)' }),
     ).toBeDisabled();
   },
 };
