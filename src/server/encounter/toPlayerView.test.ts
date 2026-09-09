@@ -37,11 +37,32 @@ const state: EncounterState = {
   activeCombatantId: 'dragon',
   difficulty,
   combatants: [
-    combatant({ id: 'dragon', displayName: 'Young Black Dragon' }),
+    combatant({
+      id: 'dragon',
+      displayName: 'Young Black Dragon',
+      conditions: [
+        {
+          id: 'cond-1',
+          conditionSlug: 'poisoned',
+          name: 'Poisoned',
+          roundsRemaining: 2,
+          note: 'Will shed the poison next turn — twist ending planned',
+        },
+      ],
+    }),
     combatant({
       id: 'ambusher',
       displayName: 'Assassin',
       isHidden: true,
+      conditions: [
+        {
+          id: 'cond-2',
+          conditionSlug: 'invisible',
+          name: 'Invisible',
+          roundsRemaining: null,
+          note: null,
+        },
+      ],
     }),
     combatant({
       id: 'sigrid',
@@ -98,6 +119,29 @@ describe('toPlayerView', () => {
 
   it('carries the round number through', () => {
     expect(toPlayerView(state).roundNumber).toBe(3);
+  });
+
+  it("carries a visible combatant's condition name", () => {
+    const view = toPlayerView(state);
+    const dragon = view.combatants.find(c => c.id === 'dragon');
+
+    expect(dragon?.conditions).toEqual([
+      { conditionSlug: 'poisoned', name: 'Poisoned' },
+    ]);
+  });
+
+  it('never leaks a condition note or its rounds remaining', () => {
+    const serialised = JSON.stringify(toPlayerView(state));
+
+    expect(serialised).not.toContain('twist ending');
+    expect(serialised).not.toContain('roundsRemaining');
+  });
+
+  it("omits a hidden combatant's conditions entirely, along with the rest of it", () => {
+    const serialised = JSON.stringify(toPlayerView(state));
+
+    expect(serialised).not.toContain('Invisible');
+    expect(serialised).not.toContain('invisible');
   });
 
   it('handles an empty encounter', () => {

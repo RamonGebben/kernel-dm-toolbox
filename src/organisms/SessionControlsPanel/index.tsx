@@ -63,6 +63,12 @@ export const SessionControlsPanel = () => {
       onTrackerShowHealthChange={showHealth =>
         setTrackerOverlay.mutate({ showHealth })
       }
+      trackerShowConditions={
+        session.data?.trackerOverlayShowConditions ?? false
+      }
+      onTrackerShowConditionsChange={showConditions =>
+        setTrackerOverlay.mutate({ showConditions })
+      }
     />
   );
 };

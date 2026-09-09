@@ -27,6 +27,7 @@ export const TrackerOverlayBoard = ({ config }: TrackerOverlayBoardProps) => {
       showInitiative={config.showInitiative}
       showName={config.showName}
       showHealth={config.showHealth}
+      showConditions={config.showConditions}
     />
   );
 };

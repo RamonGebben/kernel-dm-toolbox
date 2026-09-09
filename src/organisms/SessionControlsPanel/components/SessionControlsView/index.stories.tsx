@@ -21,6 +21,8 @@ const meta = {
     onTrackerShowNameChange: fn(),
     trackerShowHealth: true,
     onTrackerShowHealthChange: fn(),
+    trackerShowConditions: false,
+    onTrackerShowConditionsChange: fn(),
   },
 } satisfies Meta<typeof SessionControlsView>;
 
@@ -61,6 +63,18 @@ export const BothModeAtOverlayExtremes: Story = {
     trackerShowInitiative: false,
     trackerShowName: false,
     trackerShowHealth: false,
+    trackerShowConditions: true,
+  },
+};
+
+export const SwitchingShowConditions: Story = {
+  args: { mode: 'both' },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByLabelText('Show conditions'));
+
+    await expect(args.onTrackerShowConditionsChange).toHaveBeenCalledWith(true);
   },
 };
 

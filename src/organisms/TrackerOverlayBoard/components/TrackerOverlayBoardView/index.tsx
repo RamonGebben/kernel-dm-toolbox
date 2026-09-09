@@ -4,13 +4,26 @@ import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import type { PlayerBoardCombatant } from '~/organisms/PlayerBoard/components/PlayerBoardView';
 
+export type TrackerOverlayCondition = {
+  conditionSlug: string;
+  name: string;
+};
+
+/** `PlayerBoardCombatant` plus the one field standalone `PlayerBoardView`
+ * doesn't render — defined here rather than added to `PlayerBoardCombatant`
+ * itself, so that component stays untouched. */
+export type TrackerOverlayCombatant = PlayerBoardCombatant & {
+  conditions: readonly TrackerOverlayCondition[];
+};
+
 export type TrackerOverlayBoardViewProps = {
   isConnected: boolean;
   roundNumber: number;
-  combatants: readonly PlayerBoardCombatant[];
+  combatants: readonly TrackerOverlayCombatant[];
   showInitiative: boolean;
   showName: boolean;
   showHealth: boolean;
+  showConditions: boolean;
 };
 
 /**
@@ -28,6 +41,7 @@ export const TrackerOverlayBoardView = ({
   showInitiative,
   showName,
   showHealth,
+  showConditions,
 }: TrackerOverlayBoardViewProps) => {
   if (!combatants.length) {
     return (
@@ -52,16 +66,30 @@ export const TrackerOverlayBoardView = ({
       <List>
         {combatants.map(combatant => (
           <Row key={combatant.id} $isActive={combatant.isActive}>
-            {showInitiative && <Initiative>{combatant.initiative}</Initiative>}
-            {showName && (
-              <Name $isPlayerCharacter={combatant.isPlayerCharacter}>
-                {combatant.displayName}
-              </Name>
-            )}
-            {showHealth && (
-              <Health $status={combatant.healthStatus}>
-                {healthLabels[combatant.healthStatus]}
-              </Health>
+            <MainLine>
+              {showInitiative && (
+                <Initiative>{combatant.initiative}</Initiative>
+              )}
+              {showName && (
+                <Name $isPlayerCharacter={combatant.isPlayerCharacter}>
+                  {combatant.displayName}
+                </Name>
+              )}
+              {showHealth && (
+                <Health $status={combatant.healthStatus}>
+                  {healthLabels[combatant.healthStatus]}
+                </Health>
+              )}
+            </MainLine>
+
+            {showConditions && combatant.conditions.length > 0 && (
+              <Conditions>
+                {combatant.conditions.map(condition => (
+                  <ConditionBadge key={condition.conditionSlug}>
+                    {condition.name}
+                  </ConditionBadge>
+                ))}
+              </Conditions>
             )}
           </Row>
         ))}
@@ -125,8 +153,8 @@ const List = styled.ol`
 
 const Row = styled.li<{ $isActive: boolean }>`
   display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
+  flex-direction: column;
+  gap: ${props => props.theme.space.xs};
   padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
   background: ${props =>
     props.$isActive
@@ -138,6 +166,27 @@ const Row = styled.li<{ $isActive: boolean }>`
   border-left-width: ${props => (props.$isActive ? '4px' : '1px')};
   border-radius: ${props => props.theme.radius.sm};
   font-size: ${props => props.theme.fontSize.sm};
+`;
+
+const MainLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${props => props.theme.space.sm};
+`;
+
+const Conditions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${props => props.theme.space.xs};
+`;
+
+const ConditionBadge = styled.span`
+  padding: 0 ${props => props.theme.space.xs};
+  border: 1px solid ${props => props.theme.color.border};
+  border-radius: ${props => props.theme.radius.sm};
+  color: ${props => props.theme.color.textMuted};
+  font-size: ${props => props.theme.fontSize.sm};
+  white-space: nowrap;
 `;
 
 const Initiative = styled.span`

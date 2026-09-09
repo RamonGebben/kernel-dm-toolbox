@@ -10,6 +10,7 @@ const combatants = [
     isActive: false,
     isPlayerCharacter: false,
     healthStatus: 'healthy' as const,
+    conditions: [],
   },
   {
     id: 'dragon',
@@ -18,6 +19,7 @@ const combatants = [
     isActive: true,
     isPlayerCharacter: false,
     healthStatus: 'bloodied' as const,
+    conditions: [{ conditionSlug: 'poisoned', name: 'Poisoned' }],
   },
   {
     id: 'sigrid',
@@ -26,6 +28,10 @@ const combatants = [
     isActive: false,
     isPlayerCharacter: true,
     healthStatus: 'healthy' as const,
+    conditions: [
+      { conditionSlug: 'prone', name: 'Prone' },
+      { conditionSlug: 'grappled', name: 'Grappled' },
+    ],
   },
   {
     id: 'hammie',
@@ -34,6 +40,7 @@ const combatants = [
     isActive: false,
     isPlayerCharacter: true,
     healthStatus: 'unconscious' as const,
+    conditions: [],
   },
 ];
 
@@ -47,6 +54,7 @@ const meta = {
     showInitiative: true,
     showName: true,
     showHealth: true,
+    showConditions: false,
   },
   parameters: { layout: 'fullscreen' },
   decorators: [
@@ -101,6 +109,25 @@ export const HealthHidden: Story = {
 
 export const OnlyInitiative: Story = {
   args: { showName: false, showHealth: false },
+};
+
+export const ConditionsShown: Story = {
+  args: { showConditions: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Poisoned')).toBeVisible();
+    await expect(canvas.getByText('Prone')).toBeVisible();
+    await expect(canvas.getByText('Grappled')).toBeVisible();
+  },
+};
+
+export const ConditionsHiddenByDefault: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.queryByText('Poisoned')).not.toBeInTheDocument();
+  },
 };
 
 export const NoFight: Story = {

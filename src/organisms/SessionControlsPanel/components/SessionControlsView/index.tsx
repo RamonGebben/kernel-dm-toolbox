@@ -35,6 +35,8 @@ export type SessionControlsViewProps = {
   onTrackerShowNameChange: (show: boolean) => void;
   trackerShowHealth: boolean;
   onTrackerShowHealthChange: (show: boolean) => void;
+  trackerShowConditions: boolean;
+  onTrackerShowConditionsChange: (show: boolean) => void;
 };
 
 /**
@@ -58,6 +60,8 @@ export const SessionControlsView = ({
   onTrackerShowNameChange,
   trackerShowHealth,
   onTrackerShowHealthChange,
+  trackerShowConditions,
+  onTrackerShowConditionsChange,
 }: SessionControlsViewProps) => (
   <Wrapper>
     <FieldGroup>
@@ -142,6 +146,18 @@ export const SessionControlsView = ({
             onChange={event => onTrackerShowHealthChange(event.target.checked)}
           />
           <label htmlFor="tracker-show-health">Show health</label>
+        </CheckboxRow>
+
+        <CheckboxRow>
+          <input
+            id="tracker-show-conditions"
+            type="checkbox"
+            checked={trackerShowConditions}
+            onChange={event =>
+              onTrackerShowConditionsChange(event.target.checked)
+            }
+          />
+          <label htmlFor="tracker-show-conditions">Show conditions</label>
         </CheckboxRow>
       </FieldGroup>
     )}
