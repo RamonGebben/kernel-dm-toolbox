@@ -18,10 +18,17 @@ import {
   isPointInTrackerRect,
   moveTrackerRect,
 } from '~/utils/trackerOverlayRect';
+import {
+  computeMeasurementPreview,
+  snapPointToGrid,
+  type GridSpec,
+  type MeasurementShapeInput,
+} from '~/utils/mapMeasurement';
 import type {
   MapCanvasFogState,
   MapCanvasFogStroke,
   MapCanvasFogTool,
+  MapCanvasMeasurementTool,
 } from '~/organisms/MapCanvas/components/MapCanvasView';
 
 const makeStrokeId = () =>
@@ -70,6 +77,10 @@ export const useViewportInteraction = ({
   trackerRectRef,
   trackerPreviewRef,
   onTrackerRectChange,
+  measurementToolRef,
+  gridRef,
+  measurementPreviewRef,
+  onMeasurementConfirm,
   onScheduleDraw,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -101,10 +112,23 @@ export const useViewportInteraction = ({
   /** Live drag rect for the tracker overlay, same role as `lensPreviewRef`. */
   trackerPreviewRef: RefObject<LensRect | null>;
   onTrackerRectChange?: (rect: LensRect) => void;
+  /** Armed like the fog brush — while enabled, a click either sets a shape's
+   * origin or (if one is already pending) confirms it. */
+  measurementToolRef: RefObject<MapCanvasMeasurementTool | undefined>;
+  /** Only `cellSize`/`originX`/`originY` are read, for snapping the origin
+   * and grid-square-counting the extent — see `~/utils/mapMeasurement`. */
+  gridRef: RefObject<GridSpec>;
+  /** The shape currently being aimed — null once there is nothing pending.
+   * Owned by the caller (`MapCanvasView` reads it, at most once per
+   * animation frame, to notify `onMeasurementPreviewChange` live while
+   * placing), the same role `lensPreviewRef` plays for the lens. */
+  measurementPreviewRef: RefObject<MeasurementShapeInput | null>;
+  onMeasurementConfirm?: (shape: MeasurementShapeInput) => void;
   onScheduleDraw: () => void;
 }): ViewportInteractionHandle => {
   const cursorMapPosRef = useRef<MapPoint | null>(null);
   const calibrationPreviewRef = useRef<MapPoint | null>(null);
+  const measurementOriginRef = useRef<MapPoint | null>(null);
   const dragModeRef = useRef<'pan' | 'fog' | 'lens' | 'tracker' | null>(null);
   const startScreenPointRef = useRef<MapPoint>({ x: 0, y: 0 });
   const startViewportRef = useRef<Viewport | null>(null);
@@ -120,6 +144,7 @@ export const useViewportInteraction = ({
   const onFogStrokeBatchRef = useRef(onFogStrokeBatch);
   const onLensChangeRef = useRef(onLensChange);
   const onTrackerRectChangeRef = useRef(onTrackerRectChange);
+  const onMeasurementConfirmRef = useRef(onMeasurementConfirm);
 
   useEffect(() => {
     onCalibrateClickRef.current = onCalibrateClick;
@@ -133,6 +158,9 @@ export const useViewportInteraction = ({
   useEffect(() => {
     onTrackerRectChangeRef.current = onTrackerRectChange;
   }, [onTrackerRectChange]);
+  useEffect(() => {
+    onMeasurementConfirmRef.current = onMeasurementConfirm;
+  }, [onMeasurementConfirm]);
 
   useEffect(() => {
     if (!interactive) return;
@@ -175,6 +203,13 @@ export const useViewportInteraction = ({
     // calibration click or paint stroke can never be mistaken for a lens drag.
     const isFogToolActive = () =>
       !!(fogToolRef.current?.enabled && fogRef.current?.enabled);
+    const isMeasurementToolActive = () => !!measurementToolRef.current?.enabled;
+
+    const cancelMeasurement = () => {
+      measurementOriginRef.current = null;
+      measurementPreviewRef.current = null;
+      onScheduleDraw();
+    };
 
     const handlePointerDown = (event: PointerEvent) => {
       const { mapPoint } = mapPointFromEvent(event);
@@ -186,6 +221,7 @@ export const useViewportInteraction = ({
       if (
         !isFogToolActive() &&
         !calibrationActiveRef.current &&
+        !isMeasurementToolActive() &&
         !lensLockedRef.current &&
         trackerRectRef.current &&
         isPointInTrackerRect(trackerRectRef.current, mapPoint)
@@ -201,6 +237,7 @@ export const useViewportInteraction = ({
       if (
         !isFogToolActive() &&
         !calibrationActiveRef.current &&
+        !isMeasurementToolActive() &&
         !lensLockedRef.current &&
         lensRectRef.current &&
         isPointInLensRect(lensRectRef.current, mapPoint)
@@ -218,6 +255,52 @@ export const useViewportInteraction = ({
         // any) must not flash as this one's rectangle for a frame.
         calibrationPreviewRef.current = null;
         onCalibrateClickRef.current?.(mapPoint);
+        return;
+      }
+
+      if (isMeasurementToolActive()) {
+        const tool = measurementToolRef.current!;
+        const grid = gridRef.current;
+
+        if (!measurementOriginRef.current) {
+          const origin = snapPointToGrid(mapPoint, grid);
+
+          // A size preset places in one click, at a default orientation,
+          // rather than arming the two-click free-drag gesture — a ruler
+          // has no size of its own, so it always free-drags.
+          if (tool.presetExtentFeet && tool.shapeType !== 'ruler') {
+            onMeasurementConfirmRef.current?.({
+              shapeType: tool.shapeType,
+              originX: origin.x,
+              originY: origin.y,
+              extentFeet: tool.presetExtentFeet,
+              orientation: tool.shapeType === 'circle' ? null : 0,
+            });
+            onScheduleDraw();
+            return;
+          }
+
+          measurementOriginRef.current = origin;
+          measurementPreviewRef.current = computeMeasurementPreview({
+            shapeType: tool.shapeType,
+            origin,
+            cursor: mapPoint,
+            grid,
+          });
+          onScheduleDraw();
+          return;
+        }
+
+        const finalShape = computeMeasurementPreview({
+          shapeType: tool.shapeType,
+          origin: measurementOriginRef.current,
+          cursor: mapPoint,
+          grid,
+        });
+        onMeasurementConfirmRef.current?.(finalShape);
+        measurementOriginRef.current = null;
+        measurementPreviewRef.current = null;
+        onScheduleDraw();
         return;
       }
 
@@ -275,6 +358,18 @@ export const useViewportInteraction = ({
 
       if (calibrationActiveRef.current) {
         calibrationPreviewRef.current = mapPoint;
+        onScheduleDraw();
+        return;
+      }
+
+      if (measurementOriginRef.current) {
+        const tool = measurementToolRef.current;
+        measurementPreviewRef.current = computeMeasurementPreview({
+          shapeType: tool?.shapeType ?? 'circle',
+          origin: measurementOriginRef.current,
+          cursor: mapPoint,
+          grid: gridRef.current,
+        });
         onScheduleDraw();
         return;
       }
@@ -350,6 +445,7 @@ export const useViewportInteraction = ({
       if (
         !isFogToolActive() &&
         !calibrationActiveRef.current &&
+        !isMeasurementToolActive() &&
         !lensLockedRef.current &&
         !overTracker &&
         lensRectRef.current &&
@@ -380,12 +476,21 @@ export const useViewportInteraction = ({
       onScheduleDraw();
     };
 
+    // Right-click abandons a shape placement in progress, rather than
+    // opening the browser's context menu over the canvas.
+    const handleContextMenu = (event: MouseEvent) => {
+      if (!measurementOriginRef.current) return;
+      event.preventDefault();
+      cancelMeasurement();
+    };
+
     canvas.addEventListener('pointerdown', handlePointerDown);
     canvas.addEventListener('pointermove', handlePointerMove);
     canvas.addEventListener('pointerup', handlePointerUp);
     canvas.addEventListener('pointercancel', handlePointerUp);
     canvas.addEventListener('pointerleave', handlePointerLeave);
     canvas.addEventListener('wheel', handleWheel, { passive: false });
+    canvas.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown);
@@ -394,6 +499,7 @@ export const useViewportInteraction = ({
       canvas.removeEventListener('pointercancel', handlePointerUp);
       canvas.removeEventListener('pointerleave', handlePointerLeave);
       canvas.removeEventListener('wheel', handleWheel);
+      canvas.removeEventListener('contextmenu', handleContextMenu);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interactive, canvasRef]);

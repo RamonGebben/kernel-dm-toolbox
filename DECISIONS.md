@@ -631,3 +631,45 @@ continuous interaction should use depends on whether the _other_ screen needs
 to see it move live (frame-coalesced), only needs the end state (gesture-
 committed), or only needs to survive a restart (debounced). `FogControlsPanel`'s
 still-unbatched opacity/brush sliders remain a noted, unaddressed follow-up.
+
+## 27. The ruler and spell-area templates measure in grid squares, not pixels
+
+**Decision.** `~/utils/mapMeasurement` computes a placed shape's size as 5e's
+tabletop convention — grid-square counting, where a diagonal move costs the
+same as an orthogonal one (Chebyshev distance in grid cells, `computeGridDistanceFeet`)
+— rather than true Euclidean distance. This is a deliberate divergence from
+every other piece of geometry on this canvas: `~/utils/mapViewport` and
+`~/utils/mapLens` are pixel-accurate, because a viewport or a lens rectangle
+has no tabletop meaning to be faithful to. A ruler does — two DMs disagreeing
+by ~40% (a diagonal-heavy Euclidean line vs. the tabletop count) on whether a
+15-foot spell reaches a target is a worse bug than a viewport being a few
+pixels off ever could be. Only the _origin_ snaps outright (to the nearest
+grid intersection, `snapPointToGrid`); a cone/line/cube's _orientation_ stays
+a free angle — only its distance component is grid-counted — so a DM can aim
+a cone at 37° without the tool rounding it to the nearest axis.
+
+**Why a `presetExtentFeet` mode instead of only free-drag.** The placement
+gesture is a two-click drag (origin click, live-follow, confirm click) —
+necessary for a ruler, which has no size of its own to offer a shortcut for.
+But most of what actually gets placed is a spell's _known_ area (a 20-foot
+fireball, not "however big I eyeball it"), and eyeballing a precise 20-foot
+circle by dragging against an uncalibrated cursor is exactly the friction the
+5e-preset buttons and spell lookup exist to remove. Rather than a second,
+parallel placement mode, a size preset (from the panel's preset buttons, or
+auto-filled by picking a spell via `mapSpellShapeType`) changes what a single
+click _means_: it commits immediately, at that exact size and a default 0°
+orientation, instead of arming the two-click gesture. `presetExtentFeet: null`
+("Custom") is what re-arms free-drag. A `ruler` ignores a preset outright —
+see above, it always needs two points.
+
+**Why the live-drag preview is a `map_sessions` column, not a broadcast
+channel.** Issue #1 calls for the player screen to track a shape while the
+DM is still aiming it, the same as the lens (#26). The lens already proved
+the pattern for exactly this: a value written to the `map_sessions` singleton
+row, at most once per animation frame via `MapCanvasView`'s existing
+RAF-notify scheduler, and read back out through `toPlayerMapView`/SSE.
+`livePreviewShape` (nullable JSON) reuses that pattern outright rather than
+inventing a second live-update mechanism — cleared back to `null` once the
+confirming click lands (or the placement is abandoned with a right-click),
+which the RAF diff loop notices and broadcasts on its own, the same way a
+lens drag's every frame is diffed against the last one sent.

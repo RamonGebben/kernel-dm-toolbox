@@ -639,6 +639,20 @@ export type NewMapAsset = typeof maps.$inferInsert;
  */
 export const CURRENT_MAP_SESSION_ID = 'current';
 
+/** The live-drag preview of a measurement shape — see `livePreviewShape`
+ * below and `~/utils/mapMeasurement`. `mapId` guards against a stale preview
+ * rendering against whatever map happens to be active after a switch. */
+export type MapMeasurementPreview = {
+  mapId: string;
+  shapeType: 'ruler' | 'circle' | 'cone' | 'line' | 'cube';
+  originX: number;
+  originY: number;
+  extentFeet: number;
+  orientation: number | null;
+  color: string;
+  label: string | null;
+};
+
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
 export type PlayerScreenOrientation = 'auto' | 'landscape' | 'portrait';
 
@@ -730,6 +744,16 @@ export const mapSessions = sqliteTable(
     })
       .notNull()
       .default(false),
+
+    /** The measurement shape the DM is currently dragging into place, before
+     * the confirming second click commits it to `map_measurement_shapes`.
+     * Written live, at most once per animation frame, the same cadence as
+     * `playerViewport*` — so the player screen tracks the shape being aimed,
+     * not just the final result (DECISIONS: same live-diff pattern as the
+     * player-view lens, issue #1). Null once there is nothing in progress. */
+    livePreviewShape: text('live_preview_shape', {
+      mode: 'json',
+    }).$type<MapMeasurementPreview | null>(),
   },
   table => [
     check(
@@ -744,3 +768,46 @@ export const mapSessions = sqliteTable(
 );
 
 export type MapSession = typeof mapSessions.$inferSelect;
+
+/**
+ * A ruler measurement or spell-area template the DM placed on a map's
+ * canvas — a distance line or a circle/cone/line/cube footprint, per issue
+ * #1. Scoped per-map, like grid calibration and fog: switching away and
+ * back to a map still shows what was left on it.
+ *
+ * `extentFeet` is grid-square-counted (5e's diagonal-costs-the-same
+ * convention), not pixel distance — see `~/utils/mapMeasurement`.
+ * `orientation` is a free angle in radians, null for `circle`, which has no
+ * direction.
+ */
+export type MapMeasurementShapeType =
+  'ruler' | 'circle' | 'cone' | 'line' | 'cube';
+
+export const mapMeasurementShapes = sqliteTable(
+  'map_measurement_shapes',
+  {
+    ...syncMeta,
+    mapId: text('map_id')
+      .notNull()
+      .references(() => maps.id, { onDelete: 'cascade' }),
+    shapeType: text('shape_type').$type<MapMeasurementShapeType>().notNull(),
+    originX: real('origin_x').notNull(),
+    originY: real('origin_y').notNull(),
+    extentFeet: real('extent_feet').notNull(),
+    orientation: real('orientation'),
+    label: text('label'),
+    color: text('color').notNull().default('#6fa7ff'),
+    /** Set when placed via the spell-lookup auto-fill, so a re-opened panel
+     * could show what it came from. Not used to re-derive anything. */
+    sourceSpellSlug: text('source_spell_slug').references(() => spells.slug),
+  },
+  table => [
+    check(
+      'map_measurement_shapes_type_is_valid',
+      sql`${table.shapeType} in ('ruler', 'circle', 'cone', 'line', 'cube')`,
+    ),
+  ],
+);
+
+export type MapMeasurementShape = typeof mapMeasurementShapes.$inferSelect;
+export type NewMapMeasurementShape = typeof mapMeasurementShapes.$inferInsert;

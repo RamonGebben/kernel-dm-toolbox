@@ -9,6 +9,12 @@ import { useMapMedia } from '~/organisms/MapCanvas/hooks/useMapMedia';
 import { useFogMask } from '~/organisms/MapCanvas/hooks/useFogMask';
 import { useGridOverlay } from '~/organisms/MapCanvas/hooks/useGridOverlay';
 import { useViewportInteraction } from '~/organisms/MapCanvas/hooks/useViewportInteraction';
+import {
+  computeShapeFootprint,
+  type GridSpec,
+  type MeasurementShapeInput,
+  type MeasurementShapeType,
+} from '~/utils/mapMeasurement';
 
 export type MapCanvasFogStrokeShape = 'circle' | 'square';
 export type MapCanvasFogStrokeMode = 'reveal' | 'cover';
@@ -57,6 +63,26 @@ export type MapCanvasMedia = {
 
 export type CalibrationPoint = { x: number; y: number };
 
+/** A committed ruler/spell-area shape, ready to draw. */
+export type MapCanvasMeasurementShape = MeasurementShapeInput & {
+  id: string;
+  color: string;
+  label?: string | null;
+};
+
+/** The armed placement tool — while enabled, a canvas click either sets a
+ * shape's origin or (if one is pending) confirms it. `color` drives the
+ * live-drag preview's stroke before the shape has an id of its own. */
+export type MapCanvasMeasurementTool = {
+  enabled: boolean;
+  shapeType: MeasurementShapeType;
+  color: string;
+  /** A chosen size preset: the next click commits a shape at exactly this
+   * size instead of arming the two-click free-drag gesture. Null is the
+   * free-drag default. */
+  presetExtentFeet: number | null;
+};
+
 export type MapCanvasViewProps = {
   map: MapCanvasMedia;
   viewport: Viewport;
@@ -91,6 +117,21 @@ export type MapCanvasViewProps = {
    * the same way a `null` `lensRect` means "nothing to show yet" for it. */
   trackerRect?: LensRect | null;
   onTrackerRectChange?: (rect: LensRect) => void;
+  /** Every shape already placed on this map — drawn on both the DM and
+   * player screens, always, since none of them are secret (issue #1). */
+  measurementShapes?: MapCanvasMeasurementShape[];
+  /** The armed placement tool. Undefined/disabled on the player screen,
+   * which never places anything itself. */
+  measurementTool?: MapCanvasMeasurementTool;
+  /** The shape currently being aimed, live — either this DM's own drag
+   * (reflected immediately via a local ref) or, on the player screen, the
+   * committed session field arriving over SSE. */
+  livePreviewShape?: MapCanvasMeasurementShape | null;
+  onMeasurementConfirm?: (shape: MeasurementShapeInput) => void;
+  /** Fires at most once per animation frame while a shape is being aimed —
+   * the same cadence `onLensChange` uses — so the player screen can track
+   * it live via `setLivePreviewShape`. */
+  onMeasurementPreviewChange?: (shape: MeasurementShapeInput | null) => void;
 };
 
 const DEFAULT_BACKGROUND = '#0f1014';
@@ -130,6 +171,11 @@ export const MapCanvasView = ({
   onLensChange,
   trackerRect = null,
   onTrackerRectChange,
+  measurementShapes = [],
+  measurementTool,
+  livePreviewShape = null,
+  onMeasurementConfirm,
+  onMeasurementPreviewChange,
 }: MapCanvasViewProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafIdRef = useRef(0);
@@ -228,6 +274,52 @@ export const MapCanvasView = ({
   /** Mirrors `lastNotifiedLensRef`, for the tracker overlay. */
   const lastNotifiedTrackerRef = useRef<LensRect | null>(null);
 
+  const measurementShapesRef = useRef(measurementShapes);
+  useEffect(() => {
+    measurementShapesRef.current = measurementShapes;
+  }, [measurementShapes]);
+
+  const measurementToolRef = useRef(measurementTool);
+  useEffect(() => {
+    measurementToolRef.current = measurementTool;
+  }, [measurementTool]);
+
+  const livePreviewShapeRef = useRef(livePreviewShape);
+  useEffect(() => {
+    livePreviewShapeRef.current = livePreviewShape;
+  }, [livePreviewShape]);
+
+  const gridSpecRef = useRef<GridSpec>({
+    cellSize: grid.cellSize,
+    originX: grid.originX,
+    originY: grid.originY,
+  });
+  useEffect(() => {
+    gridSpecRef.current = {
+      cellSize: grid.cellSize,
+      originX: grid.originX,
+      originY: grid.originY,
+    };
+  }, [grid.cellSize, grid.originX, grid.originY]);
+
+  /** Live preview for a shape being placed — this DM's own drag, updated
+   * synchronously by `useViewportInteraction` on every click/move. Same
+   * "ref not state" role as `lensPreviewRef`. */
+  const measurementPreviewRef = useRef<MeasurementShapeInput | null>(null);
+
+  const onMeasurementConfirmRef = useRef(onMeasurementConfirm);
+  useEffect(() => {
+    onMeasurementConfirmRef.current = onMeasurementConfirm;
+  }, [onMeasurementConfirm]);
+
+  const onMeasurementPreviewChangeRef = useRef(onMeasurementPreviewChange);
+  useEffect(() => {
+    onMeasurementPreviewChangeRef.current = onMeasurementPreviewChange;
+  }, [onMeasurementPreviewChange]);
+
+  /** Mirrors `lastNotifiedLensRef`, for the measurement preview. */
+  const lastNotifiedMeasurementRef = useRef<MeasurementShapeInput | null>(null);
+
   const scheduleDraw = useMemo(
     () => () => {
       if (rafIdRef.current !== 0) return;
@@ -281,6 +373,26 @@ export const MapCanvasView = ({
           lastNotifiedTrackerRef.current = currentTracker;
           onTrackerRectChangeRef.current?.(currentTracker);
         }
+
+        // Same "at most once per frame, only if it moved" notify for a
+        // shape being placed — this is what lets the player screen track it
+        // live via `setLivePreviewShape` (issue #1).
+        const currentMeasurement = measurementPreviewRef.current;
+        const lastMeasurement = lastNotifiedMeasurementRef.current;
+        if (
+          currentMeasurement &&
+          (!lastMeasurement ||
+            currentMeasurement.originX !== lastMeasurement.originX ||
+            currentMeasurement.originY !== lastMeasurement.originY ||
+            currentMeasurement.extentFeet !== lastMeasurement.extentFeet ||
+            currentMeasurement.orientation !== lastMeasurement.orientation)
+        ) {
+          lastNotifiedMeasurementRef.current = currentMeasurement;
+          onMeasurementPreviewChangeRef.current?.(currentMeasurement);
+        } else if (!currentMeasurement && lastMeasurement) {
+          lastNotifiedMeasurementRef.current = null;
+          onMeasurementPreviewChangeRef.current?.(null);
+        }
       });
     },
     [],
@@ -329,6 +441,10 @@ export const MapCanvasView = ({
     trackerRectRef,
     trackerPreviewRef,
     onTrackerRectChange,
+    measurementToolRef,
+    gridRef: gridSpecRef,
+    measurementPreviewRef,
+    onMeasurementConfirm,
     onScheduleDraw: scheduleDraw,
   });
 
@@ -470,6 +586,72 @@ export const MapCanvasView = ({
         ctx.restore();
       }
 
+      const drawShapeFootprint = (
+        footprint: ReturnType<typeof computeShapeFootprint>,
+        color: string,
+        dashed: boolean,
+      ) => {
+        const zoom = currentViewport.zoom || 1;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2 / zoom;
+        if (dashed) ctx.setLineDash([8 / zoom, 6 / zoom]);
+
+        if (footprint.kind === 'circle') {
+          ctx.beginPath();
+          ctx.arc(footprint.cx, footprint.cy, footprint.radius, 0, Math.PI * 2);
+          ctx.globalAlpha = 0.15;
+          ctx.fill();
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          footprint.points.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
+          });
+          if (footprint.points.length > 2) {
+            ctx.closePath();
+            ctx.globalAlpha = 0.15;
+            ctx.fill();
+          }
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.restore();
+      };
+
+      // Every committed shape, always visible — none of them are secret.
+      for (const shape of measurementShapesRef.current) {
+        drawShapeFootprint(
+          computeShapeFootprint(shape, gridSpecRef.current),
+          shape.color,
+          false,
+        );
+      }
+
+      // The shape currently being aimed: this DM's own drag takes priority
+      // (updated synchronously), falling back to the live session field for
+      // a non-interactive canvas (the player screen) tracking it over SSE.
+      const previewShape = measurementPreviewRef.current;
+      const remotePreview = livePreviewShapeRef.current;
+      if (previewShape) {
+        drawShapeFootprint(
+          computeShapeFootprint(previewShape, gridSpecRef.current),
+          measurementToolRef.current?.color ?? '#6fa7ff',
+          true,
+        );
+      } else if (remotePreview) {
+        drawShapeFootprint(
+          computeShapeFootprint(remotePreview, gridSpecRef.current),
+          remotePreview.color,
+          true,
+        );
+      }
+
       ctx.restore();
 
       if (media.isLoadingRef.current) {
@@ -515,8 +697,16 @@ export const MapCanvasView = ({
     fogOpacity,
     fogRef,
     grid,
+    gridSpecRef,
     lensPreviewRef,
     lensRectRef,
+    livePreviewShape,
+    livePreviewShapeRef,
+    measurementPreviewRef,
+    measurementShapes,
+    measurementShapesRef,
+    measurementTool,
+    measurementToolRef,
     media.drawableRef,
     media.isLoadingRef,
     media.progressRef,

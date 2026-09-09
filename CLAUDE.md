@@ -506,12 +506,15 @@ tracker, sharing its `/player` route and the SSE pattern (DECISIONS #18).
 ### Domain model
 
 ```
-map_folders    one level deep — a folder never nests inside another
-maps           an uploaded image/video; grid calibration and fog of war live
-               here, per map, not globally
-map_sessions   singleton (`CURRENT_MAP_SESSION_ID`), mirroring `encounters`:
-               the active map, the DM's own viewport, the player-view lens,
-               grid display prefs, and the player screen mode
+map_folders             one level deep — a folder never nests inside another
+maps                    an uploaded image/video; grid calibration and fog of
+                        war live here, per map, not globally
+map_sessions            singleton (`CURRENT_MAP_SESSION_ID`), mirroring
+                        `encounters`: the active map, the DM's own viewport,
+                        the player-view lens, grid display prefs, the player
+                        screen mode, and the in-progress measurement preview
+map_measurement_shapes  a placed ruler or spell-area template, per map;
+                        several coexist, each cleared individually
 ```
 
 Maps tables spread `syncMeta` like every other session table — unlike the
@@ -572,9 +575,38 @@ Open5e library, none of this is read-only reference data.
   `window.devicePixelRatio` at draw time — on a 3x display this roughly
   halves the pixels rasterized every frame, and removes a drift risk between
   two independent reads of the same value.
+- **The ruler and spell-area templates measure in grid squares, not
+  pixels.** `~/utils/mapMeasurement` uses 5e's tabletop convention —
+  grid-square counting, a diagonal costs the same as an orthogonal move
+  (Chebyshev distance in grid cells) — never true Euclidean geometry. This is
+  a deliberate divergence from the pixel-accurate `mapViewport`/`mapLens`
+  math elsewhere on this canvas; do not "fix" it to match (DECISIONS #27).
+  Only the origin snaps to the grid; a cone/line/cube's orientation stays a
+  free angle.
+- **A placement is two clicks, not a held drag** — origin click, then the
+  shape live-follows the cursor, then a confirm click — mirroring
+  `calibrationStart`/`calibrationPreviewRef`'s two-click flow, not the
+  fog brush's continuous stroke. The pending origin and live-follow shape
+  are local refs inside `useViewportInteraction`, never round-tripped
+  through React state or the zustand store — nothing outside the canvas
+  needs the in-progress point, the same reasoning `calibrationPreviewRef`
+  already documents.
+- **A size preset collapses the gesture to one click.** Picking a 5e preset
+  size (or a spell via `mapSpellShapeType`) sets `measurementTool.presetExtentFeet`;
+  the next click commits immediately at that exact size and a 0° default
+  orientation instead of arming the two-click drag. A `ruler` has no size of
+  its own and always free-drags regardless (DECISIONS #27).
+- **The live-drag preview reuses the lens's exact broadcast pattern.**
+  `map_sessions.livePreviewShape` (nullable JSON) is written from the same
+  RAF-notify scheduler as `onLensChange`, at most once per animation frame,
+  and read back out through `toPlayerMapView`/SSE — so `/player` tracks a
+  shape while the DM is still aiming it, not just once it's committed to
+  `map_measurement_shapes`. Committed shapes need no player-side filtering:
+  every placed shape is meant to be seen, there is no "secret" measurement.
 
 Built: the gallery (folders, upload, rename/move/remove), the canvas (pan,
 zoom, grid calibration, fog of war with a reveal/cover brush), the live
 session (active map, DM viewport persistence, the draggable lens, the
-mode toggle), and the mode-aware player screen. Not started: the
+mode toggle), the mode-aware player screen, and the ruler/spell-area
+measurement tool. Not started: the
 Artwork/handout gallery the source app also had.

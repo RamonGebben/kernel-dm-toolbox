@@ -39,6 +39,10 @@ export const MapCanvas = () => {
       onLensChange={canvas.onLensChange}
       trackerRect={canvas.trackerRect}
       onTrackerRectChange={canvas.onTrackerRectChange}
+      measurementShapes={canvas.measurementShapes}
+      measurementTool={canvas.measurementTool}
+      onMeasurementConfirm={canvas.onMeasurementConfirm}
+      onMeasurementPreviewChange={canvas.onMeasurementPreviewChange}
     />
   );
 };

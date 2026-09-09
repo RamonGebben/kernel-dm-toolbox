@@ -33,6 +33,8 @@ const meta = {
     onMediaDimensions: fn(),
     onLensChange: fn(),
     onTrackerRectChange: fn(),
+    onMeasurementConfirm: fn(),
+    onMeasurementPreviewChange: fn(),
   },
   parameters: {
     // A fixed-size wrapper so pointer coordinates are stable across runs.
@@ -457,5 +459,208 @@ export const FogBrushInsideTheLensIgnoresTheWheel: Story = {
     // the lens is not zoomed even though the cursor is over it.
     await expect(args.onLensChange).not.toHaveBeenCalled();
     await expect(args.onViewportChange).toHaveBeenCalledOnce();
+  },
+};
+
+export const PlacingACircleByFreeDrag: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // First click sets the origin (snapped to the nearest grid intersection)
+    // — VTT-ruler style, not a held drag, so this is not a confirm yet.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    await waitForFrame();
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+    // Live-broadcast at most once per frame, same discipline as the lens.
+    await expect(args.onMeasurementPreviewChange).toHaveBeenCalledOnce();
+
+    // The second click confirms — extent is grid-square-counted (5e's
+    // diagonal-costs-the-same convention), a circle has no orientation.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 150,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 150, clientY: 100 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
+      shapeType: 'circle',
+      originX: 100,
+      originY: 100,
+      extentFeet: 5,
+      orientation: null,
+    });
+    // Never pans underneath the placement gesture.
+    await expect(args.onViewportChange).not.toHaveBeenCalled();
+  },
+};
+
+export const PlacingACubeAtAFixedPreset: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'cube',
+      color: '#6fa7ff',
+      presetExtentFeet: 20,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // A size preset commits in a single click, at a default orientation —
+    // no second click needed.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 100 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
+      shapeType: 'cube',
+      originX: 100,
+      originY: 100,
+      extentFeet: 20,
+      orientation: 0,
+    });
+  },
+};
+
+export const RulerIgnoresAPresetAndAlwaysFreeDrags: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'ruler',
+      color: '#6fa7ff',
+      presetExtentFeet: 20,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // A ruler has no size of its own, so a preset is a no-op for it — the
+    // first click only sets the origin.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 100 });
+    await waitForFrame();
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 200,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 200, clientY: 100 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
+      shapeType: 'ruler',
+      originX: 100,
+      originY: 100,
+      extentFeet: 10,
+      orientation: 0,
+    });
+  },
+};
+
+export const RightClickCancelsAPendingPlacement: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 100 });
+    await waitForFrame();
+
+    fireEvent.contextMenu(element, { clientX: 150, clientY: 100 });
+    await waitForFrame();
+
+    // Abandoned, not confirmed — clears the live preview it had broadcast.
+    await expect(args.onMeasurementPreviewChange).toHaveBeenLastCalledWith(
+      null,
+    );
+
+    // A fresh click after cancelling starts a new placement, not a confirm.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 200,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 200, clientY: 100 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+  },
+};
+
+export const MeasurementToolTakesPriorityOverTheLens: Story = {
+  args: {
+    lensRect,
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: 10,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // Inside the (unlocked) lens body — placement still wins.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledOnce();
+    await expect(args.onLensChange).not.toHaveBeenCalled();
+  },
+};
+
+const committedShape = {
+  id: 'shape-1',
+  shapeType: 'circle' as const,
+  originX: 100,
+  originY: 100,
+  extentFeet: 20,
+  orientation: null,
+  color: '#ff8a5c',
+};
+
+export const CommittedShapesAreAlwaysDrawn: Story = {
+  args: { measurementShapes: [committedShape], interactive: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Nothing to assert on canvas pixels — this proves the read-only
+    // (player-screen) canvas accepts and renders committed shapes without
+    // throwing, the same guarantee `NotInteractive` gives the rest of the
+    // props.
+    await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
   },
 };

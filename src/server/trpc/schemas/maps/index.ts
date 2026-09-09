@@ -108,3 +108,44 @@ export const trackerOverlayInputSchema = z.object({
 export const toggleViewportLockInputSchema = z.object({
   locked: z.boolean(),
 });
+
+export const measurementShapeTypeSchema = z.enum([
+  'ruler',
+  'circle',
+  'cone',
+  'line',
+  'cube',
+]);
+
+export const listMeasurementShapesInputSchema = z.object({ mapId: z.uuid() });
+
+export const createMeasurementShapeInputSchema = z.object({
+  mapId: z.uuid(),
+  shapeType: measurementShapeTypeSchema,
+  originX: z.number(),
+  originY: z.number(),
+  extentFeet: z.number().positive().max(2000),
+  orientation: z.number().nullable(),
+  label: z.string().trim().max(80).nullable().optional(),
+  color: z.string().trim().min(1).max(20).optional(),
+  sourceSpellSlug: z.string().min(1).max(200).nullable().optional(),
+});
+
+export const measurementShapeIdInputSchema = z.object({ id: z.uuid() });
+
+const measurementPreviewSchema = z.object({
+  mapId: z.uuid(),
+  shapeType: measurementShapeTypeSchema,
+  originX: z.number(),
+  originY: z.number(),
+  extentFeet: z.number().positive().max(2000),
+  orientation: z.number().nullable(),
+  color: z.string().trim().min(1).max(20),
+  label: z.string().trim().max(80).nullable(),
+});
+
+/** `preview: null` clears it — the DM confirmed, cancelled, or nothing is in
+ * progress. */
+export const setLivePreviewShapeInputSchema = z.object({
+  preview: measurementPreviewSchema.nullable(),
+});

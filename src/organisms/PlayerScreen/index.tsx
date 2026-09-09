@@ -94,6 +94,7 @@ export const PlayerScreen = () => {
         isConnected={isConnected}
         mapAreaRef={mapAreaRef}
         trackerOverlay={view?.trackerOverlay ?? DEFAULT_TRACKER_OVERLAY}
+        livePreviewShape={view?.livePreviewShape ?? null}
       />
     </PlayerScreenStage>
   );

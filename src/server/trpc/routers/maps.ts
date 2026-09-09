@@ -1,18 +1,22 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
   CURRENT_MAP_SESSION_ID,
   mapFolders,
+  mapMeasurementShapes,
   mapSessions,
   maps,
 } from '~/server/db/schema';
 import {
   applyFogStrokesInputSchema,
   createFolderInputSchema,
+  createMeasurementShapeInputSchema,
   folderIdInputSchema,
   gridDisplayInputSchema,
+  listMeasurementShapesInputSchema,
   mapIdInputSchema,
+  measurementShapeIdInputSchema,
   moveMapInputSchema,
   playerScreenModeInputSchema,
   playerScreenOrientationInputSchema,
@@ -23,6 +27,7 @@ import {
   setActiveMapInputSchema,
   setFogOpacityInputSchema,
   setGridCalibrationInputSchema,
+  setLivePreviewShapeInputSchema,
   toggleFogInputSchema,
   toggleViewportLockInputSchema,
   trackerOverlayInputSchema,
@@ -561,6 +566,98 @@ export const mapsRouter = createTRPCRouter({
         .update(mapSessions)
         .set({
           isViewportLocked: input.locked,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /** Every ruler/template placed on this map, oldest first — several can
+   * coexist, each cleared individually (DECISIONS: issue #1). */
+  listMeasurementShapes: publicProcedure
+    .input(listMeasurementShapesInputSchema)
+    .query(({ ctx, input }) =>
+      ctx.db.query.mapMeasurementShapes.findMany({
+        where: and(
+          eq(mapMeasurementShapes.mapId, input.mapId),
+          isNull(mapMeasurementShapes.deletedAt),
+        ),
+        orderBy: asc(mapMeasurementShapes.createdAt),
+      }),
+    ),
+
+  /** The DB write for a placed shape — the second, confirming click. The
+   * live-drag frames leading up to it are not individually persisted, only
+   * broadcast via `setLivePreviewShape`. */
+  createMeasurementShape: publicProcedure
+    .input(createMeasurementShapeInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      await loadMap(ctx.db, input.mapId);
+
+      const [created] = await ctx.db
+        .insert(mapMeasurementShapes)
+        .values({
+          mapId: input.mapId,
+          shapeType: input.shapeType,
+          originX: input.originX,
+          originY: input.originY,
+          extentFeet: input.extentFeet,
+          orientation: input.orientation,
+          label: input.label || null,
+          color: input.color || undefined,
+          sourceSpellSlug: input.sourceSpellSlug || null,
+        })
+        .returning();
+
+      publishMapsChanged();
+
+      return created;
+    }),
+
+  removeMeasurementShape: publicProcedure
+    .input(measurementShapeIdInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.query.mapMeasurementShapes.findFirst({
+        where: and(
+          eq(mapMeasurementShapes.id, input.id),
+          isNull(mapMeasurementShapes.deletedAt),
+        ),
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'That shape is already gone.',
+        });
+      }
+
+      await ctx.db
+        .update(mapMeasurementShapes)
+        .set(tombstoneSyncMeta({ version: existing.version, now: new Date() }))
+        .where(eq(mapMeasurementShapes.id, input.id));
+
+      publishMapsChanged();
+
+      return { id: input.id };
+    }),
+
+  /** The shape the DM is currently dragging into place, written live at
+   * most once per animation frame (see `MapCanvasView`'s scheduler) — the
+   * same cadence `setPlayerViewport` uses for the lens, so the player
+   * screen tracks it while it's still being aimed. */
+  setLivePreviewShape: publicProcedure
+    .input(setLivePreviewShapeInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          livePreviewShape: input.preview,
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))

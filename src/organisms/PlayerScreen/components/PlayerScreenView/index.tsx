@@ -8,6 +8,7 @@ import { PlayerMapBoardView } from '~/organisms/PlayerScreen/components/PlayerSc
 import { computeTrackerBoxFraction } from '~/utils/trackerOverlayRect';
 import type { Viewport } from '~/utils/mapViewport';
 import type {
+  PlayerMapView,
   PlayerMapViewMap,
   PlayerMapViewTrackerOverlay,
 } from '~/server/maps/toPlayerMapView';
@@ -26,6 +27,7 @@ export type PlayerScreenViewProps = {
   mapAreaRef: RefObject<HTMLDivElement | null>;
   /** Only read in `'both'` mode. */
   trackerOverlay: PlayerMapViewTrackerOverlay;
+  livePreviewShape: PlayerMapView['livePreviewShape'];
 };
 
 /**
@@ -41,6 +43,7 @@ export const PlayerScreenView = ({
   isConnected,
   mapAreaRef,
   trackerOverlay,
+  livePreviewShape,
 }: PlayerScreenViewProps) => {
   if (mode === 'tracker') return <PlayerBoard />;
 
@@ -65,7 +68,11 @@ export const PlayerScreenView = ({
 
   return (
     <FullScreen ref={mapAreaRef}>
-      <PlayerMapBoardView map={map} viewport={viewport} />
+      <PlayerMapBoardView
+        map={map}
+        viewport={viewport}
+        livePreviewShape={livePreviewShape}
+      />
       {!isConnected && <Reconnecting>Reconnecting…</Reconnecting>}
       {mode === 'both' && (
         <TrackerOverlay

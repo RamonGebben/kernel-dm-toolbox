@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDb } from '~/server/db';
-import { maps } from '~/server/db/schema';
+import { mapMeasurementShapes, maps } from '~/server/db/schema';
 import { ensureMapSession } from '~/server/maps/session';
 import { subscribeToMapsChanges } from '~/server/maps/events';
 import { toPlayerMapView } from '~/server/maps/toPlayerMapView';
@@ -44,7 +44,16 @@ export const GET = async (request: Request) => {
             })) ?? null)
           : null;
 
-        send(toPlayerMapView({ session, map: activeMap }));
+        const measurementShapes = activeMap
+          ? await db.query.mapMeasurementShapes.findMany({
+              where: and(
+                eq(mapMeasurementShapes.mapId, activeMap.id),
+                isNull(mapMeasurementShapes.deletedAt),
+              ),
+            })
+          : [];
+
+        send(toPlayerMapView({ session, map: activeMap, measurementShapes }));
       };
 
       await push();

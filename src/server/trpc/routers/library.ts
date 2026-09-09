@@ -181,6 +181,9 @@ export const libraryRouter = createTRPCRouter({
           concentration: spells.concentration,
           ritual: spells.ritual,
           classes: spells.classes,
+          shapeType: spells.shapeType,
+          shapeSize: spells.shapeSize,
+          shapeSizeUnit: spells.shapeSizeUnit,
         })
         .from(spells)
         .where(filters.length ? and(...filters) : undefined)

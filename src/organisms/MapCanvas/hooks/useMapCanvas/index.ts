@@ -17,7 +17,9 @@ import {
 import type {
   CalibrationPoint,
   MapCanvasFogStroke,
+  MapCanvasMeasurementShape,
 } from '~/organisms/MapCanvas/components/MapCanvasView';
+import type { MeasurementShapeInput } from '~/utils/mapMeasurement';
 
 /**
  * How long to wait after the DM's pan/zoom settles before persisting it.
@@ -58,6 +60,7 @@ export const useMapCanvas = () => {
   const trackerEditingActive = useMapToolStore(
     state => state.activePanel === 'session',
   );
+  const measurementTool = useMapToolStore(state => state.measurementTool);
 
   const session = useQuery(trpc.maps.getSession.queryOptions());
   const activeMapId = session.data?.activeMapId ?? null;
@@ -86,6 +89,10 @@ export const useMapCanvas = () => {
     queryClient.invalidateQueries({
       queryKey: trpc.maps.getSession.queryKey(),
     });
+  const invalidateMeasurementShapes = () =>
+    queryClient.invalidateQueries({
+      queryKey: trpc.maps.listMeasurementShapes.queryKey(),
+    });
 
   const reportDimensions = useMutation(
     trpc.maps.reportDimensions.mutationOptions({ onSuccess: invalidateMap }),
@@ -106,6 +113,27 @@ export const useMapCanvas = () => {
     trpc.maps.setTrackerOverlay.mutationOptions({
       onSuccess: invalidateSession,
     }),
+  );
+
+  const measurementShapesQuery = useQuery({
+    ...trpc.maps.listMeasurementShapes.queryOptions({ mapId: mapId ?? '' }),
+    enabled: mapId !== undefined,
+  });
+  const createMeasurementShape = useMutation(
+    trpc.maps.createMeasurementShape.mutationOptions({
+      onSuccess: invalidateMeasurementShapes,
+    }),
+  );
+  const removeMeasurementShape = useMutation(
+    trpc.maps.removeMeasurementShape.mutationOptions({
+      onSuccess: invalidateMeasurementShapes,
+    }),
+  );
+  // No `onSuccess` invalidation: this is a per-frame live broadcast, not a
+  // change the DM's own screen needs to refetch anything over — only the
+  // player screen (over SSE) ever reads it.
+  const setLivePreviewShape = useMutation(
+    trpc.maps.setLivePreviewShape.mutationOptions(),
   );
 
   // Stable prop identities: none of these need to be recreated on every
@@ -270,6 +298,67 @@ export const useMapCanvas = () => {
     [lensRect, setTrackerOverlay],
   );
 
+  const measurementShapes = useMemo<MapCanvasMeasurementShape[]>(
+    () =>
+      (measurementShapesQuery.data ?? []).map(shape => ({
+        id: shape.id,
+        shapeType: shape.shapeType,
+        originX: shape.originX,
+        originY: shape.originY,
+        extentFeet: shape.extentFeet,
+        orientation: shape.orientation,
+        color: shape.color,
+        label: shape.label,
+      })),
+    [measurementShapesQuery.data],
+  );
+
+  // The DB write for a placed shape is the confirming second click; the
+  // live-drag frames leading up to it are only ever broadcast, never
+  // individually persisted (see `onMeasurementPreviewChange`).
+  const handleMeasurementConfirm = useCallback(
+    (shape: MeasurementShapeInput) => {
+      if (!mapId) return;
+
+      createMeasurementShape.mutate({
+        mapId,
+        shapeType: shape.shapeType,
+        originX: shape.originX,
+        originY: shape.originY,
+        extentFeet: shape.extentFeet,
+        orientation: shape.orientation,
+        color: measurementTool.color,
+        label: measurementTool.label.trim() || null,
+        sourceSpellSlug: measurementTool.sourceSpellSlug,
+      });
+    },
+    [mapId, createMeasurementShape, measurementTool],
+  );
+
+  // Live while a shape is being aimed — the same cadence `onLensChange`
+  // uses — so the player screen tracks it before the confirming click.
+  const handleMeasurementPreviewChange = useCallback(
+    (shape: MeasurementShapeInput | null) => {
+      if (!mapId) return;
+
+      setLivePreviewShape.mutate({
+        preview: shape
+          ? {
+              mapId,
+              shapeType: shape.shapeType,
+              originX: shape.originX,
+              originY: shape.originY,
+              extentFeet: shape.extentFeet,
+              orientation: shape.orientation,
+              color: measurementTool.color,
+              label: measurementTool.label.trim() || null,
+            }
+          : null,
+      });
+    },
+    [mapId, setLivePreviewShape, measurementTool],
+  );
+
   return {
     map: map.data
       ? {
@@ -297,5 +386,18 @@ export const useMapCanvas = () => {
     onLensChange,
     trackerRect,
     onTrackerRectChange,
+    measurementShapes,
+    measurementTool: mapId
+      ? {
+          enabled: measurementTool.enabled,
+          shapeType: measurementTool.shapeType,
+          color: measurementTool.color,
+          presetExtentFeet: measurementTool.presetExtentFeet,
+        }
+      : undefined,
+    onMeasurementConfirm: handleMeasurementConfirm,
+    onMeasurementPreviewChange: handleMeasurementPreviewChange,
+    onRemoveMeasurementShape: (id: string) =>
+      removeMeasurementShape.mutate({ id }),
   };
 };
