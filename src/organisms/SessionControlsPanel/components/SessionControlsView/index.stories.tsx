@@ -9,6 +9,8 @@ const meta = {
     hasActiveMap: true,
     mode: 'map',
     onModeChange: fn(),
+    orientation: 'auto',
+    onOrientationChange: fn(),
   },
 } satisfies Meta<typeof SessionControlsView>;
 
@@ -24,6 +26,24 @@ export const TrackerMode: Story = {
 
 export const BothMode: Story = {
   args: { mode: 'both' },
+};
+
+export const LandscapeOverride: Story = {
+  args: { orientation: 'landscape' },
+};
+
+export const PortraitOverride: Story = {
+  args: { orientation: 'portrait' },
+};
+
+export const SwitchingOrientation: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('tab', { name: 'Portrait' }));
+
+    await expect(args.onOrientationChange).toHaveBeenCalledWith('portrait');
+  },
 };
 
 export const NoActiveMap: Story = {

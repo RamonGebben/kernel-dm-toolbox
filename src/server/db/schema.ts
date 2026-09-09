@@ -640,6 +640,7 @@ export type NewMapAsset = typeof maps.$inferInsert;
 export const CURRENT_MAP_SESSION_ID = 'current';
 
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
+export type PlayerScreenOrientation = 'auto' | 'landscape' | 'portrait';
 
 export const mapSessions = sqliteTable(
   'map_sessions',
@@ -684,11 +685,24 @@ export const mapSessions = sqliteTable(
       .$type<PlayerScreenMode>()
       .notNull()
       .default('tracker'),
+
+    /** Page-level, independent of `playerViewportRotation` (which is an
+     * unused per-viewport field): whether the player screen's whole content
+     * is rotated 90° to match a physically landscape/portrait TV. `auto`
+     * follows whatever the player screen itself reports. */
+    playerScreenOrientation: text('player_screen_orientation')
+      .$type<PlayerScreenOrientation>()
+      .notNull()
+      .default('auto'),
   },
   table => [
     check(
       'map_sessions_mode_is_valid',
       sql`${table.playerScreenMode} in ('map', 'tracker', 'both')`,
+    ),
+    check(
+      'map_sessions_orientation_is_valid',
+      sql`${table.playerScreenOrientation} in ('auto', 'landscape', 'portrait')`,
     ),
   ],
 );

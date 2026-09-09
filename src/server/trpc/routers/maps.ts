@@ -15,6 +15,7 @@ import {
   mapIdInputSchema,
   moveMapInputSchema,
   playerScreenModeInputSchema,
+  playerScreenOrientationInputSchema,
   playerScreenSizeInputSchema,
   renameFolderInputSchema,
   renameMapInputSchema,
@@ -447,6 +448,28 @@ export const mapsRouter = createTRPCRouter({
         .update(mapSessions)
         .set({
           playerScreenMode: input.mode,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /** Page-level: rotates the whole player screen 90° to match a physically
+   * landscape/portrait TV. `auto` leaves it to whatever the screen itself
+   * reports (see `PlayerScreenStage`). */
+  setPlayerScreenOrientation: publicProcedure
+    .input(playerScreenOrientationInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          playerScreenOrientation: input.orientation,
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))

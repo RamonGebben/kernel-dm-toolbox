@@ -5,6 +5,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useMapPlayerStream } from '~/hooks/useMapPlayerStream';
 import { PlayerScreenView } from '~/organisms/PlayerScreen/components/PlayerScreenView';
+import { PlayerScreenStage } from '~/organisms/PlayerScreen/components/PlayerScreenStage';
+import { usePhysicalViewportSize } from '~/organisms/PlayerScreen/hooks/usePhysicalViewportSize';
 
 /** Coalesces a resize gesture (a monitor being dragged, a window resized)
  * into one write, the same discipline as the DM's own viewport persistence. */
@@ -14,12 +16,14 @@ const RESIZE_DEBOUNCE_MS = 300;
  * Connected boundary: owns the map session's SSE stream — for `mode` **and**
  * the map payload, so there is exactly one `/api/maps/stream` connection —
  * plus reporting this screen's own measured size back to the session so the
- * DM's lens sizes correctly against it. Delegates every pixel to
- * `PlayerScreenView`.
+ * DM's lens sizes correctly against it. Wraps every mode in
+ * `PlayerScreenStage`, so the DM's orientation override applies regardless of
+ * `mode`, then delegates every pixel to `PlayerScreenView`.
  */
 export const PlayerScreen = () => {
   const trpc = useTRPC();
   const { isConnected, view } = useMapPlayerStream();
+  const physicalSize = usePhysicalViewportSize();
 
   const mapAreaRef = useRef<HTMLDivElement | null>(null);
   const lastReportedSizeRef = useRef<{ width: number; height: number } | null>(
@@ -65,12 +69,17 @@ export const PlayerScreen = () => {
   }, [view?.mode, setPlayerScreenSize]);
 
   return (
-    <PlayerScreenView
-      mode={view?.mode ?? 'tracker'}
-      map={view?.map ?? null}
-      viewport={view?.viewport ?? { x: 0, y: 0, zoom: 1 }}
-      isConnected={isConnected}
-      mapAreaRef={mapAreaRef}
-    />
+    <PlayerScreenStage
+      physicalSize={physicalSize}
+      orientation={view?.orientation ?? 'auto'}
+    >
+      <PlayerScreenView
+        mode={view?.mode ?? 'tracker'}
+        map={view?.map ?? null}
+        viewport={view?.viewport ?? { x: 0, y: 0, zoom: 1 }}
+        isConnected={isConnected}
+        mapAreaRef={mapAreaRef}
+      />
+    </PlayerScreenStage>
   );
 };

@@ -57,6 +57,13 @@
       "when": 1788678292110,
       "tag": "0007_ambitious_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788962582716,
+      "tag": "0008_workable_chronomancer",
+      "breakpoints": true
     }
   ]
 }

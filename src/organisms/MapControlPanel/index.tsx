@@ -17,7 +17,7 @@ const SECTIONS: readonly {
   { id: 'gallery', label: 'Maps', icon: 'images' },
   { id: 'grid', label: 'Grid', icon: 'grid' },
   { id: 'fog', label: 'Fog', icon: 'cloud' },
-  { id: 'session', label: 'Session', icon: 'cast' },
+  { id: 'session', label: 'Player Screen', icon: 'cast' },
 ];
 
 /**

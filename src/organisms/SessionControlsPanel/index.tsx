@@ -26,11 +26,21 @@ export const SessionControlsPanel = () => {
     }),
   );
 
+  const setPlayerScreenOrientation = useMutation(
+    trpc.maps.setPlayerScreenOrientation.mutationOptions({
+      onSuccess: invalidateSession,
+    }),
+  );
+
   return (
     <SessionControlsView
       hasActiveMap={session.data?.activeMapId != null}
       mode={session.data?.playerScreenMode ?? 'tracker'}
       onModeChange={mode => setPlayerScreenMode.mutate({ mode })}
+      orientation={session.data?.playerScreenOrientation ?? 'auto'}
+      onOrientationChange={orientation =>
+        setPlayerScreenOrientation.mutate({ orientation })
+      }
     />
   );
 };

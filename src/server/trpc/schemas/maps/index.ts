@@ -90,6 +90,10 @@ export const playerScreenModeInputSchema = z.object({
   mode: z.enum(['map', 'tracker', 'both']),
 });
 
+export const playerScreenOrientationInputSchema = z.object({
+  orientation: z.enum(['auto', 'landscape', 'portrait']),
+});
+
 export const toggleViewportLockInputSchema = z.object({
   locked: z.boolean(),
 });

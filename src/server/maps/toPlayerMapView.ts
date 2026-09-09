@@ -4,6 +4,7 @@ import type {
   MapFogStroke,
   MapSession,
   PlayerScreenMode,
+  PlayerScreenOrientation,
 } from '~/server/db/schema';
 
 export type PlayerMapViewMap = {
@@ -30,6 +31,7 @@ export type PlayerMapViewMap = {
 
 export type PlayerMapView = {
   mode: PlayerScreenMode;
+  orientation: PlayerScreenOrientation;
   /** Null when nothing is live yet, or the active map has been removed. */
   map: PlayerMapViewMap | null;
   viewport: { x: number; y: number; zoom: number };
@@ -51,6 +53,7 @@ export const toPlayerMapView = (args: {
 
   return {
     mode: session.playerScreenMode,
+    orientation: session.playerScreenOrientation,
     map: map
       ? {
           fileUrl: toMapDetail(map).fileUrl,

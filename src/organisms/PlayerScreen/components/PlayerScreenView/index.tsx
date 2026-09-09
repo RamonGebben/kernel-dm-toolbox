@@ -58,7 +58,10 @@ export const PlayerScreenView = ({
 
 const FullScreen = styled.div`
   position: relative;
-  height: 100dvh;
+  /* Fills its parent frame rather than the physical viewport — under a 90°
+   * orientation override the parent's own box no longer matches 100dvh. */
+  width: 100%;
+  height: 100%;
 `;
 
 const TrackerOverlay = styled.div`
