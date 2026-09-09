@@ -490,9 +490,91 @@ which derives the list from the classes actually present on an imported spell
 (`buildSpellClassOptions`) rather than a hardcoded roster, since which classes
 have spells depends on what got imported.
 
-Not started, in rough order of usefulness: folding in
+Not started, in rough order of usefulness: drag-to-reorder the initiative
+list, in-app dice rolling for attacks, and a rules glossary from Open5e's
+`Rule` / `*Description` files. `README.md` holds the roadmap and
+`DECISIONS.md` #24 the survey of what else upstream is worth importing.
+
+## The Maps tool
+
+A virtual tabletop, ported from the user's standalone
 [Kernels-Virtual-Table-Top](https://github.com/RamonGebben/Kernels-Virtual-Table-Top)
-as the Maps tool, drag-to-reorder the initiative list, in-app dice rolling for
-attacks, and a rules glossary from Open5e's `Rule` / `*Description` files.
-`README.md` holds the roadmap and `DECISIONS.md` #24 the survey of what else
-upstream is worth importing.
+app: a pan/zoom/grid/fog-of-war battle map for the DM, and a second screen the
+table watches — the same DM-screen-plus-player-screen shape as the initiative
+tracker, sharing its `/player` route and the SSE pattern (DECISIONS #18).
+
+### Domain model
+
+```
+map_folders    one level deep — a folder never nests inside another
+maps           an uploaded image/video; grid calibration and fog of war live
+               here, per map, not globally
+map_sessions   singleton (`CURRENT_MAP_SESSION_ID`), mirroring `encounters`:
+               the active map, the DM's own viewport, the player-view lens,
+               grid display prefs, and the player screen mode
+```
+
+Maps tables spread `syncMeta` like every other session table — unlike the
+Open5e library, none of this is read-only reference data.
+
+### Rules that are easy to get wrong
+
+- **The canvas draws through one RAF-gated scheduler, never synchronously.**
+  `MapCanvasView`'s draw effect always calls `scheduleDraw()`, never
+  `drawScene()` directly — learned the hard way, from a real profiling
+  session where a synchronous draw call in the effect's tail was 81% of tab
+  CPU during pan/zoom. Every per-event value that used to flow straight into
+  React state — the viewport, the grid-calibration preview, the lens drag —
+  lives in a ref instead, diffed and reported at most once per animation
+  frame from inside that one RAF callback.
+- **A continuous DM gesture never writes per raw event.** Fog painting
+  batches a whole stroke into one mutation on pointerup (`onFogStrokeBatch`).
+  The DM's own viewport debounces to a settle-write (~800ms) since it only
+  needs to survive a restart, not reach another screen instantly. The
+  player-view lens is the one exception that writes *live*: it's diffed and
+  reported at most once per animation frame while being dragged (the same
+  RAF-notify pattern `onViewportChange` already uses), plus one final commit
+  on pointerup, so the player screen visibly tracks the drag rather than
+  jumping only on release — see DECISIONS #26 for why the lens gets this
+  treatment and the fog brush/calibration don't.
+- **The player-view lens is independent of the DM's own pan/zoom, always
+  draggable, and wheel-zoomed — not corner-handle-resized.** It is a second,
+  separately-stored viewport (`playerViewport*`) rendered as a rect
+  (`~/utils/mapLens`) directly on the DM's own canvas — a rectangle, not a
+  "push my view" button — so checking a monster or painting fog never drags
+  the table's view along with the DM's. There is no "edit mode" to enter
+  first: dragging the rect's body moves it, and scrolling the wheel while the
+  cursor is over it zooms it (mirroring the DM's own wheel-zoom elsewhere on
+  the same canvas) — matching the source VTT app's original interaction, not
+  a drag-a-corner-handle resize.
+- **The player screen is mode-aware, not map-only.**
+  `map_sessions.playerScreenMode` is `'map' | 'tracker' | 'both'`; `/player`
+  renders `PlayerScreen`, which owns the map session's SSE stream and
+  switches layout on it. `'tracker'` renders the existing `PlayerBoard`
+  completely untouched — the default, so a session that predates Maps
+  doesn't have its player screen silently switch away from initiative.
+- **Grid display is session-wide; grid calibration is per-map.** Color,
+  opacity, visibility and background live on `map_sessions` (they apply to
+  whichever map is live); cell size and origin live on `maps` (a property of
+  that specific image). Both live in the Grid tab — from the DM's chair
+  they're both just "grid settings," even though they're two different
+  tables underneath.
+- **Uploads live outside tRPC.** `POST /api/maps/upload` is a plain
+  multipart handler — tRPC has no multipart support — and the insert on the
+  server IS the confirmation; the client invalidates `maps.list` by hand.
+  `GET /api/maps/[mapId]/file` serves the bytes with range support, so a
+  `.webm` map can seek instead of downloading in full first. Both the DM and
+  player canvases fetch the same URL. Storage path is always
+  server-generated (`~/utils/mapStorage`), never derived from the uploaded
+  filename.
+- **The canvas backing store caps its device pixel ratio at 2x**, computed
+  once in `useCanvasSize` and read from there rather than re-reading
+  `window.devicePixelRatio` at draw time — on a 3x display this roughly
+  halves the pixels rasterized every frame, and removes a drift risk between
+  two independent reads of the same value.
+
+Built: the gallery (folders, upload, rename/move/remove), the canvas (pan,
+zoom, grid calibration, fog of war with a reveal/cover brush), the live
+session (active map, DM viewport persistence, the draggable lens, the
+mode toggle), and the mode-aware player screen. Not started: the
+Artwork/handout gallery the source app also had.

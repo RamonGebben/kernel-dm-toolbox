@@ -556,3 +556,78 @@ actually useful when three campaigns are open.
 **Where the attribution went.** SRD 5.2 is CC-BY-4.0 and the credit is a
 licence obligation, so it moved to the README rather than disappearing. The
 obligation is to credit, not to credit in a footer of every screen.
+
+---
+
+## 26. The player-view lens is always draggable, wheel-zoomed, and live
+
+**Decision.** The second screen's map view is controlled by a "lens": a
+rectangle drawn directly on the DM's own canvas, independent of their own
+pan/zoom. It is stored as a viewport (`playerViewportX/Y/Zoom`) on the
+`map_sessions` singleton, the same table that also holds the DM's own
+viewport (persisted so it survives a restart) and the three-way
+`playerScreenMode` toggle (map/tracker/both). The lens is always visible and
+always grabbable — there is no "edit mode" to switch into first — and a lock
+button in the map control rail blocks grabbing it without hiding it. Dragging
+the rect's body moves it; scrolling the wheel while the cursor is over it
+zooms it (the same wheel-zoom gesture the DM's own viewport already has,
+redirected to the lens). Both go through the DM's canvas exactly once each
+edit cycle: a first pass built this as corner-handle drag-resize gated behind
+an explicit "Edit player view" toggle, committed once per gesture on
+pointerup — a plausible design on its own, but built without checking it
+against the source VTT app
+this tool is ported from. A direct comparison against
+`RamonGebben/Kernels-Virtual-Table-Top`'s `ViewportCanvas`/`useSessionState`
+turned up three divergences worth correcting, below.
+
+**Why a lens rather than a push button.** A "push my current view" button was
+the cheaper option — no new drag interaction, no aspect-ratio math — but it
+means the DM's own navigation and what the table sees are the same thing,
+which they often aren't: a DM zoomed in to paint fog or check a monster's
+position would drag the table's view along with them. The lens decouples the
+two, matching the source app's original behavior. This part of the original
+design held up and is unchanged.
+
+**Why there's no edit-mode gate.** The source app's lens is always draggable
+directly on the canvas; its wire protocol has a `locked` field that is never
+wired to any button (dead code). Gating the lens behind a click-to-enter
+"Edit player view" mode was friction the original never had. The gate is
+removed; a lock button is kept as a small deliberate improvement over the
+original, since — unlike the dead `locked` field it's modeled after — it
+actually does something.
+
+**Why the resize gesture is the wheel, not corner handles.** The original has
+no drag-resize at all: scrolling while the cursor is over the lens zooms it,
+mirroring the DM's own wheel-zoom over the rest of the canvas. Since the lens
+is fundamentally a second viewport (`{x, y, zoom}`) rendered as a rect via
+`computeLensRect`, wheel-zoom is the natural fit — uniform scaling
+automatically preserves the player screen's aspect ratio, no forcing needed,
+and no new UI affordance (handles) has to be discovered. `~/utils/mapLens`
+composes this from the same `zoomAtPoint` the DM's own wheel-zoom already
+uses (`zoomLensAtPoint`), not a new resize algorithm.
+
+**Why the lens updates live, not just on release.** The original calls back
+on every pointer move — cheap, since it's an in-memory WebSocket broadcast
+with no persistence. This app's session state is SQLite-backed via tRPC, so a
+literal unthrottled per-pointermove mutation would reintroduce the class of
+chatty-write problem the canvas's own pan/zoom rendering fix eliminated. The
+resolution: `MapCanvasView`'s existing RAF-notify pattern (already used for
+`onViewportChange`) is reused for the lens — diffed and reported at most once
+per animation frame while a drag is in progress, plus one final commit on
+pointerup as a safety net. This reads as live to the DM (indistinguishable
+from unthrottled at animation-frame cadence) while bounding the worst case.
+Wheel-driven zoom fires per wheel tick, unthrottled, matching the original —
+wheel events are already naturally infrequent, so there's nothing to batch.
+This is a deliberate, accepted increase in write volume for this one
+interaction relative to the gesture-batched fog/calibration flows and the
+DM's own 800ms-debounced viewport — the app is a single DM on a local
+network, so the absolute load stays trivial.
+
+**Architectural consequence.** The three settle-cadences this app uses for
+continuous DM interactions are now: frame-coalesced-and-live (the lens, while
+dragging), gesture-committed (fog strokes, grid calibration), and debounced
+settle-persistence (the DM's own viewport, ~800ms). Which one a future
+continuous interaction should use depends on whether the *other* screen needs
+to see it move live (frame-coalesced), only needs the end state (gesture-
+committed), or only needs to survive a restart (debounced). `FogControlsPanel`'s
+still-unbatched opacity/brush sliders remain a noted, unaddressed follow-up.
