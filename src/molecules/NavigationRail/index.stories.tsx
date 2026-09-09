@@ -29,13 +29,36 @@ export const Default: Story = {
   },
 };
 
-/** An unbuilt tool is on the rail but cannot be clicked into nothing. */
+/**
+ * An unbuilt tool is on the rail but cannot be clicked into nothing.
+ *
+ * Given its own fixture rather than the live `tools` config: every tool this
+ * app ships is eventually built, so this story must not depend on one of
+ * them staying unbuilt forever.
+ */
 export const UnbuiltToolsAreDisabled: Story = {
+  args: {
+    tools: [
+      {
+        id: 'initiative',
+        label: 'Initiative',
+        description: 'Initiative tracker',
+        icon: 'swords',
+        href: '/',
+      },
+      {
+        id: 'maps',
+        label: 'Unbuilt',
+        description: 'Unbuilt tool',
+        icon: 'map',
+      },
+    ],
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(
-      canvas.getByRole('button', { name: 'Maps — coming soon' }),
+      canvas.getByRole('button', { name: 'Unbuilt — coming soon' }),
     ).toBeDisabled();
   },
 };
