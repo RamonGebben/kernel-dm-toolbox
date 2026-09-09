@@ -12,7 +12,18 @@ import styled from 'styled-components';
  * making. Geometry follows Lucide's 24×24 stroked grid so a later swap to a
  * package is a rename rather than a redraw.
  */
-export type IconName = 'swords' | 'map' | 'spellbook';
+export type IconName =
+  | 'swords'
+  | 'map'
+  | 'spellbook'
+  | 'images'
+  | 'grid'
+  | 'cloud'
+  | 'cast'
+  | 'lock'
+  | 'unlock'
+  | 'more'
+  | 'chevronDown';
 
 export type IconProps = {
   name: IconName;
@@ -46,6 +57,53 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
     </>
   ),
+  images: (
+    <>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-4.5-4.5a2 2 0 0 0-2.83 0L5 19" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M3 15h18" />
+      <path d="M9 3v18" />
+      <path d="M15 3v18" />
+    </>
+  ),
+  cloud: (
+    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+  ),
+  cast: (
+    <>
+      <path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" />
+      <path d="M2 12a9 9 0 0 1 8 8" />
+      <path d="M2 16a5 5 0 0 1 4 4" />
+      <line x1="2" x2="2.01" y1="20" y2="20" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
+  ),
+  unlock: (
+    <>
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+    </>
+  ),
+  more: (
+    <>
+      <circle cx="12" cy="5" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="12" cy="19" r="1" />
+    </>
+  ),
+  chevronDown: <polyline points="6 9 12 15 18 9" />,
 };
 
 /**

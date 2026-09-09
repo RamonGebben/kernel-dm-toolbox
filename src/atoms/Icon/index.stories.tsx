@@ -1,7 +1,19 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Icon, type IconName } from '~/atoms/Icon';
 
-const names: IconName[] = ['swords', 'map', 'spellbook'];
+const names: IconName[] = [
+  'swords',
+  'map',
+  'spellbook',
+  'images',
+  'grid',
+  'cloud',
+  'cast',
+  'lock',
+  'unlock',
+  'more',
+  'chevronDown',
+];
 
 const meta = {
   title: 'Atoms/Icon',
