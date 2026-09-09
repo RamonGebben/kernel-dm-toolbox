@@ -83,6 +83,12 @@ const FullScreen = styled.div`
   height: 100%;
 `;
 
+/**
+ * `min-height`, not `height` — projected onto a TV with no controls, so a
+ * scrollbar (from a fixed height too short for the current roster) is not
+ * an option. The DM's size setting is a floor the box grows past as needed
+ * to keep every combatant visible, never a ceiling that clips or scrolls.
+ */
 const TrackerOverlay = styled.div<{
   $left: number;
   $top: number;
@@ -94,9 +100,8 @@ const TrackerOverlay = styled.div<{
   left: ${props => props.$left * 100}%;
   top: ${props => props.$top * 100}%;
   width: ${props => props.$width * 100}%;
-  height: ${props => props.$height * 100}%;
+  min-height: ${props => props.$height * 100}%;
   opacity: ${props => props.$opacity};
-  overflow-y: auto;
   background: ${props =>
     `color-mix(in srgb, ${props.theme.color.canvas} 88%, transparent)`};
   backdrop-filter: blur(8px);

@@ -66,22 +66,12 @@ export const TrackerOverlayBoardView = ({
       <List>
         {combatants.map(combatant => (
           <Row key={combatant.id} $isActive={combatant.isActive}>
-            <MainLine>
-              {showInitiative && (
-                <Initiative>{combatant.initiative}</Initiative>
-              )}
-              {showName && (
-                <Name $isPlayerCharacter={combatant.isPlayerCharacter}>
-                  {combatant.displayName}
-                </Name>
-              )}
-              {showHealth && (
-                <Health $status={combatant.healthStatus}>
-                  {healthLabels[combatant.healthStatus]}
-                </Health>
-              )}
-            </MainLine>
-
+            {showInitiative && <Initiative>{combatant.initiative}</Initiative>}
+            {showName && (
+              <Name $isPlayerCharacter={combatant.isPlayerCharacter}>
+                {combatant.displayName}
+              </Name>
+            )}
             {showConditions && combatant.conditions.length > 0 && (
               <Conditions>
                 {combatant.conditions.map(condition => (
@@ -90,6 +80,11 @@ export const TrackerOverlayBoardView = ({
                   </ConditionBadge>
                 ))}
               </Conditions>
+            )}
+            {showHealth && (
+              <Health $status={combatant.healthStatus}>
+                {healthLabels[combatant.healthStatus]}
+              </Health>
             )}
           </Row>
         ))}
@@ -110,14 +105,19 @@ const healthColor = {
   unconscious: (color: { danger: string }) => color.danger,
 } as const;
 
+/**
+ * No fixed/percentage height and no scrolling anywhere in this component —
+ * this is projected onto a TV with no controls, so every combatant must
+ * stay visible without anyone touching it. The overlay box that wraps this
+ * (\`PlayerScreenView\`) sizes itself to this content instead of the other
+ * way around.
+ */
 const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.space.sm};
   width: 100%;
-  height: 100%;
   padding: ${props => props.theme.space.sm};
-  overflow: hidden;
 `;
 
 const Header = styled.header`
@@ -147,14 +147,12 @@ const List = styled.ol`
   margin: 0;
   padding: 0;
   list-style: none;
-  overflow-y: auto;
-  min-height: 0;
 `;
 
 const Row = styled.li<{ $isActive: boolean }>`
   display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
+  align-items: center;
+  gap: ${props => props.theme.space.sm};
   padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
   background: ${props =>
     props.$isActive
@@ -168,25 +166,29 @@ const Row = styled.li<{ $isActive: boolean }>`
   font-size: ${props => props.theme.fontSize.sm};
 `;
 
-const MainLine = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-`;
-
+/** Never wraps to a second line and never grows past its share of the row —
+ * `ConditionBadge` truncates instead, so an active combatant with several
+ * conditions can't push the row's height around. */
 const Conditions = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: ${props => props.theme.space.xs};
+  min-width: 0;
+  max-width: 45%;
+  overflow: hidden;
 `;
 
 const ConditionBadge = styled.span`
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 0 ${props => props.theme.space.xs};
   border: 1px solid ${props => props.theme.color.border};
   border-radius: ${props => props.theme.radius.sm};
   color: ${props => props.theme.color.textMuted};
   font-size: ${props => props.theme.fontSize.sm};
-  white-space: nowrap;
 `;
 
 const Initiative = styled.span`
