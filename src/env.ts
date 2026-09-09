@@ -48,6 +48,21 @@ export const env = createEnv({
      * gates from leaking into the browser bundle.
      */
     FEATURE_INITIATIVE_TRACKER: featureGate,
+
+    /**
+     * Where uploaded map images/videos live on disk. Same relative-path
+     * gotcha as `DATABASE_URL`: `pnpm start` absolutises it against the
+     * project root, and Docker passes `/data/maps` — the same volume the
+     * database file already lives on.
+     */
+    MAPS_STORAGE_DIR: z.string().min(1).default('.data/maps'),
+
+    /** Upload size cap in bytes, enforced before a file is written to disk. */
+    MAPS_MAX_UPLOAD_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(50 * 1024 * 1024),
   },
 
   client: {
