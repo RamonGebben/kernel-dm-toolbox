@@ -524,3 +524,175 @@ export type NewEncounterPreset = typeof encounterPresets.$inferInsert;
 export type EncounterPresetEntry = typeof encounterPresetEntries.$inferSelect;
 export type NewEncounterPresetEntry =
   typeof encounterPresetEntries.$inferInsert;
+
+/* ---------------------------------------------------------------------------
+ * Maps
+ *
+ * Ours, not imported — everything here spreads `syncMeta` and is soft-deleted,
+ * same as every other session-state table above.
+ * ------------------------------------------------------------------------- */
+
+/** A single fog-of-war brush stroke, replayed in order to rebuild the mask. */
+export type MapFogStroke = {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  /** 0 = hard edge, 1 = fully feathered. */
+  softness: number;
+  shape: 'circle' | 'square';
+  mode: 'reveal' | 'cover';
+};
+
+export type MapFogState = {
+  enabled: boolean;
+  /** What the strokes are layered on top of — "reveal all"/"reset" are a
+   * one-field flip plus `strokes: []`, not a synthesized full-canvas stroke. */
+  baseState: 'covered' | 'revealed';
+  /** DM's own overlay darkness. Never crosses to the player view. */
+  opacityDm: number;
+  /** What the player screen actually renders at. */
+  opacityTable: number;
+  strokes: MapFogStroke[];
+};
+
+export const DEFAULT_MAP_FOG_STATE: MapFogState = {
+  enabled: false,
+  baseState: 'covered',
+  opacityDm: 0.6,
+  opacityTable: 0.9,
+  strokes: [],
+};
+
+/**
+ * A folder in the map gallery. One level deep — nothing here ever needs a
+ * `parentId`; the source app's own folder tree never went deeper either.
+ *
+ * A real table rather than a string column on `maps`, because a folder is no
+ * longer a filesystem path here: renaming it is a single `UPDATE`, not a
+ * cascading rewrite of every contained map's storage path.
+ */
+export const mapFolders = sqliteTable('map_folders', {
+  ...syncMeta,
+  name: text('name').notNull(),
+  /** Never `order` — reserved word. */
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+export type MapFolder = typeof mapFolders.$inferSelect;
+export type NewMapFolder = typeof mapFolders.$inferInsert;
+
+/**
+ * An uploaded battle map (image or looping video).
+ *
+ * `storagePath` is always server-generated (a random id plus extension, see
+ * `src/utils/mapStorage`) and never derived from the original filename, so
+ * there is no user-controlled filesystem path anywhere in this table.
+ *
+ * Grid calibration lives here, per map, rather than in a separate metadata
+ * file: `gridCellSize` is null until the two-click calibration flow commits
+ * it. Fog is also per-map, not global — switching the active map must not
+ * require deciding what happens to fog progress on the previous one.
+ */
+export const maps = sqliteTable(
+  'maps',
+  {
+    ...syncMeta,
+    folderId: text('folder_id').references(() => mapFolders.id, {
+      onDelete: 'set null',
+    }),
+    name: text('name').notNull(),
+    /** 'image' | 'video' */
+    kind: text('kind').notNull(),
+    storagePath: text('storage_path').notNull().unique(),
+    originalFilename: text('original_filename').notNull(),
+    mimeType: text('mime_type').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    /** Null until the client reports them after first decode. */
+    nativeWidth: integer('native_width'),
+    nativeHeight: integer('native_height'),
+    /** Null means "uncalibrated". */
+    gridCellSize: real('grid_cell_size'),
+    gridOriginX: real('grid_origin_x').notNull().default(0),
+    gridOriginY: real('grid_origin_y').notNull().default(0),
+    fog: text('fog', { mode: 'json' })
+      .$type<MapFogState>()
+      .notNull()
+      .default(DEFAULT_MAP_FOG_STATE),
+  },
+  table => [
+    check('maps_kind_is_valid', sql`${table.kind} in ('image', 'video')`),
+  ],
+);
+
+export type MapAsset = typeof maps.$inferSelect;
+export type NewMapAsset = typeof maps.$inferInsert;
+
+/**
+ * The live map session. There is exactly one, mirroring `encounters`: a
+ * single row with a fixed id, so there is never a "which session?" question.
+ *
+ * The DM's own viewport is persisted so it survives a restart, but it is
+ * never sent to the player — only `playerViewport*` (the "lens" the DM drags
+ * and zooms to control exactly what the second screen shows) crosses that
+ * boundary, in `toPlayerMapView`.
+ */
+export const CURRENT_MAP_SESSION_ID = 'current';
+
+export type PlayerScreenMode = 'map' | 'tracker' | 'both';
+
+export const mapSessions = sqliteTable(
+  'map_sessions',
+  {
+    ...syncMeta,
+    activeMapId: text('active_map_id').references(() => maps.id, {
+      onDelete: 'set null',
+    }),
+
+    dmViewportX: real('dm_viewport_x').notNull().default(0),
+    dmViewportY: real('dm_viewport_y').notNull().default(0),
+    dmViewportZoom: real('dm_viewport_zoom').notNull().default(1),
+
+    playerViewportX: real('player_viewport_x').notNull().default(0),
+    playerViewportY: real('player_viewport_y').notNull().default(0),
+    playerViewportZoom: real('player_viewport_zoom').notNull().default(1),
+    playerViewportRotation: real('player_viewport_rotation'),
+
+    /** Reported by the player screen itself, so the DM's lens rectangle
+     * sizes correctly against its actual aspect ratio. */
+    playerScreenWidth: integer('player_screen_width').notNull().default(1920),
+    playerScreenHeight: integer('player_screen_height')
+      .notNull()
+      .default(1080),
+
+    isViewportLocked: integer('is_viewport_locked', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+
+    gridVisible: integer('grid_visible', { mode: 'boolean' })
+      .notNull()
+      .default(true),
+    gridColor: text('grid_color').notNull().default('#e0e5f5'),
+    gridOpacity: real('grid_opacity').notNull().default(0.18),
+    gridBackgroundColor: text('grid_background_color')
+      .notNull()
+      .default('#0c0d11'),
+
+    /** What the second screen currently shows. The extension point for a
+     * future richer per-widget layout — this milestone ships only the
+     * three-way toggle. Defaults to the tracker so a session that predates
+     * Maps doesn't have its player screen silently switch away from it. */
+    playerScreenMode: text('player_screen_mode')
+      .$type<PlayerScreenMode>()
+      .notNull()
+      .default('tracker'),
+  },
+  table => [
+    check(
+      'map_sessions_mode_is_valid',
+      sql`${table.playerScreenMode} in ('map', 'tracker', 'both')`,
+    ),
+  ],
+);
+
+export type MapSession = typeof mapSessions.$inferSelect;
