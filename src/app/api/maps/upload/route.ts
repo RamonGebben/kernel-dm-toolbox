@@ -68,7 +68,8 @@ export const POST = async (request: Request) => {
       .returning();
 
     return Response.json(map, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error('Failed to save uploaded map:', error);
     return Response.json(
       { error: 'Could not save the uploaded map.' },
       { status: 400 },
