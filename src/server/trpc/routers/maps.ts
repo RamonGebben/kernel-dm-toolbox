@@ -338,7 +338,9 @@ export const mapsRouter = createTRPCRouter({
       return updated;
     }),
 
-  getSession: publicProcedure.query(async ({ ctx }) => ensureMapSession(ctx.db)),
+  getSession: publicProcedure.query(async ({ ctx }) =>
+    ensureMapSession(ctx.db),
+  ),
 
   /** Replaces the client-only "preview" concept: picking a map in the
    * gallery now sets the table's live map, there is no separate DM preview. */

@@ -56,9 +56,7 @@ export const buildMapGallery = ({
   folders: FolderRow[];
   maps: MapRow[];
 }): MapGallery => {
-  const sortedFolders = [...folders].sort(
-    (a, b) => a.sortOrder - b.sortOrder,
-  );
+  const sortedFolders = [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return {
     folders: sortedFolders.map(folder => ({

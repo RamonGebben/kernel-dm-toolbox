@@ -33,5 +33,8 @@ export const rollExpression = (
   roll: RollDie = rollDie,
 ): DiceRollResult => {
   const rolls = Array.from({ length: count }, () => roll(sides));
-  return { rolls, total: rolls.reduce((sum, value) => sum + value, 0) + modifier };
+  return {
+    rolls,
+    total: rolls.reduce((sum, value) => sum + value, 0) + modifier,
+  };
 };

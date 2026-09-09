@@ -9,7 +9,11 @@ import { FogControlsPanel } from '~/organisms/FogControlsPanel';
 import { SessionControlsPanel } from '~/organisms/SessionControlsPanel';
 import { PlayerViewLockButton } from '~/organisms/PlayerViewLockButton';
 
-const SECTIONS: readonly { id: MapControlPanelId; label: string; icon: IconName }[] = [
+const SECTIONS: readonly {
+  id: MapControlPanelId;
+  label: string;
+  icon: IconName;
+}[] = [
   { id: 'gallery', label: 'Maps', icon: 'images' },
   { id: 'grid', label: 'Grid', icon: 'grid' },
   { id: 'fog', label: 'Fog', icon: 'cloud' },
@@ -55,7 +59,10 @@ export const MapControlPanel = () => {
         <PlayerViewLockButton />
       </Rail>
 
-      <Drawer $isOpen={activeSection !== undefined} aria-hidden={!activeSection}>
+      <Drawer
+        $isOpen={activeSection !== undefined}
+        aria-hidden={!activeSection}
+      >
         {activeSection && (
           <>
             <DrawerHeader>
@@ -150,7 +157,10 @@ const Drawer = styled.div<{ $isOpen: boolean }>`
   z-index: 20;
   display: flex;
   flex-direction: column;
-  width: min(22rem, calc(100% - ${RAIL_WIDTH} - ${props => props.theme.space.md} * 3));
+  width: min(
+    22rem,
+    calc(100% - ${RAIL_WIDTH} - ${props => props.theme.space.md} * 3)
+  );
   max-height: calc(100% - ${props => props.theme.space.md} * 2);
   border-radius: ${props => props.theme.radius.lg};
   ${OVERLAY_SURFACE}

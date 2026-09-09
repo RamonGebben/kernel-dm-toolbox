@@ -3,9 +3,24 @@ import { expect, fn, userEvent, within } from 'storybook/test';
 import { SpellLibraryView } from '~/organisms/SpellLibrary/components/SpellLibraryView';
 
 const spells = [
-  { slug: 'srd-2024_fireball', name: 'Fireball', levelLabel: '3rd-level', school: 'Evocation' },
-  { slug: 'srd-2024_guidance', name: 'Guidance', levelLabel: 'Cantrip', school: 'Divination' },
-  { slug: 'srd-2024_hold-person', name: 'Hold Person', levelLabel: '2nd-level', school: 'Enchantment' },
+  {
+    slug: 'srd-2024_fireball',
+    name: 'Fireball',
+    levelLabel: '3rd-level',
+    school: 'Evocation',
+  },
+  {
+    slug: 'srd-2024_guidance',
+    name: 'Guidance',
+    levelLabel: 'Cantrip',
+    school: 'Divination',
+  },
+  {
+    slug: 'srd-2024_hold-person',
+    name: 'Hold Person',
+    levelLabel: '2nd-level',
+    school: 'Enchantment',
+  },
 ];
 
 const levelOptions = [

@@ -206,7 +206,7 @@ through a knob. Their view child carries the stories. See
   `grid-template-columns` instead.
 - **`Tabs` is a full-width segmented control, not a left-aligned cluster.**
   `List` is `width: 100%`; each `Tab` is `flex: 1 1 0; min-width: 0;
-  text-align: center;` so tabs stretch to fill their container and split the
+text-align: center;` so tabs stretch to fill their container and split the
   space evenly rather than sizing to their label.
 - **A panel-local footer reserves height with `calc()`, not a page footer.**
   When only one panel needs trailing content below its scroll area (e.g. the
@@ -531,7 +531,7 @@ Open5e library, none of this is read-only reference data.
   batches a whole stroke into one mutation on pointerup (`onFogStrokeBatch`).
   The DM's own viewport debounces to a settle-write (~800ms) since it only
   needs to survive a restart, not reach another screen instantly. The
-  player-view lens is the one exception that writes *live*: it's diffed and
+  player-view lens is the one exception that writes _live_: it's diffed and
   reported at most once per animation frame while being dragged (the same
   RAF-notify pattern `onViewportChange` already uses), plus one final commit
   on pointerup, so the player screen visibly tracks the drag rather than

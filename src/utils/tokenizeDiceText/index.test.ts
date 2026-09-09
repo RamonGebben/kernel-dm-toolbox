@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { tokenizeDiceText, type DiceTextSegment } from '~/utils/tokenizeDiceText';
+import {
+  tokenizeDiceText,
+  type DiceTextSegment,
+} from '~/utils/tokenizeDiceText';
 
 const diceSegments = (text: string) =>
   tokenizeDiceText(text).filter(
@@ -22,11 +25,14 @@ describe('tokenizeDiceText', () => {
     ['2d4 + 4 Temporary Hit Points', '2d4 + 4', 2, 4, 4],
     ['1d4 + 1 Force damage', '1d4 + 1', 1, 4, 1],
     ['regains 4d8 + 15 Hit Points.', '4d8 + 15', 4, 8, 15],
-  ])('matches a positive modifier at real spacing in %s', (text, value, count, sides, modifier) => {
-    expect(diceSegments(text)).toEqual([
-      { type: 'dice', value, count, sides, modifier },
-    ]);
-  });
+  ])(
+    'matches a positive modifier at real spacing in %s',
+    (text, value, count, sides, modifier) => {
+      expect(diceSegments(text)).toEqual([
+        { type: 'dice', value, count, sides, modifier },
+      ]);
+    },
+  );
 
   it('matches a tightly-spaced modifier', () => {
     expect(diceSegments('8d6+4')).toEqual([
@@ -55,7 +61,9 @@ describe('tokenizeDiceText', () => {
   });
 
   it('matches every independent dice mention in one sentence', () => {
-    expect(diceSegments('31 (9d6) Fire damage plus 31 (9d6) Force damage.')).toEqual([
+    expect(
+      diceSegments('31 (9d6) Fire damage plus 31 (9d6) Force damage.'),
+    ).toEqual([
       { type: 'dice', value: '9d6', count: 9, sides: 6, modifier: 0 },
       { type: 'dice', value: '9d6', count: 9, sides: 6, modifier: 0 },
     ]);
@@ -81,8 +89,12 @@ describe('tokenizeDiceText', () => {
 
   it('matches percentile dice', () => {
     expect(
-      diceSegments('The GM rolls 1d100 and consults the Teleportation Outcome table'),
-    ).toEqual([{ type: 'dice', value: '1d100', count: 1, sides: 100, modifier: 0 }]);
+      diceSegments(
+        'The GM rolls 1d100 and consults the Teleportation Outcome table',
+      ),
+    ).toEqual([
+      { type: 'dice', value: '1d100', count: 1, sides: 100, modifier: 0 },
+    ]);
   });
 
   it('matches a bare die immediately followed by a plural "s", excluding the "s" from the token', () => {
@@ -95,7 +107,10 @@ describe('tokenizeDiceText', () => {
       { type: 'dice', value: 'd6', count: 1, sides: 6, modifier: 0 },
     ]);
     // The "s" itself survives as plain text right after the second token.
-    expect(segments.at(-1)).toEqual({ type: 'text', value: 's rolls a 3 or higher' });
+    expect(segments.at(-1)).toEqual({
+      type: 'text',
+      value: 's rolls a 3 or higher',
+    });
   });
 
   it('matches multiple dice sizes listed in parens across a scaling sentence', () => {

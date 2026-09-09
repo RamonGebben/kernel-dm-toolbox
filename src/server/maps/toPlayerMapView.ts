@@ -1,5 +1,10 @@
 import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
-import type { MapAsset, MapFogStroke, MapSession, PlayerScreenMode } from '~/server/db/schema';
+import type {
+  MapAsset,
+  MapFogStroke,
+  MapSession,
+  PlayerScreenMode,
+} from '~/server/db/schema';
 
 export type PlayerMapViewMap = {
   fileUrl: string;

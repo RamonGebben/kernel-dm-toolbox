@@ -661,9 +661,7 @@ export const mapSessions = sqliteTable(
     /** Reported by the player screen itself, so the DM's lens rectangle
      * sizes correctly against its actual aspect ratio. */
     playerScreenWidth: integer('player_screen_width').notNull().default(1920),
-    playerScreenHeight: integer('player_screen_height')
-      .notNull()
-      .default(1080),
+    playerScreenHeight: integer('player_screen_height').notNull().default(1080),
 
     isViewportLocked: integer('is_viewport_locked', { mode: 'boolean' })
       .notNull()

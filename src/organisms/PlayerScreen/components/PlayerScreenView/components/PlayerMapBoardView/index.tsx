@@ -16,7 +16,10 @@ export type PlayerMapBoardViewProps = {
  * DM uses, non-interactive and driven entirely by the stream's committed
  * lens, never the DM's own pan/zoom.
  */
-export const PlayerMapBoardView = ({ map, viewport }: PlayerMapBoardViewProps) => {
+export const PlayerMapBoardView = ({
+  map,
+  viewport,
+}: PlayerMapBoardViewProps) => {
   if (!map) {
     return (
       <Centered>

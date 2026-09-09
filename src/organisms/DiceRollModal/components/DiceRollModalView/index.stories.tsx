@@ -3,8 +3,18 @@ import { expect, fn, userEvent, within } from 'storybook/test';
 import { DiceRollModalView } from '~/organisms/DiceRollModal/components/DiceRollModalView';
 
 const combatants = [
-  { id: 'combatant-1', displayName: 'Adult Black Dragon', currentHitPoints: 195, maxHitPoints: 195 },
-  { id: 'combatant-2', displayName: 'Aurelia', currentHitPoints: 42, maxHitPoints: 48 },
+  {
+    id: 'combatant-1',
+    displayName: 'Adult Black Dragon',
+    currentHitPoints: 195,
+    maxHitPoints: 195,
+  },
+  {
+    id: 'combatant-2',
+    displayName: 'Aurelia',
+    currentHitPoints: 42,
+    maxHitPoints: 48,
+  },
 ];
 
 const meta = {

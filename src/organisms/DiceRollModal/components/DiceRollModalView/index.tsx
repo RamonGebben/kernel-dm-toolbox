@@ -87,7 +87,11 @@ export const DiceRollModalView = ({
   };
 
   return (
-    <Modal title={formatExpression(count, sides, modifier)} isOpen onClose={onClose}>
+    <Modal
+      title={formatExpression(count, sides, modifier)}
+      isOpen
+      onClose={onClose}
+    >
       <Section>
         <Stepper>
           <Button

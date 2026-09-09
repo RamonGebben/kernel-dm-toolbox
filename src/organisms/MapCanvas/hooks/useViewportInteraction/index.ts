@@ -292,7 +292,12 @@ export const useViewportInteraction = ({
         return;
       }
 
-      const next = zoomAtPoint({ viewport, mapPoint, screenPoint, deltaY: event.deltaY });
+      const next = zoomAtPoint({
+        viewport,
+        mapPoint,
+        screenPoint,
+        deltaY: event.deltaY,
+      });
 
       viewportRef.current = next;
       onScheduleDraw();

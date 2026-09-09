@@ -25,7 +25,8 @@ const fireball: SpellDetail = {
   damageTypes: ['fire'],
   classes: ['Sorcerer', 'Wizard'],
   desc: 'A bright streak flashes from your pointing finger to a point you choose, then blossoms with a low roar into an explosion of flame.',
-  higherLevel: 'The damage increases by 1d6 for each spell slot level above 3rd.',
+  higherLevel:
+    'The damage increases by 1d6 for each spell slot level above 3rd.',
   castingOptions: [
     {
       id: 'opt-4',

@@ -28,7 +28,15 @@ describe('applyFogStrokeBatch', () => {
     };
 
     const result = applyFogStrokeBatch(existing, [
-      { id: 'b', x: 1, y: 1, radius: 5, softness: 0.5, shape: 'square', mode: 'cover' },
+      {
+        id: 'b',
+        x: 1,
+        y: 1,
+        radius: 5,
+        softness: 0.5,
+        shape: 'square',
+        mode: 'cover',
+      },
     ]);
 
     expect(result.strokes.map(stroke => stroke.id)).toEqual(['a', 'b']);
@@ -36,7 +44,15 @@ describe('applyFogStrokeBatch', () => {
 
   it('leaves every other field untouched', () => {
     const result = applyFogStrokeBatch(baseFog, [
-      { id: 'a', x: 0, y: 0, radius: 10, softness: 0, shape: 'circle', mode: 'reveal' },
+      {
+        id: 'a',
+        x: 0,
+        y: 0,
+        radius: 10,
+        softness: 0,
+        shape: 'circle',
+        mode: 'reveal',
+      },
     ]);
 
     expect(result.enabled).toBe(true);

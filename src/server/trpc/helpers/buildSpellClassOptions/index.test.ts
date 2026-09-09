@@ -22,10 +22,7 @@ describe('buildSpellClassOptions', () => {
       ['srd-2024_cleric'],
     ]);
 
-    expect(options.map(option => option.label)).toEqual([
-      'Cleric',
-      'Warlock',
-    ]);
+    expect(options.map(option => option.label)).toEqual(['Cleric', 'Warlock']);
   });
 
   it('returns nothing for an empty library', () => {

@@ -141,9 +141,7 @@ export const FogControlsView = ({
               max={1}
               step={0.05}
               value={dmOpacity}
-              onChange={event =>
-                onDmOpacityChange(Number(event.target.value))
-              }
+              onChange={event => onDmOpacityChange(Number(event.target.value))}
             />
           </FieldRow>
 

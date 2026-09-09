@@ -23,7 +23,9 @@ const EXAMPLE_MAP = {
 
 /** `mapAreaRef` is owned by the connected boundary in real usage — a story
  * just needs a stable ref to satisfy the prop. */
-const Fixture = (props: Omit<Parameters<typeof PlayerScreenView>[0], 'mapAreaRef'>) => {
+const Fixture = (
+  props: Omit<Parameters<typeof PlayerScreenView>[0], 'mapAreaRef'>,
+) => {
   const mapAreaRef = useRef<HTMLDivElement | null>(null);
   return <PlayerScreenView {...props} mapAreaRef={mapAreaRef} />;
 };

@@ -157,7 +157,9 @@ export const CollapsingAFolder: Story = {
     await userEvent.click(toggle);
 
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(canvas.queryByText('The Sunken Crypt')).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText('The Sunken Crypt'),
+    ).not.toBeInTheDocument();
 
     await userEvent.click(toggle);
 

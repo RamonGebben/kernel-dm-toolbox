@@ -17,7 +17,9 @@ export const PlayerViewLockButton = () => {
   const setViewportLocked = useMutation(
     trpc.maps.setViewportLocked.mutationOptions({
       onSuccess: () =>
-        queryClient.invalidateQueries({ queryKey: trpc.maps.getSession.queryKey() }),
+        queryClient.invalidateQueries({
+          queryKey: trpc.maps.getSession.queryKey(),
+        }),
     }),
   );
 

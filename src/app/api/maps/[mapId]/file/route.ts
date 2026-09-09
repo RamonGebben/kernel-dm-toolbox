@@ -35,7 +35,9 @@ export const GET = async (
 
   const storageRoot = resolve(env.MAPS_STORAGE_DIR);
   const absolutePath = resolveWithinStorageRoot(storageRoot, map.storagePath);
-  const stats = absolutePath ? await stat(absolutePath).catch(() => null) : null;
+  const stats = absolutePath
+    ? await stat(absolutePath).catch(() => null)
+    : null;
 
   if (!absolutePath || !stats) {
     return new Response('Not found', { status: 404 });

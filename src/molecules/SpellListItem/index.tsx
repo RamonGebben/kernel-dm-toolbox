@@ -44,9 +44,7 @@ const Row = styled.button<{ $isSelected: boolean }>`
       : props.theme.color.canvas};
   border: 1px solid
     ${props =>
-      props.$isSelected
-        ? props.theme.color.accent
-        : props.theme.color.border};
+      props.$isSelected ? props.theme.color.accent : props.theme.color.border};
   border-radius: ${props => props.theme.radius.sm};
   color: ${props => props.theme.color.textPrimary};
   font: inherit;

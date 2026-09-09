@@ -57,9 +57,7 @@ export const POST = async (request: Request) => {
       .insert(maps)
       .values({
         folderId:
-          typeof folderId === 'string' && folderId.length > 0
-            ? folderId
-            : null,
+          typeof folderId === 'string' && folderId.length > 0 ? folderId : null,
         name: typeof name === 'string' && name.length > 0 ? name : file.name,
         kind: validation.kind,
         storagePath,

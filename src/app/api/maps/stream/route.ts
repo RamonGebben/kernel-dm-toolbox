@@ -36,12 +36,12 @@ export const GET = async (request: Request) => {
         const db = getDb();
         const session = await ensureMapSession(db);
         const activeMap = session.activeMapId
-          ? (await db.query.maps.findFirst({
+          ? ((await db.query.maps.findFirst({
               where: and(
                 eq(maps.id, session.activeMapId),
                 isNull(maps.deletedAt),
               ),
-            })) ?? null
+            })) ?? null)
           : null;
 
         send(toPlayerMapView({ session, map: activeMap }));

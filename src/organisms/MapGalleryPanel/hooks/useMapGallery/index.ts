@@ -19,8 +19,7 @@ export type MapGalleryFolder = {
 };
 
 type RawGallery =
-  | { folders: MapGalleryFolder[]; unfiledMaps: MapGalleryItem[] }
-  | undefined;
+  { folders: MapGalleryFolder[]; unfiledMaps: MapGalleryItem[] } | undefined;
 
 /**
  * Defaults an unfetched/pending gallery to empty, so `undefined` never

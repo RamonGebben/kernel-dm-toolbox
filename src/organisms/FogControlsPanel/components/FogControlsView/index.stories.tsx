@@ -10,7 +10,13 @@ const meta = {
     isEnabled: true,
     dmOpacity: 0.6,
     playerOpacity: 0.9,
-    brush: { enabled: false, mode: 'reveal', shape: 'circle', size: 60, softness: 0.4 },
+    brush: {
+      enabled: false,
+      mode: 'reveal',
+      shape: 'circle',
+      size: 60,
+      softness: 0.4,
+    },
     onToggleEnabled: fn(),
     onReset: fn(),
     onRevealAll: fn(),
@@ -51,7 +57,9 @@ export const FogEnabled: Story = {
     await expect(
       canvas.getByRole('button', { name: 'Fog brush' }),
     ).toBeVisible();
-    await expect(canvas.getByRole('button', { name: 'Reveal all' })).toBeVisible();
+    await expect(
+      canvas.getByRole('button', { name: 'Reveal all' }),
+    ).toBeVisible();
   },
 };
 

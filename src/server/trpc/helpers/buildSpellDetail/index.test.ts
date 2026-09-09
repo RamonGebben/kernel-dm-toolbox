@@ -104,15 +104,13 @@ describe('buildRangeLabel', () => {
   });
 
   it('falls back to the numeric range and unit', () => {
-    expect(buildRangeLabel({ ...fireball, rangeText: null })).toBe(
-      '150 feet',
-    );
+    expect(buildRangeLabel({ ...fireball, rangeText: null })).toBe('150 feet');
   });
 
   it('falls back to Self when there is no range at all', () => {
-    expect(
-      buildRangeLabel({ ...fireball, rangeText: null, range: 0 }),
-    ).toBe('Self');
+    expect(buildRangeLabel({ ...fireball, rangeText: null, range: 0 })).toBe(
+      'Self',
+    );
   });
 });
 
@@ -128,9 +126,9 @@ describe('buildComponentsLabel', () => {
   });
 
   it('omits the consumed note when the material is not used up', () => {
-    expect(
-      buildComponentsLabel({ ...fireball, materialConsumed: false }),
-    ).toBe('V, S, M (a tiny ball of bat guano and sulfur)');
+    expect(buildComponentsLabel({ ...fireball, materialConsumed: false })).toBe(
+      'V, S, M (a tiny ball of bat guano and sulfur)',
+    );
   });
 });
 
@@ -183,9 +181,7 @@ describe('buildTargetLabel', () => {
   });
 
   it('prefixes the count above one', () => {
-    expect(buildTargetLabel({ ...fireball, targetCount: 3 })).toBe(
-      '3 Area',
-    );
+    expect(buildTargetLabel({ ...fireball, targetCount: 3 })).toBe('3 Area');
   });
 
   it('is null when the spell has no target type', () => {

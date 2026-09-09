@@ -176,7 +176,13 @@ export const CalibratingTheGrid: Story = {
 export const PaintingFog: Story = {
   args: {
     fog: { enabled: true, baseState: 'covered', strokes: [] },
-    fogTool: { enabled: true, mode: 'reveal', shape: 'circle', size: 40, softness: 0.4 },
+    fogTool: {
+      enabled: true,
+      mode: 'reveal',
+      shape: 'circle',
+      size: 40,
+      softness: 0.4,
+    },
   },
   play: async ({ args, canvasElement }) => {
     const element = within(canvasElement).getByLabelText('Map canvas');
@@ -200,7 +206,13 @@ export const PaintingFog: Story = {
 export const FogDisabledIgnoresTheBrush: Story = {
   args: {
     fog: { enabled: false, baseState: 'covered', strokes: [] },
-    fogTool: { enabled: true, mode: 'reveal', shape: 'circle', size: 40, softness: 0.4 },
+    fogTool: {
+      enabled: true,
+      mode: 'reveal',
+      shape: 'circle',
+      size: 40,
+      softness: 0.4,
+    },
   },
   play: async ({ args, canvasElement }) => {
     const element = within(canvasElement).getByLabelText('Map canvas');
@@ -251,7 +263,11 @@ export const DraggingTheLensByItsBody: Story = {
       height: 60,
     });
 
-    fireEvent.pointerMove(element, { pointerId: 1, clientX: 140, clientY: 110 });
+    fireEvent.pointerMove(element, {
+      pointerId: 1,
+      clientX: 140,
+      clientY: 110,
+    });
     fireEvent.pointerUp(element, { pointerId: 1, clientX: 140, clientY: 110 });
     await waitForFrame();
 
@@ -296,7 +312,11 @@ export const LensLockedIgnoresDrags: Story = {
     const element = within(canvasElement).getByLabelText('Map canvas');
 
     fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 80 });
-    fireEvent.pointerMove(element, { pointerId: 1, clientX: 140, clientY: 110 });
+    fireEvent.pointerMove(element, {
+      pointerId: 1,
+      clientX: 140,
+      clientY: 110,
+    });
     fireEvent.pointerUp(element, { pointerId: 1, clientX: 140, clientY: 110 });
     await waitForFrame();
 
@@ -314,7 +334,13 @@ export const FogBrushInsideTheLensPaintsInsteadOfDragging: Story = {
   args: {
     lensRect,
     fog: { enabled: true, baseState: 'covered', strokes: [] },
-    fogTool: { enabled: true, mode: 'reveal', shape: 'circle', size: 40, softness: 0.4 },
+    fogTool: {
+      enabled: true,
+      mode: 'reveal',
+      shape: 'circle',
+      size: 40,
+      softness: 0.4,
+    },
   },
   play: async ({ args, canvasElement }) => {
     const element = within(canvasElement).getByLabelText('Map canvas');
@@ -336,7 +362,13 @@ export const FogBrushInsideTheLensIgnoresTheWheel: Story = {
     lensRect,
     lensScreenSize,
     fog: { enabled: true, baseState: 'covered', strokes: [] },
-    fogTool: { enabled: true, mode: 'reveal', shape: 'circle', size: 40, softness: 0.4 },
+    fogTool: {
+      enabled: true,
+      mode: 'reveal',
+      shape: 'circle',
+      size: 40,
+      softness: 0.4,
+    },
   },
   play: async ({ args, canvasElement }) => {
     const element = within(canvasElement).getByLabelText('Map canvas');

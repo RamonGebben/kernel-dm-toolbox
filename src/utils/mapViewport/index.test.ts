@@ -15,9 +15,9 @@ describe('screenToMapPoint', () => {
   });
 
   it('treats a zero zoom as 1x, rather than dividing by zero', () => {
-    expect(
-      screenToMapPoint({ x: 0, y: 0, zoom: 0 }, { x: 10, y: 10 }),
-    ).toEqual({ x: 10, y: 10 });
+    expect(screenToMapPoint({ x: 0, y: 0, zoom: 0 }, { x: 10, y: 10 })).toEqual(
+      { x: 10, y: 10 },
+    );
   });
 });
 

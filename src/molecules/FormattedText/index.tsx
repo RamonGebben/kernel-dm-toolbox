@@ -3,7 +3,11 @@
 import { Fragment, type ReactNode } from 'react';
 import styled from 'styled-components';
 import { tokenizeDiceText } from '~/utils/tokenizeDiceText';
-import { parseFormattedText, type BlockNode, type InlineNode } from '~/utils/parseFormattedText';
+import {
+  parseFormattedText,
+  type BlockNode,
+  type InlineNode,
+} from '~/utils/parseFormattedText';
 import { useDiceRollStore } from '~/stores/diceRoll';
 
 export type FormattedTextProps = {
@@ -80,10 +84,7 @@ const renderBlock = (block: BlockNode, context: RenderContext): ReactNode => {
   );
 };
 
-const renderInline = (
-  nodes: InlineNode[],
-  context: RenderContext,
-): ReactNode =>
+const renderInline = (nodes: InlineNode[], context: RenderContext): ReactNode =>
   nodes.map((node, index) => {
     if (node.type === 'text') {
       return (

@@ -5,7 +5,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useMapToolStore } from '~/stores/mapTool';
 import type { Viewport } from '~/utils/mapViewport';
-import { computeLensRect, rectToPlayerViewport, type LensRect } from '~/utils/mapLens';
+import {
+  computeLensRect,
+  rectToPlayerViewport,
+  type LensRect,
+} from '~/utils/mapLens';
 import type {
   CalibrationPoint,
   MapCanvasFogStroke,
@@ -87,7 +91,9 @@ export const useMapCanvas = () => {
   );
   const setDmViewport = useMutation(trpc.maps.setDmViewport.mutationOptions());
   const setPlayerViewport = useMutation(
-    trpc.maps.setPlayerViewport.mutationOptions({ onSuccess: invalidateSession }),
+    trpc.maps.setPlayerViewport.mutationOptions({
+      onSuccess: invalidateSession,
+    }),
   );
 
   // Stable prop identities: none of these need to be recreated on every
@@ -110,7 +116,13 @@ export const useMapCanvas = () => {
 
       cancelCalibration();
     },
-    [calibrationStart, mapId, setCalibrationStart, setGridCalibration, cancelCalibration],
+    [
+      calibrationStart,
+      mapId,
+      setCalibrationStart,
+      setGridCalibration,
+      cancelCalibration,
+    ],
   );
 
   const onFogStrokeBatch = useCallback(
@@ -174,7 +186,14 @@ export const useMapCanvas = () => {
       originX: gridOriginX,
       originY: gridOriginY,
     }),
-    [gridVisible, gridColor, gridOpacity, gridCellSize, gridOriginX, gridOriginY],
+    [
+      gridVisible,
+      gridColor,
+      gridOpacity,
+      gridCellSize,
+      gridOriginX,
+      gridOriginY,
+    ],
   );
 
   const lensRect = useMemo<LensRect | null>(() => {

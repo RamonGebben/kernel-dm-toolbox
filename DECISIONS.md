@@ -627,7 +627,7 @@ network, so the absolute load stays trivial.
 continuous DM interactions are now: frame-coalesced-and-live (the lens, while
 dragging), gesture-committed (fog strokes, grid calibration), and debounced
 settle-persistence (the DM's own viewport, ~800ms). Which one a future
-continuous interaction should use depends on whether the *other* screen needs
+continuous interaction should use depends on whether the _other_ screen needs
 to see it move live (frame-coalesced), only needs the end state (gesture-
 committed), or only needs to survive a restart (debounced). `FogControlsPanel`'s
 still-unbatched opacity/brush sliders remain a noted, unaddressed follow-up.

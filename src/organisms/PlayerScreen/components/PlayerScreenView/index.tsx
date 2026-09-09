@@ -44,7 +44,11 @@ export const PlayerScreenView = ({
       <PlayerMapBoardView map={map} viewport={viewport} />
       {!isConnected && <Reconnecting>Reconnecting…</Reconnecting>}
       {mode === 'both' && (
-        <TrackerOverlay tabIndex={0} role="region" aria-label="Initiative order">
+        <TrackerOverlay
+          tabIndex={0}
+          role="region"
+          aria-label="Initiative order"
+        >
           <PlayerBoard />
         </TrackerOverlay>
       )}
