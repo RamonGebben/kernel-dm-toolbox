@@ -4,6 +4,7 @@ import { libraryRouter } from '~/server/trpc/routers/library';
 import { charactersRouter } from '~/server/trpc/routers/characters';
 import { encounterRouter } from '~/server/trpc/routers/encounter';
 import { presetsRouter } from '~/server/trpc/routers/presets';
+import { mapsRouter } from '~/server/trpc/routers/maps';
 
 /**
  * The root router. One domain router per file beside this one; register it
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   characters: charactersRouter,
   encounter: encounterRouter,
   presets: presetsRouter,
+  maps: mapsRouter,
 });
 
 /**
