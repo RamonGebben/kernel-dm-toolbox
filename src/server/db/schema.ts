@@ -694,6 +694,43 @@ export const mapSessions = sqliteTable(
       .$type<PlayerScreenOrientation>()
       .notNull()
       .default('auto'),
+
+    /** The tracker overlay in 'both' mode. Anchor is a 0..1 fraction of the
+     * player's own visible area (not raw pixels), so it stays proportionally
+     * placed across screen sizes. `showConditions` has no effect yet —
+     * conditions don't reach the player payload until a later milestone. */
+    trackerOverlayAnchorX: real('tracker_overlay_anchor_x')
+      .notNull()
+      .default(0.98),
+    trackerOverlayAnchorY: real('tracker_overlay_anchor_y')
+      .notNull()
+      .default(0.98),
+    trackerOverlayScale: real('tracker_overlay_scale').notNull().default(1),
+    trackerOverlayOpacity: real('tracker_overlay_opacity')
+      .notNull()
+      .default(0.9),
+    trackerOverlayShowInitiative: integer(
+      'tracker_overlay_show_initiative',
+      { mode: 'boolean' },
+    )
+      .notNull()
+      .default(true),
+    trackerOverlayShowName: integer('tracker_overlay_show_name', {
+      mode: 'boolean',
+    })
+      .notNull()
+      .default(true),
+    trackerOverlayShowHealth: integer('tracker_overlay_show_health', {
+      mode: 'boolean',
+    })
+      .notNull()
+      .default(true),
+    trackerOverlayShowConditions: integer(
+      'tracker_overlay_show_conditions',
+      { mode: 'boolean' },
+    )
+      .notNull()
+      .default(false),
   },
   table => [
     check(

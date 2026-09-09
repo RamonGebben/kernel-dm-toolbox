@@ -94,6 +94,17 @@ export const playerScreenOrientationInputSchema = z.object({
   orientation: z.enum(['auto', 'landscape', 'portrait']),
 });
 
+export const trackerOverlayInputSchema = z.object({
+  anchorX: z.number().min(0).max(1).optional(),
+  anchorY: z.number().min(0).max(1).optional(),
+  scale: z.number().min(0.5).max(2).optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  showInitiative: z.boolean().optional(),
+  showName: z.boolean().optional(),
+  showHealth: z.boolean().optional(),
+  showConditions: z.boolean().optional(),
+});
+
 export const toggleViewportLockInputSchema = z.object({
   locked: z.boolean(),
 });

@@ -29,12 +29,26 @@ export type PlayerMapViewMap = {
   fogOpacity: number;
 };
 
+export type PlayerMapViewTrackerOverlay = {
+  anchorX: number;
+  anchorY: number;
+  scale: number;
+  opacity: number;
+  showInitiative: boolean;
+  showName: boolean;
+  showHealth: boolean;
+  showConditions: boolean;
+};
+
 export type PlayerMapView = {
   mode: PlayerScreenMode;
   orientation: PlayerScreenOrientation;
   /** Null when nothing is live yet, or the active map has been removed. */
   map: PlayerMapViewMap | null;
   viewport: { x: number; y: number; zoom: number };
+  /** Only meaningful in `'both'` mode, but always present — a DM display
+   * preference, not player-hidden data, so it needs no filtering here. */
+  trackerOverlay: PlayerMapViewTrackerOverlay;
 };
 
 /**
@@ -81,6 +95,16 @@ export const toPlayerMapView = (args: {
       x: session.playerViewportX,
       y: session.playerViewportY,
       zoom: session.playerViewportZoom,
+    },
+    trackerOverlay: {
+      anchorX: session.trackerOverlayAnchorX,
+      anchorY: session.trackerOverlayAnchorY,
+      scale: session.trackerOverlayScale,
+      opacity: session.trackerOverlayOpacity,
+      showInitiative: session.trackerOverlayShowInitiative,
+      showName: session.trackerOverlayShowName,
+      showHealth: session.trackerOverlayShowHealth,
+      showConditions: session.trackerOverlayShowConditions,
     },
   };
 };

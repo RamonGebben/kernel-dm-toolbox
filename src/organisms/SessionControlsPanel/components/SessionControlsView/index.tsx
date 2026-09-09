@@ -25,6 +25,16 @@ export type SessionControlsViewProps = {
   onModeChange: (mode: PlayerScreenMode) => void;
   orientation: PlayerScreenOrientation;
   onOrientationChange: (orientation: PlayerScreenOrientation) => void;
+  trackerOpacity: number;
+  onTrackerOpacityChange: (opacity: number) => void;
+  trackerScale: number;
+  onTrackerScaleChange: (scale: number) => void;
+  trackerShowInitiative: boolean;
+  onTrackerShowInitiativeChange: (show: boolean) => void;
+  trackerShowName: boolean;
+  onTrackerShowNameChange: (show: boolean) => void;
+  trackerShowHealth: boolean;
+  onTrackerShowHealthChange: (show: boolean) => void;
 };
 
 /**
@@ -38,6 +48,16 @@ export const SessionControlsView = ({
   onModeChange,
   orientation,
   onOrientationChange,
+  trackerOpacity,
+  onTrackerOpacityChange,
+  trackerScale,
+  onTrackerScaleChange,
+  trackerShowInitiative,
+  onTrackerShowInitiativeChange,
+  trackerShowName,
+  onTrackerShowNameChange,
+  trackerShowHealth,
+  onTrackerShowHealthChange,
 }: SessionControlsViewProps) => (
   <Wrapper>
     <FieldGroup>
@@ -59,6 +79,76 @@ export const SessionControlsView = ({
         label="Player screen orientation"
       />
     </FieldGroup>
+
+    {mode === 'both' && (
+      <FieldGroup>
+        <Label>Tracker overlay</Label>
+
+        <FieldRow>
+          <label htmlFor="tracker-opacity">Opacity</label>
+          <input
+            id="tracker-opacity"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={trackerOpacity}
+            onChange={event =>
+              onTrackerOpacityChange(Number(event.target.value))
+            }
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <label htmlFor="tracker-scale">Size</label>
+          <input
+            id="tracker-scale"
+            type="range"
+            min={0.5}
+            max={2}
+            step={0.1}
+            value={trackerScale}
+            onChange={event =>
+              onTrackerScaleChange(Number(event.target.value))
+            }
+          />
+        </FieldRow>
+
+        <CheckboxRow>
+          <input
+            id="tracker-show-initiative"
+            type="checkbox"
+            checked={trackerShowInitiative}
+            onChange={event =>
+              onTrackerShowInitiativeChange(event.target.checked)
+            }
+          />
+          <label htmlFor="tracker-show-initiative">Show initiative</label>
+        </CheckboxRow>
+
+        <CheckboxRow>
+          <input
+            id="tracker-show-name"
+            type="checkbox"
+            checked={trackerShowName}
+            onChange={event => onTrackerShowNameChange(event.target.checked)}
+          />
+          <label htmlFor="tracker-show-name">Show name</label>
+        </CheckboxRow>
+
+        <CheckboxRow>
+          <input
+            id="tracker-show-health"
+            type="checkbox"
+            checked={trackerShowHealth}
+            onChange={event =>
+              onTrackerShowHealthChange(event.target.checked)
+            }
+          />
+          <label htmlFor="tracker-show-health">Show health</label>
+        </CheckboxRow>
+      </FieldGroup>
+    )}
 
     {!hasActiveMap && (
       <EmptyState
@@ -84,4 +174,26 @@ const FieldGroup = styled.div`
 const Label = styled.span`
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textMuted};
+`;
+
+const FieldRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${props => props.theme.space.xs};
+
+  label {
+    font-size: ${props => props.theme.fontSize.sm};
+    color: ${props => props.theme.color.textMuted};
+  }
+`;
+
+const CheckboxRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${props => props.theme.space.sm};
+
+  label {
+    color: ${props => props.theme.color.textPrimary};
+    font-size: ${props => props.theme.fontSize.sm};
+  }
 `;

@@ -32,6 +32,12 @@ export const SessionControlsPanel = () => {
     }),
   );
 
+  const setTrackerOverlay = useMutation(
+    trpc.maps.setTrackerOverlay.mutationOptions({
+      onSuccess: invalidateSession,
+    }),
+  );
+
   return (
     <SessionControlsView
       hasActiveMap={session.data?.activeMapId != null}
@@ -40,6 +46,26 @@ export const SessionControlsPanel = () => {
       orientation={session.data?.playerScreenOrientation ?? 'auto'}
       onOrientationChange={orientation =>
         setPlayerScreenOrientation.mutate({ orientation })
+      }
+      trackerOpacity={session.data?.trackerOverlayOpacity ?? 0.9}
+      onTrackerOpacityChange={opacity =>
+        setTrackerOverlay.mutate({ opacity })
+      }
+      trackerScale={session.data?.trackerOverlayScale ?? 1}
+      onTrackerScaleChange={scale => setTrackerOverlay.mutate({ scale })}
+      trackerShowInitiative={
+        session.data?.trackerOverlayShowInitiative ?? true
+      }
+      onTrackerShowInitiativeChange={showInitiative =>
+        setTrackerOverlay.mutate({ showInitiative })
+      }
+      trackerShowName={session.data?.trackerOverlayShowName ?? true}
+      onTrackerShowNameChange={showName =>
+        setTrackerOverlay.mutate({ showName })
+      }
+      trackerShowHealth={session.data?.trackerOverlayShowHealth ?? true}
+      onTrackerShowHealthChange={showHealth =>
+        setTrackerOverlay.mutate({ showHealth })
       }
     />
   );

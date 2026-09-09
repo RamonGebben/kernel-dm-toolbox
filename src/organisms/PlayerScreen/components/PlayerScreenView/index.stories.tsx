@@ -30,6 +30,17 @@ const Fixture = (
   return <PlayerScreenView {...props} mapAreaRef={mapAreaRef} />;
 };
 
+const DEFAULT_TRACKER_OVERLAY = {
+  anchorX: 0.98,
+  anchorY: 0.98,
+  scale: 1,
+  opacity: 0.9,
+  showInitiative: true,
+  showName: true,
+  showHealth: true,
+  showConditions: false,
+};
+
 const meta = {
   title: 'Organisms/PlayerScreen/PlayerScreenView',
   component: Fixture,
@@ -38,6 +49,7 @@ const meta = {
     map: null,
     viewport: { x: 0, y: 0, zoom: 1 },
     isConnected: true,
+    trackerOverlay: DEFAULT_TRACKER_OVERLAY,
   },
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof Fixture>;
@@ -79,6 +91,25 @@ export const BothModes: Story = {
 
     await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
     await expect(canvas.getByText('No fight in progress')).toBeVisible();
+  },
+};
+
+export const BothModesLargeCenteredOverlay: Story = {
+  args: {
+    mode: 'both',
+    map: EXAMPLE_MAP,
+    trackerOverlay: {
+      ...DEFAULT_TRACKER_OVERLAY,
+      anchorX: 0.5,
+      anchorY: 0.5,
+      scale: 1.5,
+      opacity: 0.6,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByLabelText('Initiative order')).toBeVisible();
   },
 };
 

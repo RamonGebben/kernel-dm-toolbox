@@ -25,6 +25,7 @@ import {
   setGridCalibrationInputSchema,
   toggleFogInputSchema,
   toggleViewportLockInputSchema,
+  trackerOverlayInputSchema,
   viewportInputSchema,
 } from '~/server/trpc/schemas/maps';
 import { buildMapGallery } from '~/server/trpc/helpers/buildMapGallery';
@@ -470,6 +471,53 @@ export const mapsRouter = createTRPCRouter({
         .update(mapSessions)
         .set({
           playerScreenOrientation: input.orientation,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /** The tracker overlay in 'both' mode. Position (`anchorX`/`anchorY`) is
+   * written live, once per animation frame, while the DM drags it on their
+   * own canvas — the same cadence as `setPlayerViewport`. Scale/opacity/
+   * show* fields are written once per settings-tab change, like
+   * `setGridDisplay`. Both cadences share this one partial-patch mutation. */
+  setTrackerOverlay: publicProcedure
+    .input(trackerOverlayInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          ...(input.anchorX !== undefined && {
+            trackerOverlayAnchorX: input.anchorX,
+          }),
+          ...(input.anchorY !== undefined && {
+            trackerOverlayAnchorY: input.anchorY,
+          }),
+          ...(input.scale !== undefined && {
+            trackerOverlayScale: input.scale,
+          }),
+          ...(input.opacity !== undefined && {
+            trackerOverlayOpacity: input.opacity,
+          }),
+          ...(input.showInitiative !== undefined && {
+            trackerOverlayShowInitiative: input.showInitiative,
+          }),
+          ...(input.showName !== undefined && {
+            trackerOverlayShowName: input.showName,
+          }),
+          ...(input.showHealth !== undefined && {
+            trackerOverlayShowHealth: input.showHealth,
+          }),
+          ...(input.showConditions !== undefined && {
+            trackerOverlayShowConditions: input.showConditions,
+          }),
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))

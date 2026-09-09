@@ -11,6 +11,16 @@ const meta = {
     onModeChange: fn(),
     orientation: 'auto',
     onOrientationChange: fn(),
+    trackerOpacity: 0.9,
+    onTrackerOpacityChange: fn(),
+    trackerScale: 1,
+    onTrackerScaleChange: fn(),
+    trackerShowInitiative: true,
+    onTrackerShowInitiativeChange: fn(),
+    trackerShowName: true,
+    onTrackerShowNameChange: fn(),
+    trackerShowHealth: true,
+    onTrackerShowHealthChange: fn(),
   },
 } satisfies Meta<typeof SessionControlsView>;
 
@@ -26,6 +36,45 @@ export const TrackerMode: Story = {
 
 export const BothMode: Story = {
   args: { mode: 'both' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Tracker overlay')).toBeVisible();
+  },
+};
+
+/** The tracker overlay block is inert outside `'both'` mode, so it's hidden
+ * rather than shown disabled. */
+export const MapModeHidesTrackerOverlayBlock: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.queryByText('Tracker overlay')).not.toBeInTheDocument();
+  },
+};
+
+export const BothModeAtOverlayExtremes: Story = {
+  args: {
+    mode: 'both',
+    trackerOpacity: 0,
+    trackerScale: 2,
+    trackerShowInitiative: false,
+    trackerShowName: false,
+    trackerShowHealth: false,
+  },
+};
+
+export const SwitchingTrackerFieldToggle: Story = {
+  args: { mode: 'both' },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByLabelText('Show initiative'));
+
+    await expect(args.onTrackerShowInitiativeChange).toHaveBeenCalledWith(
+      false,
+    );
+  },
 };
 
 export const LandscapeOverride: Story = {

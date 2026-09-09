@@ -7,10 +7,24 @@ import { useMapPlayerStream } from '~/hooks/useMapPlayerStream';
 import { PlayerScreenView } from '~/organisms/PlayerScreen/components/PlayerScreenView';
 import { PlayerScreenStage } from '~/organisms/PlayerScreen/components/PlayerScreenStage';
 import { usePhysicalViewportSize } from '~/organisms/PlayerScreen/hooks/usePhysicalViewportSize';
+import type { PlayerMapViewTrackerOverlay } from '~/server/maps/toPlayerMapView';
 
 /** Coalesces a resize gesture (a monitor being dragged, a window resized)
  * into one write, the same discipline as the DM's own viewport persistence. */
 const RESIZE_DEBOUNCE_MS = 300;
+
+/** Matches `mapSessions`' own tracker overlay column defaults, for the
+ * moment before the first SSE frame arrives. */
+const DEFAULT_TRACKER_OVERLAY: PlayerMapViewTrackerOverlay = {
+  anchorX: 0.98,
+  anchorY: 0.98,
+  scale: 1,
+  opacity: 0.9,
+  showInitiative: true,
+  showName: true,
+  showHealth: true,
+  showConditions: false,
+};
 
 /**
  * Connected boundary: owns the map session's SSE stream — for `mode` **and**
@@ -79,6 +93,7 @@ export const PlayerScreen = () => {
         viewport={view?.viewport ?? { x: 0, y: 0, zoom: 1 }}
         isConnected={isConnected}
         mapAreaRef={mapAreaRef}
+        trackerOverlay={view?.trackerOverlay ?? DEFAULT_TRACKER_OVERLAY}
       />
     </PlayerScreenStage>
   );

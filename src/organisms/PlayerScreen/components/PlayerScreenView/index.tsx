@@ -3,9 +3,14 @@
 import type { RefObject } from 'react';
 import styled from 'styled-components';
 import { PlayerBoard } from '~/organisms/PlayerBoard';
+import { TrackerOverlayBoard } from '~/organisms/TrackerOverlayBoard';
 import { PlayerMapBoardView } from '~/organisms/PlayerScreen/components/PlayerScreenView/components/PlayerMapBoardView';
+import { computeTrackerBoxFraction } from '~/utils/trackerOverlayRect';
 import type { Viewport } from '~/utils/mapViewport';
-import type { PlayerMapViewMap } from '~/server/maps/toPlayerMapView';
+import type {
+  PlayerMapViewMap,
+  PlayerMapViewTrackerOverlay,
+} from '~/server/maps/toPlayerMapView';
 import type { PlayerScreenMode } from '~/organisms/SessionControlsPanel/components/SessionControlsView';
 
 export type PlayerScreenViewProps = {
@@ -19,6 +24,8 @@ export type PlayerScreenViewProps = {
    * it and report the result back as the player screen's own size. Only
    * meaningful (and only attached) while a map area is actually rendered. */
   mapAreaRef: RefObject<HTMLDivElement | null>;
+  /** Only read in `'both'` mode. */
+  trackerOverlay: PlayerMapViewTrackerOverlay;
 };
 
 /**
@@ -33,12 +40,19 @@ export const PlayerScreenView = ({
   viewport,
   isConnected,
   mapAreaRef,
+  trackerOverlay,
 }: PlayerScreenViewProps) => {
   if (mode === 'tracker') return <PlayerBoard />;
 
   // 'map' and 'both' both keep the map at the full screen size — 'both'
   // layers the tracker on top instead of splitting the screen and shrinking
   // the map to make room for it.
+  const box = computeTrackerBoxFraction(
+    trackerOverlay.anchorX,
+    trackerOverlay.anchorY,
+    trackerOverlay.scale,
+  );
+
   return (
     <FullScreen ref={mapAreaRef}>
       <PlayerMapBoardView map={map} viewport={viewport} />
@@ -48,8 +62,13 @@ export const PlayerScreenView = ({
           tabIndex={0}
           role="region"
           aria-label="Initiative order"
+          $left={box.left}
+          $top={box.top}
+          $width={box.width}
+          $height={box.height}
+          $opacity={trackerOverlay.opacity}
         >
-          <PlayerBoard />
+          <TrackerOverlayBoard config={trackerOverlay} />
         </TrackerOverlay>
       )}
     </FullScreen>
@@ -64,17 +83,25 @@ const FullScreen = styled.div`
   height: 100%;
 `;
 
-const TrackerOverlay = styled.div`
+const TrackerOverlay = styled.div<{
+  $left: number;
+  $top: number;
+  $width: number;
+  $height: number;
+  $opacity: number;
+}>`
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  max-height: 45dvh;
+  left: ${props => props.$left * 100}%;
+  top: ${props => props.$top * 100}%;
+  width: ${props => props.$width * 100}%;
+  height: ${props => props.$height * 100}%;
+  opacity: ${props => props.$opacity};
   overflow-y: auto;
   background: ${props =>
     `color-mix(in srgb, ${props.theme.color.canvas} 88%, transparent)`};
   backdrop-filter: blur(8px);
-  border-top: 1px solid ${props => props.theme.color.border};
+  border: 1px solid ${props => props.theme.color.border};
+  border-radius: ${props => props.theme.radius.md};
   box-shadow: ${props => props.theme.shadow.raised};
 `;
 
