@@ -1,7 +1,14 @@
 {
   "name": "kernel-dm-toolbox",
   "version": "0.1.0",
+  "description": "A self-hosted dungeon master's toolbox for a single tabletop campaign: initiative tracker, spell lookup and virtual tabletop, run from one Docker container with a read-only second screen for the table.",
   "private": true,
+  "license": "MIT",
+  "author": "Ramon Gebben",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RamonGebben/kernel-dm-toolbox.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "next dev",
