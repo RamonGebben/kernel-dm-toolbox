@@ -62,114 +62,118 @@ export const SessionControlsView = ({
   onTrackerShowHealthChange,
   trackerShowConditions,
   onTrackerShowConditionsChange,
-}: SessionControlsViewProps) => (
-  <Wrapper>
-    <FieldGroup>
-      <Label>Player screen shows</Label>
-      <Tabs
-        options={MODE_OPTIONS}
-        value={mode}
-        onChange={onModeChange}
-        label="Player screen mode"
-      />
-    </FieldGroup>
+}: SessionControlsViewProps) => {
+  const trackerToggles: readonly {
+    id: string;
+    label: string;
+    checked: boolean;
+    onChange: (show: boolean) => void;
+  }[] = [
+    {
+      id: 'tracker-show-initiative',
+      label: 'Show initiative',
+      checked: trackerShowInitiative,
+      onChange: onTrackerShowInitiativeChange,
+    },
+    {
+      id: 'tracker-show-name',
+      label: 'Show name',
+      checked: trackerShowName,
+      onChange: onTrackerShowNameChange,
+    },
+    {
+      id: 'tracker-show-health',
+      label: 'Show health',
+      checked: trackerShowHealth,
+      onChange: onTrackerShowHealthChange,
+    },
+    {
+      id: 'tracker-show-conditions',
+      label: 'Show conditions',
+      checked: trackerShowConditions,
+      onChange: onTrackerShowConditionsChange,
+    },
+  ];
 
-    <FieldGroup>
-      <Label>Orientation</Label>
-      <Tabs
-        options={ORIENTATION_OPTIONS}
-        value={orientation}
-        onChange={onOrientationChange}
-        label="Player screen orientation"
-      />
-    </FieldGroup>
-
-    {mode === 'both' && (
+  return (
+    <Wrapper>
       <FieldGroup>
-        <Label>Tracker overlay</Label>
-
-        <FieldRow>
-          <label htmlFor="tracker-opacity">Opacity</label>
-          <input
-            id="tracker-opacity"
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={trackerOpacity}
-            onChange={event =>
-              onTrackerOpacityChange(Number(event.target.value))
-            }
-          />
-        </FieldRow>
-
-        <FieldRow>
-          <label htmlFor="tracker-scale">Size</label>
-          <input
-            id="tracker-scale"
-            type="range"
-            min={0.5}
-            max={2}
-            step={0.1}
-            value={trackerScale}
-            onChange={event => onTrackerScaleChange(Number(event.target.value))}
-          />
-        </FieldRow>
-
-        <CheckboxRow>
-          <input
-            id="tracker-show-initiative"
-            type="checkbox"
-            checked={trackerShowInitiative}
-            onChange={event =>
-              onTrackerShowInitiativeChange(event.target.checked)
-            }
-          />
-          <label htmlFor="tracker-show-initiative">Show initiative</label>
-        </CheckboxRow>
-
-        <CheckboxRow>
-          <input
-            id="tracker-show-name"
-            type="checkbox"
-            checked={trackerShowName}
-            onChange={event => onTrackerShowNameChange(event.target.checked)}
-          />
-          <label htmlFor="tracker-show-name">Show name</label>
-        </CheckboxRow>
-
-        <CheckboxRow>
-          <input
-            id="tracker-show-health"
-            type="checkbox"
-            checked={trackerShowHealth}
-            onChange={event => onTrackerShowHealthChange(event.target.checked)}
-          />
-          <label htmlFor="tracker-show-health">Show health</label>
-        </CheckboxRow>
-
-        <CheckboxRow>
-          <input
-            id="tracker-show-conditions"
-            type="checkbox"
-            checked={trackerShowConditions}
-            onChange={event =>
-              onTrackerShowConditionsChange(event.target.checked)
-            }
-          />
-          <label htmlFor="tracker-show-conditions">Show conditions</label>
-        </CheckboxRow>
+        <Label>Player screen shows</Label>
+        <Tabs
+          options={MODE_OPTIONS}
+          value={mode}
+          onChange={onModeChange}
+          label="Player screen mode"
+        />
       </FieldGroup>
-    )}
 
-    {!hasActiveMap && (
-      <EmptyState
-        title="No map is live yet"
-        description="Preview a map from the Maps tab before positioning the player view."
-      />
-    )}
-  </Wrapper>
-);
+      <FieldGroup>
+        <Label>Orientation</Label>
+        <Tabs
+          options={ORIENTATION_OPTIONS}
+          value={orientation}
+          onChange={onOrientationChange}
+          label="Player screen orientation"
+        />
+      </FieldGroup>
+
+      {mode === 'both' && (
+        <FieldGroup>
+          <Label>Tracker overlay</Label>
+
+          <FieldRow>
+            <label htmlFor="tracker-opacity">Opacity</label>
+            <input
+              id="tracker-opacity"
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={trackerOpacity}
+              onChange={event =>
+                onTrackerOpacityChange(Number(event.target.value))
+              }
+            />
+          </FieldRow>
+
+          <FieldRow>
+            <label htmlFor="tracker-scale">Size</label>
+            <input
+              id="tracker-scale"
+              type="range"
+              min={0.5}
+              max={2}
+              step={0.1}
+              value={trackerScale}
+              onChange={event =>
+                onTrackerScaleChange(Number(event.target.value))
+              }
+            />
+          </FieldRow>
+
+          {trackerToggles.map(toggle => (
+            <CheckboxRow key={toggle.id}>
+              <input
+                id={toggle.id}
+                type="checkbox"
+                checked={toggle.checked}
+                onChange={event => toggle.onChange(event.target.checked)}
+              />
+              <label htmlFor={toggle.id}>{toggle.label}</label>
+            </CheckboxRow>
+          ))}
+        </FieldGroup>
+      )}
+
+      {!hasActiveMap && (
+        <EmptyState
+          title="No map is live yet"
+          description="Preview a map from the Maps tab before positioning the player view."
+        />
+      )}
+    </Wrapper>
+  );
+};
 
 const Wrapper = styled.div`
   display: flex;

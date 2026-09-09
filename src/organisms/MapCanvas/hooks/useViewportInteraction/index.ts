@@ -337,10 +337,21 @@ export const useViewportInteraction = ({
       event.preventDefault();
       const { mapPoint, screenPoint, viewport } = mapPointFromEvent(event);
 
+      // Nested inside the lens, the tracker rect has no wheel gesture of its
+      // own (its size is a settings-tab slider, not a drag/scroll) — so a
+      // wheel over it must fall through to the DM's own background zoom
+      // rather than resizing the lens underneath it, the same priority the
+      // tracker already gets in `handlePointerDown`.
+      const overTracker =
+        !lensLockedRef.current &&
+        trackerRectRef.current &&
+        isPointInTrackerRect(trackerRectRef.current, mapPoint);
+
       if (
         !isFogToolActive() &&
         !calibrationActiveRef.current &&
         !lensLockedRef.current &&
+        !overTracker &&
         lensRectRef.current &&
         isPointInLensRect(lensRectRef.current, mapPoint)
       ) {

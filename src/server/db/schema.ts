@@ -697,8 +697,9 @@ export const mapSessions = sqliteTable(
 
     /** The tracker overlay in 'both' mode. Anchor is a 0..1 fraction of the
      * player's own visible area (not raw pixels), so it stays proportionally
-     * placed across screen sizes. `showConditions` has no effect yet —
-     * conditions don't reach the player payload until a later milestone. */
+     * placed across screen sizes. `showConditions` toggles whether
+     * `TrackerOverlayBoardView` renders the (already player-safe) condition
+     * names carried on `PlayerViewCombatant`. */
     trackerOverlayAnchorX: real('tracker_overlay_anchor_x')
       .notNull()
       .default(0.98),

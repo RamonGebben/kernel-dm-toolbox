@@ -1,7 +1,7 @@
 'use client';
 
 import type { RefObject } from 'react';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { PlayerBoard } from '~/organisms/PlayerBoard';
 import { TrackerOverlayBoard } from '~/organisms/TrackerOverlayBoard';
 import { PlayerMapBoardView } from '~/organisms/PlayerScreen/components/PlayerScreenView/components/PlayerMapBoardView';
@@ -53,6 +53,16 @@ export const PlayerScreenView = ({
     trackerOverlay.scale,
   );
 
+  // The box's floor (`$height`) can be exceeded by a long roster — see
+  // `TrackerOverlay`'s own comment. Anchoring from whichever edge is nearer
+  // (rather than always `left`/`top`) means that overflow grows toward the
+  // screen's center instead of off the far edge: a box anchored bottom-right
+  // (the default) grows upward and leftward as combatants are added, so it
+  // stays on screen instead of extending past the bottom with no way to
+  // scroll to the rest.
+  const anchorFromRight = trackerOverlay.anchorX > 0.5;
+  const anchorFromBottom = trackerOverlay.anchorY > 0.5;
+
   return (
     <FullScreen ref={mapAreaRef}>
       <PlayerMapBoardView map={map} viewport={viewport} />
@@ -62,8 +72,10 @@ export const PlayerScreenView = ({
           tabIndex={0}
           role="region"
           aria-label="Initiative order"
-          $left={box.left}
-          $top={box.top}
+          $left={anchorFromRight ? undefined : box.left}
+          $right={anchorFromRight ? 1 - box.left - box.width : undefined}
+          $top={anchorFromBottom ? undefined : box.top}
+          $bottom={anchorFromBottom ? 1 - box.top - box.height : undefined}
           $width={box.width}
           $height={box.height}
           $opacity={trackerOverlay.opacity}
@@ -90,15 +102,35 @@ const FullScreen = styled.div`
  * to keep every combatant visible, never a ceiling that clips or scrolls.
  */
 const TrackerOverlay = styled.div<{
-  $left: number;
-  $top: number;
+  $left?: number;
+  $right?: number;
+  $top?: number;
+  $bottom?: number;
   $width: number;
   $height: number;
   $opacity: number;
 }>`
   position: absolute;
-  left: ${props => props.$left * 100}%;
-  top: ${props => props.$top * 100}%;
+  ${props =>
+    props.$left !== undefined &&
+    css`
+      left: ${props.$left * 100}%;
+    `}
+  ${props =>
+    props.$right !== undefined &&
+    css`
+      right: ${props.$right * 100}%;
+    `}
+  ${props =>
+    props.$top !== undefined &&
+    css`
+      top: ${props.$top * 100}%;
+    `}
+  ${props =>
+    props.$bottom !== undefined &&
+    css`
+      bottom: ${props.$bottom * 100}%;
+    `}
   width: ${props => props.$width * 100}%;
   min-height: ${props => props.$height * 100}%;
   opacity: ${props => props.$opacity};

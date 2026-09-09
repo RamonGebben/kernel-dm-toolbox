@@ -3,6 +3,10 @@
 import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import type { PlayerBoardCombatant } from '~/organisms/PlayerBoard/components/PlayerBoardView';
+import {
+  healthStatusColor,
+  healthStatusLabels,
+} from '~/utils/healthStatusPresentation';
 
 export type TrackerOverlayCondition = {
   conditionSlug: string;
@@ -83,7 +87,7 @@ export const TrackerOverlayBoardView = ({
             )}
             {showHealth && (
               <Health $status={combatant.healthStatus}>
-                {healthLabels[combatant.healthStatus]}
+                {healthStatusLabels[combatant.healthStatus]}
               </Health>
             )}
           </Row>
@@ -92,18 +96,6 @@ export const TrackerOverlayBoardView = ({
     </Wrapper>
   );
 };
-
-const healthLabels = {
-  healthy: 'Healthy',
-  bloodied: 'Bloodied',
-  unconscious: 'Down',
-} as const;
-
-const healthColor = {
-  healthy: (color: { success: string }) => color.success,
-  bloodied: (color: { warning: string }) => color.warning,
-  unconscious: (color: { danger: string }) => color.danger,
-} as const;
 
 /**
  * No fixed/percentage height and no scrolling anywhere in this component —
@@ -210,5 +202,5 @@ const Name = styled.span<{ $isPlayerCharacter: boolean }>`
 
 const Health = styled.span<{ $status: PlayerBoardCombatant['healthStatus'] }>`
   flex-shrink: 0;
-  color: ${props => healthColor[props.$status](props.theme.color)};
+  color: ${props => healthStatusColor[props.$status](props.theme.color)};
 `;

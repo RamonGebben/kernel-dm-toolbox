@@ -3,6 +3,10 @@
 import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import type { HealthStatus } from '~/utils/applyDamage';
+import {
+  healthStatusColor,
+  healthStatusLabels,
+} from '~/utils/healthStatusPresentation';
 
 export type PlayerBoardCombatant = {
   id: string;
@@ -59,7 +63,7 @@ export const PlayerBoardView = ({
               {combatant.displayName}
             </Name>
             <Health $status={combatant.healthStatus}>
-              {healthLabels[combatant.healthStatus]}
+              {healthStatusLabels[combatant.healthStatus]}
             </Health>
           </Row>
         ))}
@@ -67,19 +71,6 @@ export const PlayerBoardView = ({
     </Wrapper>
   );
 };
-
-/** Words rather than numbers: what a character could actually perceive. */
-const healthLabels = {
-  healthy: 'Healthy',
-  bloodied: 'Bloodied',
-  unconscious: 'Down',
-} as const satisfies Record<HealthStatus, string>;
-
-const healthColor = {
-  healthy: (color: { success: string }) => color.success,
-  bloodied: (color: { warning: string }) => color.warning,
-  unconscious: (color: { danger: string }) => color.danger,
-} as const;
 
 const Wrapper = styled.div`
   display: flex;
@@ -159,5 +150,5 @@ const Name = styled.span<{ $isPlayerCharacter: boolean }>`
 
 const Health = styled.span<{ $status: HealthStatus }>`
   font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => healthColor[props.$status](props.theme.color)};
+  color: ${props => healthStatusColor[props.$status](props.theme.color)};
 `;
