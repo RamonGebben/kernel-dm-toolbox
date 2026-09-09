@@ -85,6 +85,12 @@ export type MapCanvasViewProps = {
    * their canvas can. */
   lensScreenSize?: { width: number; height: number };
   onLensChange?: (rect: LensRect) => void;
+  /** The tracker overlay's rect, nested inside the lens. The caller passes
+   * `null` outside the Player Screen tab (see `useMapCanvas`), which is what
+   * makes it neither drawn nor draggable then — a single source of truth,
+   * the same way a `null` `lensRect` means "nothing to show yet" for it. */
+  trackerRect?: LensRect | null;
+  onTrackerRectChange?: (rect: LensRect) => void;
 };
 
 const DEFAULT_BACKGROUND = '#0f1014';
@@ -122,6 +128,8 @@ export const MapCanvasView = ({
   lensLocked = false,
   lensScreenSize,
   onLensChange,
+  trackerRect = null,
+  onTrackerRectChange,
 }: MapCanvasViewProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafIdRef = useRef(0);
@@ -204,6 +212,22 @@ export const MapCanvasView = ({
    * while being dragged, but at most once per animation frame. */
   const lastNotifiedLensRef = useRef<LensRect | null>(null);
 
+  const trackerRectRef = useRef(trackerRect);
+  useEffect(() => {
+    trackerRectRef.current = trackerRect;
+  }, [trackerRect]);
+
+  /** Same role as `lensPreviewRef`, for the tracker overlay's rect. */
+  const trackerPreviewRef = useRef<LensRect | null>(null);
+
+  const onTrackerRectChangeRef = useRef(onTrackerRectChange);
+  useEffect(() => {
+    onTrackerRectChangeRef.current = onTrackerRectChange;
+  }, [onTrackerRectChange]);
+
+  /** Mirrors `lastNotifiedLensRef`, for the tracker overlay. */
+  const lastNotifiedTrackerRef = useRef<LensRect | null>(null);
+
   const scheduleDraw = useMemo(
     () => () => {
       if (rafIdRef.current !== 0) return;
@@ -240,6 +264,22 @@ export const MapCanvasView = ({
         ) {
           lastNotifiedLensRef.current = currentLens;
           onLensChangeRef.current?.(currentLens);
+        }
+
+        // Same "at most once per frame, only if it moved" notify for the
+        // tracker overlay's rect while it's being dragged.
+        const currentTracker = trackerPreviewRef.current;
+        const lastTracker = lastNotifiedTrackerRef.current;
+        if (
+          currentTracker &&
+          (!lastTracker ||
+            currentTracker.x !== lastTracker.x ||
+            currentTracker.y !== lastTracker.y ||
+            currentTracker.width !== lastTracker.width ||
+            currentTracker.height !== lastTracker.height)
+        ) {
+          lastNotifiedTrackerRef.current = currentTracker;
+          onTrackerRectChangeRef.current?.(currentTracker);
         }
       });
     },
@@ -286,6 +326,9 @@ export const MapCanvasView = ({
     lensScreenSizeRef,
     lensPreviewRef,
     onLensChange,
+    trackerRectRef,
+    trackerPreviewRef,
+    onTrackerRectChange,
     onScheduleDraw: scheduleDraw,
   });
 
@@ -411,6 +454,22 @@ export const MapCanvasView = ({
         ctx.restore();
       }
 
+      // `trackerRect` is only ever non-null while the Player Screen tab is
+      // open (see `useMapCanvas`) — otherwise it would be clutter on a
+      // canvas the DM is using for something else entirely.
+      const tracker = trackerPreviewRef.current ?? trackerRectRef.current;
+      if (tracker) {
+        const zoom = currentViewport.zoom || 1;
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(90, 220, 180, 0.9)';
+        ctx.lineWidth = 2 / zoom;
+        ctx.setLineDash([6 / zoom, 4 / zoom]);
+        ctx.strokeRect(tracker.x, tracker.y, tracker.width, tracker.height);
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       ctx.restore();
 
       if (media.isLoadingRef.current) {
@@ -462,6 +521,8 @@ export const MapCanvasView = ({
     media.isLoadingRef,
     media.progressRef,
     scheduleDraw,
+    trackerPreviewRef,
+    trackerRectRef,
     // Read inside `drawScene` only via `viewportRef`, never directly — but a
     // non-interactive canvas (the player screen) has no pointer handlers of
     // its own to call `scheduleDraw()` when the viewport changes, so this has

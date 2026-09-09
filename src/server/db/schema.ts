@@ -709,10 +709,9 @@ export const mapSessions = sqliteTable(
     trackerOverlayOpacity: real('tracker_overlay_opacity')
       .notNull()
       .default(0.9),
-    trackerOverlayShowInitiative: integer(
-      'tracker_overlay_show_initiative',
-      { mode: 'boolean' },
-    )
+    trackerOverlayShowInitiative: integer('tracker_overlay_show_initiative', {
+      mode: 'boolean',
+    })
       .notNull()
       .default(true),
     trackerOverlayShowName: integer('tracker_overlay_show_name', {
@@ -725,10 +724,9 @@ export const mapSessions = sqliteTable(
     })
       .notNull()
       .default(true),
-    trackerOverlayShowConditions: integer(
-      'tracker_overlay_show_conditions',
-      { mode: 'boolean' },
-    )
+    trackerOverlayShowConditions: integer('tracker_overlay_show_conditions', {
+      mode: 'boolean',
+    })
       .notNull()
       .default(false),
   },

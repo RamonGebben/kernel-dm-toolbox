@@ -37,6 +37,8 @@ export const MapCanvas = () => {
       lensLocked={canvas.lensLocked}
       lensScreenSize={canvas.lensScreenSize}
       onLensChange={canvas.onLensChange}
+      trackerRect={canvas.trackerRect}
+      onTrackerRectChange={canvas.onTrackerRectChange}
     />
   );
 };

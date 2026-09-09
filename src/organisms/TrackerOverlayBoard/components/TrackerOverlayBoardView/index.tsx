@@ -52,9 +52,7 @@ export const TrackerOverlayBoardView = ({
       <List>
         {combatants.map(combatant => (
           <Row key={combatant.id} $isActive={combatant.isActive}>
-            {showInitiative && (
-              <Initiative>{combatant.initiative}</Initiative>
-            )}
+            {showInitiative && <Initiative>{combatant.initiative}</Initiative>}
             {showName && (
               <Name $isPlayerCharacter={combatant.isPlayerCharacter}>
                 {combatant.displayName}

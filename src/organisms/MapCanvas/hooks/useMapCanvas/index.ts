@@ -10,6 +10,10 @@ import {
   rectToPlayerViewport,
   type LensRect,
 } from '~/utils/mapLens';
+import {
+  computeTrackerRect,
+  trackerRectToAnchor,
+} from '~/utils/trackerOverlayRect';
 import type {
   CalibrationPoint,
   MapCanvasFogStroke,
@@ -51,6 +55,9 @@ export const useMapCanvas = () => {
   );
   const cancelCalibration = useMapToolStore(state => state.cancelCalibration);
   const fogBrush = useMapToolStore(state => state.fogBrush);
+  const trackerEditingActive = useMapToolStore(
+    state => state.activePanel === 'session',
+  );
 
   const session = useQuery(trpc.maps.getSession.queryOptions());
   const activeMapId = session.data?.activeMapId ?? null;
@@ -92,6 +99,11 @@ export const useMapCanvas = () => {
   const setDmViewport = useMutation(trpc.maps.setDmViewport.mutationOptions());
   const setPlayerViewport = useMutation(
     trpc.maps.setPlayerViewport.mutationOptions({
+      onSuccess: invalidateSession,
+    }),
+  );
+  const setTrackerOverlay = useMutation(
+    trpc.maps.setTrackerOverlay.mutationOptions({
       onSuccess: invalidateSession,
     }),
   );
@@ -234,6 +246,30 @@ export const useMapCanvas = () => {
     [session.data, setPlayerViewport],
   );
 
+  // `null` outside the Player Screen tab — a single source of truth that
+  // makes the tracker rect neither drawn nor hit-testable/draggable then,
+  // rather than gating drawing and interaction separately in two places.
+  const trackerRect = useMemo<LensRect | null>(() => {
+    if (!session.data || !lensRect || !trackerEditingActive) return null;
+
+    return computeTrackerRect(
+      lensRect,
+      session.data.trackerOverlayAnchorX,
+      session.data.trackerOverlayAnchorY,
+      session.data.trackerOverlayScale,
+    );
+  }, [session.data, lensRect, trackerEditingActive]);
+
+  // Same live, RAF-throttled cadence as `onLensChange` — see its comment.
+  const onTrackerRectChange = useCallback(
+    (rect: LensRect) => {
+      if (!lensRect) return;
+
+      setTrackerOverlay.mutate(trackerRectToAnchor(rect, lensRect));
+    },
+    [lensRect, setTrackerOverlay],
+  );
+
   return {
     map: map.data
       ? {
@@ -259,5 +295,7 @@ export const useMapCanvas = () => {
     lensLocked,
     lensScreenSize,
     onLensChange,
+    trackerRect,
+    onTrackerRectChange,
   };
 };

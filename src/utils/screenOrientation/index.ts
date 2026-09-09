@@ -13,7 +13,8 @@ export type PhysicalSize = { width: number; height: number };
 /** A square viewport counts as landscape — there's no rotation to prefer. */
 export const derivePhysicalOrientation = (
   size: PhysicalSize,
-): PhysicalOrientation => (size.width >= size.height ? 'landscape' : 'portrait');
+): PhysicalOrientation =>
+  size.width >= size.height ? 'landscape' : 'portrait';
 
 export const resolveEffectiveOrientation = (
   setting: PlayerScreenOrientationSetting,
@@ -39,7 +40,11 @@ export const computeOrientationFrame = (
   const effective = resolveEffectiveOrientation(setting, physical);
 
   if (effective === physical) {
-    return { rotationDeg: 0, width: physicalSize.width, height: physicalSize.height };
+    return {
+      rotationDeg: 0,
+      width: physicalSize.width,
+      height: physicalSize.height,
+    };
   }
 
   return {

@@ -48,14 +48,10 @@ export const SessionControlsPanel = () => {
         setPlayerScreenOrientation.mutate({ orientation })
       }
       trackerOpacity={session.data?.trackerOverlayOpacity ?? 0.9}
-      onTrackerOpacityChange={opacity =>
-        setTrackerOverlay.mutate({ opacity })
-      }
+      onTrackerOpacityChange={opacity => setTrackerOverlay.mutate({ opacity })}
       trackerScale={session.data?.trackerOverlayScale ?? 1}
       onTrackerScaleChange={scale => setTrackerOverlay.mutate({ scale })}
-      trackerShowInitiative={
-        session.data?.trackerOverlayShowInitiative ?? true
-      }
+      trackerShowInitiative={session.data?.trackerOverlayShowInitiative ?? true}
       onTrackerShowInitiativeChange={showInitiative =>
         setTrackerOverlay.mutate({ showInitiative })
       }

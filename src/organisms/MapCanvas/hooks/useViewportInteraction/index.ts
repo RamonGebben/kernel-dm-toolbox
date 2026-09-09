@@ -14,6 +14,10 @@ import {
   zoomLensAtPoint,
   type LensRect,
 } from '~/utils/mapLens';
+import {
+  isPointInTrackerRect,
+  moveTrackerRect,
+} from '~/utils/trackerOverlayRect';
 import type {
   MapCanvasFogState,
   MapCanvasFogStroke,
@@ -63,6 +67,9 @@ export const useViewportInteraction = ({
   lensScreenSizeRef,
   lensPreviewRef,
   onLensChange,
+  trackerRectRef,
+  trackerPreviewRef,
+  onTrackerRectChange,
   onScheduleDraw,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -87,15 +94,24 @@ export const useViewportInteraction = ({
    * live while dragging) — null when not actively being dragged. */
   lensPreviewRef: RefObject<LensRect | null>;
   onLensChange?: (rect: LensRect) => void;
+  /** The tracker overlay's rect, nested inside the lens — null when the
+   * Player Screen tab isn't open (see `trackerEditingActive`), so it's
+   * neither drawn nor draggable outside that context. */
+  trackerRectRef: RefObject<LensRect | null>;
+  /** Live drag rect for the tracker overlay, same role as `lensPreviewRef`. */
+  trackerPreviewRef: RefObject<LensRect | null>;
+  onTrackerRectChange?: (rect: LensRect) => void;
   onScheduleDraw: () => void;
 }): ViewportInteractionHandle => {
   const cursorMapPosRef = useRef<MapPoint | null>(null);
   const calibrationPreviewRef = useRef<MapPoint | null>(null);
-  const dragModeRef = useRef<'pan' | 'fog' | 'lens' | null>(null);
+  const dragModeRef = useRef<'pan' | 'fog' | 'lens' | 'tracker' | null>(null);
   const startScreenPointRef = useRef<MapPoint>({ x: 0, y: 0 });
   const startViewportRef = useRef<Viewport | null>(null);
   const startLensRectRef = useRef<LensRect | null>(null);
   const lensStartMapPointRef = useRef<MapPoint>({ x: 0, y: 0 });
+  const startTrackerRectRef = useRef<LensRect | null>(null);
+  const trackerStartMapPointRef = useRef<MapPoint>({ x: 0, y: 0 });
   const pendingStrokesRef = useRef<MapCanvasFogStroke[]>([]);
 
   // Latest callbacks in refs, so the listener-attaching effect below never
@@ -103,6 +119,7 @@ export const useViewportInteraction = ({
   const onCalibrateClickRef = useRef(onCalibrateClick);
   const onFogStrokeBatchRef = useRef(onFogStrokeBatch);
   const onLensChangeRef = useRef(onLensChange);
+  const onTrackerRectChangeRef = useRef(onTrackerRectChange);
 
   useEffect(() => {
     onCalibrateClickRef.current = onCalibrateClick;
@@ -113,6 +130,9 @@ export const useViewportInteraction = ({
   useEffect(() => {
     onLensChangeRef.current = onLensChange;
   }, [onLensChange]);
+  useEffect(() => {
+    onTrackerRectChangeRef.current = onTrackerRectChange;
+  }, [onTrackerRectChange]);
 
   useEffect(() => {
     if (!interactive) return;
@@ -158,6 +178,25 @@ export const useViewportInteraction = ({
 
     const handlePointerDown = (event: PointerEvent) => {
       const { mapPoint } = mapPointFromEvent(event);
+
+      // The tracker rect is nested inside the lens, so it must win the hit
+      // test when the two overlap — otherwise a click meant for the tracker
+      // would always grab the (larger) lens instead. Gated by the same
+      // `lensLockedRef` the lens itself uses, rather than a second lock.
+      if (
+        !isFogToolActive() &&
+        !calibrationActiveRef.current &&
+        !lensLockedRef.current &&
+        trackerRectRef.current &&
+        isPointInTrackerRect(trackerRectRef.current, mapPoint)
+      ) {
+        dragModeRef.current = 'tracker';
+        trackerStartMapPointRef.current = mapPoint;
+        startTrackerRectRef.current = trackerRectRef.current;
+        trackerPreviewRef.current = trackerRectRef.current;
+        canvas.setPointerCapture(event.pointerId);
+        return;
+      }
 
       if (
         !isFogToolActive() &&
@@ -213,6 +252,27 @@ export const useViewportInteraction = ({
         return;
       }
 
+      if (dragModeRef.current === 'tracker' && startTrackerRectRef.current) {
+        // Clamped against the *current* lens (not the lens at drag-start),
+        // so the tracker still can't escape it even if the lens itself is
+        // moving between frames — the two drag modes are mutually exclusive,
+        // but the lens can still change from the DM's own pan/zoom mutation
+        // round-tripping back down while this drag is in progress.
+        const lens = lensRectRef.current;
+        if (lens) {
+          trackerPreviewRef.current = moveTrackerRect(
+            lens,
+            startTrackerRectRef.current,
+            {
+              dx: mapPoint.x - trackerStartMapPointRef.current.x,
+              dy: mapPoint.y - trackerStartMapPointRef.current.y,
+            },
+          );
+          onScheduleDraw();
+        }
+        return;
+      }
+
       if (calibrationActiveRef.current) {
         calibrationPreviewRef.current = mapPoint;
         onScheduleDraw();
@@ -254,6 +314,12 @@ export const useViewportInteraction = ({
       }
       lensPreviewRef.current = null;
       startLensRectRef.current = null;
+
+      if (dragModeRef.current === 'tracker' && trackerPreviewRef.current) {
+        onTrackerRectChangeRef.current?.(trackerPreviewRef.current);
+      }
+      trackerPreviewRef.current = null;
+      startTrackerRectRef.current = null;
 
       dragModeRef.current = null;
       startViewportRef.current = null;

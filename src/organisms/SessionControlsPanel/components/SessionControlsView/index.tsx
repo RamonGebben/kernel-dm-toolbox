@@ -108,9 +108,7 @@ export const SessionControlsView = ({
             max={2}
             step={0.1}
             value={trackerScale}
-            onChange={event =>
-              onTrackerScaleChange(Number(event.target.value))
-            }
+            onChange={event => onTrackerScaleChange(Number(event.target.value))}
           />
         </FieldRow>
 
@@ -141,9 +139,7 @@ export const SessionControlsView = ({
             id="tracker-show-health"
             type="checkbox"
             checked={trackerShowHealth}
-            onChange={event =>
-              onTrackerShowHealthChange(event.target.checked)
-            }
+            onChange={event => onTrackerShowHealthChange(event.target.checked)}
           />
           <label htmlFor="tracker-show-health">Show health</label>
         </CheckboxRow>

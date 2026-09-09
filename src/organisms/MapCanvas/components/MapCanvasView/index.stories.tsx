@@ -32,6 +32,7 @@ const meta = {
     onFogStrokeBatch: fn(),
     onMediaDimensions: fn(),
     onLensChange: fn(),
+    onTrackerRectChange: fn(),
   },
   parameters: {
     // A fixed-size wrapper so pointer coordinates are stable across runs.
@@ -354,6 +355,82 @@ export const FogBrushInsideTheLensPaintsInsteadOfDragging: Story = {
       expect.objectContaining({ shape: 'circle', mode: 'reveal' }),
     ]);
     await expect(args.onLensChange).not.toHaveBeenCalled();
+  },
+};
+
+const trackerRect = { x: 60, y: 60, width: 40, height: 20 };
+
+export const DraggingTheTrackerOverlayByItsBody: Story = {
+  args: { lensRect, trackerRect },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // Inside the tracker rect, which is nested inside the lens — the more
+    // specific target must win the hit test, not the (larger) lens.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 70, clientY: 65 });
+    fireEvent.pointerMove(element, { pointerId: 1, clientX: 90, clientY: 85 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 90, clientY: 85 });
+    await waitForFrame();
+
+    await expect(args.onTrackerRectChange).toHaveBeenCalledWith({
+      x: 80,
+      y: 80,
+      width: 40,
+      height: 20,
+    });
+    // Dragging the tracker is neither dragging the lens nor panning the DM's
+    // own view.
+    await expect(args.onLensChange).not.toHaveBeenCalled();
+    await expect(args.onViewportChange).not.toHaveBeenCalled();
+  },
+};
+
+export const TrackerOverlayDragClampsToTheLensBounds: Story = {
+  args: { lensRect, trackerRect },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 70, clientY: 65 });
+    fireEvent.pointerMove(element, {
+      pointerId: 1,
+      clientX: 10_000,
+      clientY: 65,
+    });
+    fireEvent.pointerUp(element, {
+      pointerId: 1,
+      clientX: 10_000,
+      clientY: 65,
+    });
+    await waitForFrame();
+
+    // Never leaves the lens it lives in, however far the drag goes.
+    const finalRect = args.onTrackerRectChange!.mock.calls.at(-1)![0];
+    expect(finalRect.x).toBe(lensRect.x + lensRect.width - trackerRect.width);
+  },
+};
+
+export const TrackerOverlayIgnoresDragsWhenLensLocked: Story = {
+  args: { lensRect, trackerRect, lensLocked: true },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // Locked, a drag over the (still-visible) tracker just pans instead —
+    // the same rule the lens itself already follows.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 70, clientY: 65 });
+    fireEvent.pointerMove(element, {
+      pointerId: 1,
+      clientX: 90,
+      clientY: 85,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 90, clientY: 85 });
+    await waitForFrame();
+
+    await expect(args.onTrackerRectChange).not.toHaveBeenCalled();
+    await expect(args.onViewportChange).toHaveBeenCalledWith({
+      x: -20,
+      y: -20,
+      zoom: 1,
+    });
   },
 };
 
