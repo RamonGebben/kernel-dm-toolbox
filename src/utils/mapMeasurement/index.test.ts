@@ -11,6 +11,7 @@ import {
   isPointInShapeFootprint,
   mapDamageTypesToColor,
   mapSpellShapeType,
+  shouldLoopSpellEffect,
   snapPointToGrid,
 } from '~/utils/mapMeasurement';
 
@@ -466,5 +467,25 @@ describe('isEffectPlaying', () => {
         failed: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('shouldLoopSpellEffect', () => {
+  it('does not loop an instantaneous spell', () => {
+    expect(shouldLoopSpellEffect('instantaneous')).toBe(false);
+  });
+
+  it('is case- and whitespace-insensitive', () => {
+    expect(shouldLoopSpellEffect(' Instantaneous ')).toBe(false);
+  });
+
+  it('loops a spell with a real duration', () => {
+    expect(shouldLoopSpellEffect('1 minute')).toBe(true);
+    expect(shouldLoopSpellEffect('10 minutes')).toBe(true);
+    expect(shouldLoopSpellEffect('until dispelled')).toBe(true);
+  });
+
+  it('does not loop when there is no spell at all', () => {
+    expect(shouldLoopSpellEffect(null)).toBe(false);
   });
 });

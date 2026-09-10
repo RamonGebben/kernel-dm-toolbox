@@ -860,6 +860,15 @@ export const mapMeasurementShapes = sqliteTable(
     effectPlaybackStartedAt: integer('effect_playback_started_at', {
       mode: 'timestamp_ms',
     }),
+    /** Set once, at creation, from the source spell's `duration` (see
+     * `shouldLoopSpellEffect`) — an ongoing-area spell (Spirit Guardians,
+     * Wall of Fire, …) loops its clip for as long as the shape stays on the
+     * board, unlike an instantaneous one (Fireball), which plays once and
+     * settles into the plain static shape. False for a plain ruler/shape
+     * with no `sourceSpellSlug`. */
+    effectLoops: integer('effect_loops', { mode: 'boolean' })
+      .notNull()
+      .default(false),
   },
   table => [
     check(

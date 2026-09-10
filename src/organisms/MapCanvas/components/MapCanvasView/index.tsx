@@ -81,6 +81,10 @@ export type MapCanvasMeasurementShape = MeasurementShapeInput & {
   /** Epoch ms; null unless `effectUrl` is also set. Set once at creation,
    * never touched by a later move. */
   effectStartedAtMs?: number | null;
+  /** An ongoing-duration spell (Spirit Guardians, Wall of Fire, …) loops its
+   * clip for as long as this shape stays on the board, instead of the
+   * one-shot instantaneous-spell behaviour `isEffectPlaying` gates. */
+  effectLoops?: boolean;
 };
 
 /** The armed placement tool — while enabled, a canvas click either sets a
@@ -509,7 +513,17 @@ export const MapCanvasView = ({
 
   const drawGrid = useGridOverlay();
 
-  const { getVideo: getEffectVideo } = useSpellEffectVideoCache(scheduleDraw);
+  const { getVideo: getEffectVideo, pruneVideos: pruneEffectVideos } =
+    useSpellEffectVideoCache(scheduleDraw);
+
+  // Stops a removed shape's clip (looping or not) instead of leaving it
+  // decoding/playing off-screen forever — the video cache is keyed by shape
+  // id, so nothing else would ever notice it's gone.
+  useEffect(() => {
+    pruneEffectVideos(
+      new Set((measurementShapes ?? []).map(shape => shape.id)),
+    );
+  }, [measurementShapes, pruneEffectVideos]);
 
   const { calibrationPreviewRef, movingShapeIdRef } = useViewportInteraction({
     canvasRef,
@@ -788,11 +802,17 @@ export const MapCanvasView = ({
       // Every committed shape, always visible — none of them are secret.
       // The one currently being dragged (if any) is skipped here; its live
       // position is drawn from the preview below instead, so it isn't
-      // rendered twice. A shape placed from a spell that matched an
-      // animated effect plays it once in place of the plain static
-      // footprint, for as long as `isEffectPlaying` says so — this is also
-      // what keeps `hasActiveEffect` (and so the self-rescheduled redraw
-      // loop below) true while any clip is still running.
+      // rendered twice. A shape placed from an instantaneous spell that
+      // matched an animated effect plays it once in place of the plain
+      // static footprint, for as long as `isEffectPlaying` says so; an
+      // ongoing-duration spell's (`effectLoops`) clip instead keeps playing
+      // for as long as the shape stays on the board at all, ignoring
+      // `isEffectPlaying`'s elapsed/ended gating entirely — the browser's own
+      // `video.loop` (set at creation, see `useSpellEffectVideoCache`) is
+      // what makes the clip repeat; this only decides whether to keep
+      // drawing it. Either case is also what keeps `hasActiveEffect` (and so
+      // the self-rescheduled redraw loop below) true while any clip is still
+      // running.
       let hasActiveEffect = false;
       const now = Date.now();
 
@@ -802,13 +822,19 @@ export const MapCanvasView = ({
         let drewEffectFrame = false;
 
         if (shape.effectUrl && shape.effectStartedAtMs != null) {
-          const entry = getEffectVideo(shape.effectUrl);
-          const playing = isEffectPlaying({
-            effectStartedAtMs: shape.effectStartedAtMs,
-            nowMs: now,
-            videoEnded: entry.video.ended,
-            failed: entry.failed,
-          });
+          const entry = getEffectVideo(
+            shape.id,
+            shape.effectUrl,
+            Boolean(shape.effectLoops),
+          );
+          const playing = shape.effectLoops
+            ? !entry.failed
+            : isEffectPlaying({
+                effectStartedAtMs: shape.effectStartedAtMs,
+                nowMs: now,
+                videoEnded: entry.video.ended,
+                failed: entry.failed,
+              });
 
           if (playing) {
             hasActiveEffect = true;

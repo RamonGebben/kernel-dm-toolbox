@@ -7,6 +7,7 @@ import {
   mapMeasurementShapes,
   mapSessions,
   maps,
+  spells,
 } from '~/server/db/schema';
 import {
   applyFogStrokesInputSchema,
@@ -44,6 +45,7 @@ import {
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { publishMapsChanged } from '~/server/maps/events';
 import { ensureMapSession } from '~/server/maps/session';
+import { shouldLoopSpellEffect } from '~/utils/mapMeasurement';
 import type { Database } from '~/server/db';
 
 const isLiveMap = isNull(maps.deletedAt);
@@ -602,6 +604,16 @@ export const mapsRouter = createTRPCRouter({
 
       const sourceSpellSlug = input.sourceSpellSlug || null;
 
+      // Looked up once, here, rather than carried from the client's already-
+      // fetched spell list — keeps "does this loop" server-authoritative,
+      // the same reasoning `effectPlaybackStartedAt` already follows.
+      const sourceSpell = sourceSpellSlug
+        ? await ctx.db.query.spells.findFirst({
+            where: eq(spells.slug, sourceSpellSlug),
+            columns: { duration: true },
+          })
+        : null;
+
       const [created] = await ctx.db
         .insert(mapMeasurementShapes)
         .values({
@@ -619,6 +631,7 @@ export const mapsRouter = createTRPCRouter({
           // client's video element just 404s and falls back to the plain
           // static shape.
           effectPlaybackStartedAt: sourceSpellSlug ? new Date() : null,
+          effectLoops: shouldLoopSpellEffect(sourceSpell?.duration ?? null),
         })
         .returning();
 

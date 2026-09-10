@@ -29,6 +29,10 @@ export type PlayerMapViewMeasurementShape = {
    * type stays consistent across both. Null unless `effectUrl` is also
    * set. */
   effectStartedAtMs: number | null;
+  /** Whether the clip should loop for as long as this shape stays on the
+   * board (an ongoing-duration spell) rather than play once — see
+   * `shouldLoopSpellEffect`. Always false without `effectUrl`. */
+  effectLoops: boolean;
 };
 
 export type PlayerMapViewMap = {
@@ -139,6 +143,7 @@ export const toPlayerMapView = (args: {
               ? buildSpellEffectUrl(shape.sourceSpellSlug)
               : null,
             effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
+            effectLoops: shape.effectLoops,
           })),
         }
       : null,

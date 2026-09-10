@@ -660,30 +660,54 @@ Open5e library, none of this is read-only reference data.
   placement tool is disarmed (`!isMeasurementToolActive()`); an armed click
   always means "place a new shape," never "grab an existing one." Clicking
   empty canvas (tool disarmed, nothing hit) clears the selection.
-- **A spell-sourced shape's animated effect plays once, from
-  `effectPlaybackStartedAt`, set only at creation.** `map_measurement_shapes`
-  carries `sourceSpellSlug` (already existed, for the auto-fill) and
-  `effectPlaybackStartedAt`; `createMeasurementShape` sets the latter iff the
-  former is present, and a later `updateMeasurementShape` (drag-to-move)
-  never touches it — moving an already-placed shape must not replay its
+- **A spell-sourced shape's animated effect plays once — or loops for the
+  spell's whole duration — from `effectPlaybackStartedAt`/`effectLoops`, both
+  set only at creation.** `map_measurement_shapes` carries `sourceSpellSlug`
+  (already existed, for the auto-fill), `effectPlaybackStartedAt`, and
+  `effectLoops`; `createMeasurementShape` looks up the source spell's own
+  `duration` column and sets both from it (`shouldLoopSpellEffect`,
+  `~/utils/mapMeasurement`: false for `'instantaneous'`, true for a real
+  duration like `'1 minute'` or `'until dispelled'`) iff `sourceSpellSlug` is
+  present. A later `updateMeasurementShape` (drag-to-move) never touches
+  either — moving an already-placed shape must not replay or re-arm its
   clip. The URL itself (`buildSpellEffectUrl`, `~/utils/mapMeasurement`) is
   derived purely from the slug, never stored: whether that spell actually
   matched a clip at import time is irrelevant to the DM/player canvas code,
   which only ever finds out by trying to load it — a missing `spell_effects`
   row is a plain 404, and the canvas falls back to the static shape exactly
-  as it would for a load failure. `isEffectPlaying` (pure, grid-independent)
-  decides whether a shape is still within its play window; `MapCanvasView`
-  self-reschedules its own RAF loop for exactly as long as any shape's
-  effect is still playing, then goes idle again — nothing else about this
-  canvas runs a free-running timer, so this is the one exception, contained
-  entirely inside `drawScene`'s own `hasActiveEffect` check.
+  as it would for a load failure. For a one-shot (non-looping) shape,
+  `isEffectPlaying` (pure) decides whether it's still within its play window
+  from the clip's own local `ended` state (see below) — **not** from
+  comparing wall-clock elapsed time against the clip's real duration, which
+  an earlier version of this function did and which could read false before
+  a single frame was ever drawn: most clips are only ~2s, far shorter than
+  the network+render latency between placement and a client actually having
+  a decodable frame can be, especially over SSE to the player screen. A
+  looping shape (`effectLoops`) skips `isEffectPlaying`'s gating entirely in
+  `MapCanvasView` — the browser's own `video.loop` (set at the element's
+  creation, see below) is what makes it repeat; the draw loop just always
+  shows it for as long as the shape exists and its clip hasn't failed to
+  load, i.e. until the DM removes the shape ("the spell gets cleared").
+  Either way, `MapCanvasView` self-reschedules its own RAF loop for exactly
+  as long as any shape's effect is active, then goes idle again — nothing
+  else about this canvas runs a free-running timer, so this is the one
+  exception, contained entirely inside `drawScene`'s own `hasActiveEffect`
+  check.
 - **Several shapes can have effects playing at once**, unlike the map's own
   media (`useMapMedia`, always exactly one active image/video) — so
-  `useSpellEffectVideoCache` is a pool of `<video>` elements keyed by URL,
-  not a single slot. Each element free-runs on its own clock from creation;
-  the DM's and the player's independently-created elements for the same
-  clip are never explicitly synced to each other, only to their own
-  `effectStartedAtMs` read from the same committed row.
+  `useSpellEffectVideoCache` is a pool of `<video>` elements keyed by
+  **shape id**, not clip URL. Two placements of the same spell (two
+  Fireballs) share a URL but must never share a video element — keying by
+  URL would make the second placement silently read the first one's
+  already-`ended` state instead of starting its own; the cache learned this
+  the hard way. Each element free-runs on its own clock from creation; the
+  DM's and the player's independently-created elements for the same clip are
+  never explicitly synced to each other. A cache entry is never evicted on
+  its own — `pruneVideos` must be (and is, from a `useEffect` keyed on the
+  shape list) called with the currently-live shape ids whenever the shape
+  list changes, pausing and discarding any element whose shape was removed.
+  Without this a looping effect's element would keep decoding/playing
+  forever off-screen once nothing on the board referenced its URL any more.
 
 Built: the gallery (folders, upload, rename/move/remove), the canvas (pan,
 zoom, grid calibration, fog of war with a reveal/cover brush), the live

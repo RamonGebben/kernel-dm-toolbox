@@ -330,6 +330,7 @@ export const useMapCanvas = () => {
           ? buildSpellEffectUrl(shape.sourceSpellSlug)
           : null,
         effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
+        effectLoops: shape.effectLoops,
       })),
     [measurementShapesQuery.data],
   );

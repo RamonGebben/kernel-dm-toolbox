@@ -1,0 +1,1 @@
+ALTER TABLE `map_measurement_shapes` ADD `effect_loops` integer DEFAULT false NOT NULL;

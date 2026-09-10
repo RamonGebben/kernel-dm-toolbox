@@ -23,6 +23,18 @@ export type MeasurementShapeType =
 export const buildSpellEffectUrl = (spellSlug: string): string =>
   `/api/effects/${spellSlug}/file`;
 
+/** Whether a spell's matched clip should loop for as long as its shape stays
+ * on the board, rather than play once and settle into the static shape —
+ * decided from the SRD spell's own `duration` text (e.g. `'instantaneous'`,
+ * `'1 minute'`, `'until dispelled'`), lowercased upstream already. An
+ * instantaneous spell (Fireball, Lightning Bolt) bursts once; anything with
+ * a real duration (Spirit Guardians, Wall of Fire, Web) marks an area that
+ * stays dangerous/active until the DM removes the shape, so its clip should
+ * keep playing the whole time. Null (no spell, or a plain ruler) never
+ * loops. */
+export const shouldLoopSpellEffect = (duration: string | null): boolean =>
+  duration != null && duration.trim().toLowerCase() !== 'instantaneous';
+
 export type GridSpec = { cellSize: number; originX: number; originY: number };
 
 export const FEET_PER_GRID_CELL = 5;
