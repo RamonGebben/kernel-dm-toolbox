@@ -82,6 +82,24 @@ const loadFolder = async (db: Database, id: string) => {
   return folder;
 };
 
+const loadMeasurementShape = async (db: Database, id: string) => {
+  const shape = await db.query.mapMeasurementShapes.findFirst({
+    where: and(
+      eq(mapMeasurementShapes.id, id),
+      isNull(mapMeasurementShapes.deletedAt),
+    ),
+  });
+
+  if (!shape) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'That shape is already gone.',
+    });
+  }
+
+  return shape;
+};
+
 export const mapsRouter = createTRPCRouter({
   list: publicProcedure.query(async ({ ctx }) => {
     const [folderRows, mapRows] = await Promise.all([
@@ -620,19 +638,21 @@ export const mapsRouter = createTRPCRouter({
   createMeasurementShape: publicProcedure
     .input(createMeasurementShapeInputSchema)
     .mutation(async ({ ctx, input }) => {
-      await loadMap(ctx.db, input.mapId);
-
       const sourceSpellSlug = input.sourceSpellSlug || null;
 
       // Looked up once, here, rather than carried from the client's already-
       // fetched spell list — keeps "does this loop" server-authoritative,
-      // the same reasoning `effectPlaybackStartedAt` already follows.
-      const sourceSpell = sourceSpellSlug
-        ? await ctx.db.query.spells.findFirst({
-            where: eq(spells.slug, sourceSpellSlug),
-            columns: { duration: true },
-          })
-        : null;
+      // the same reasoning `effectPlaybackStartedAt` already follows. Runs
+      // alongside the map-exists check since neither depends on the other.
+      const [, sourceSpell] = await Promise.all([
+        loadMap(ctx.db, input.mapId),
+        sourceSpellSlug
+          ? ctx.db.query.spells.findFirst({
+              where: eq(spells.slug, sourceSpellSlug),
+              columns: { duration: true },
+            })
+          : Promise.resolve(null),
+      ]);
 
       const [created] = await ctx.db
         .insert(mapMeasurementShapes)
@@ -665,19 +685,7 @@ export const mapsRouter = createTRPCRouter({
   updateMeasurementShape: publicProcedure
     .input(updateMeasurementShapeInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db.query.mapMeasurementShapes.findFirst({
-        where: and(
-          eq(mapMeasurementShapes.id, input.id),
-          isNull(mapMeasurementShapes.deletedAt),
-        ),
-      });
-
-      if (!existing) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That shape is already gone.',
-        });
-      }
+      const existing = await loadMeasurementShape(ctx.db, input.id);
 
       const [updated] = await ctx.db
         .update(mapMeasurementShapes)
@@ -697,19 +705,7 @@ export const mapsRouter = createTRPCRouter({
   removeMeasurementShape: publicProcedure
     .input(measurementShapeIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db.query.mapMeasurementShapes.findFirst({
-        where: and(
-          eq(mapMeasurementShapes.id, input.id),
-          isNull(mapMeasurementShapes.deletedAt),
-        ),
-      });
-
-      if (!existing) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That shape is already gone.',
-        });
-      }
+      const existing = await loadMeasurementShape(ctx.db, input.id);
 
       await ctx.db
         .update(mapMeasurementShapes)

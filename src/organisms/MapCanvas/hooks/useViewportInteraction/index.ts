@@ -19,7 +19,6 @@ import {
   moveTrackerRect,
 } from '~/utils/trackerOverlayRect';
 import {
-  computeAimPreview,
   computeMeasurementPreview,
   isPointInShapeFootprint,
   snapPointToGrid,
@@ -242,6 +241,16 @@ export const useViewportInteraction = ({
       !!(fogToolRef.current?.enabled && fogRef.current?.enabled);
     const isMeasurementToolActive = () => !!measurementToolRef.current?.enabled;
 
+    /** Whether the fog brush, grid calibration, or the measurement tool
+     * currently owns pointer input — any of them wins over grabbing the
+     * tracker/lens overlay or hit-testing a placed shape, including a
+     * click/gesture inside their rects. Centralised so a future tool only
+     * has to be added here instead of at every call site that checks it. */
+    const canGrabOverlay = () =>
+      !isFogToolActive() &&
+      !calibrationActiveRef.current &&
+      !isMeasurementToolActive();
+
     /** The shape to preview/confirm from an already-clicked origin and the
      * current cursor. A preset-sized, orientable shape (a spell's cone/line/
      * cube) keeps its extent fixed and only aims — a circle has no facing to
@@ -260,20 +269,32 @@ export const useViewportInteraction = ({
       const tool = measurementToolRef.current;
       const shapeType = tool?.shapeType ?? 'circle';
       const isAimable = shapeType !== 'circle' && shapeType !== 'ruler';
-      return tool?.presetExtentFeet && isAimable
-        ? computeAimPreview({
-            shapeType,
-            origin,
-            cursor,
-            extentFeet: tool.presetExtentFeet,
-          })
-        : computeMeasurementPreview({
-            shapeType,
-            origin,
-            cursor,
-            grid: gridRef.current,
-          });
+      return computeMeasurementPreview({
+        shapeType,
+        origin,
+        cursor,
+        grid: gridRef.current,
+        presetExtentFeet:
+          tool?.presetExtentFeet && isAimable
+            ? tool.presetExtentFeet
+            : undefined,
+      });
     };
+
+    /** A placed shape's own geometry, re-anchored at `origin` — used both
+     * when grabbing a shape (its own unsnapped position) and while dragging
+     * it (the snapped, cursor-tracking position), so `measurementPreviewRef`
+     * is built the same way at both call sites. */
+    const toPreviewInput = (
+      shape: MapCanvasMeasurementShape,
+      origin: MapPoint,
+    ): MeasurementShapeInput => ({
+      shapeType: shape.shapeType,
+      originX: origin.x,
+      originY: origin.y,
+      extentFeet: shape.extentFeet,
+      orientation: shape.orientation,
+    });
 
     // A placed shape wins the hit test over the lens/tracker the same way
     // the fog brush and calibration already do — the lens defaults to an
@@ -282,11 +303,7 @@ export const useViewportInteraction = ({
     // shape sitting on the visible map. Only computed (and only matters)
     // while the placement tool is disarmed; an armed click always places.
     const findHitMeasurementShape = (point: MapPoint) => {
-      if (
-        isFogToolActive() ||
-        calibrationActiveRef.current ||
-        isMeasurementToolActive()
-      ) {
+      if (!canGrabOverlay()) {
         return null;
       }
 
@@ -317,9 +334,7 @@ export const useViewportInteraction = ({
       // would always grab the (larger) lens instead. Gated by the same
       // `lensLockedRef` the lens itself uses, rather than a second lock.
       if (
-        !isFogToolActive() &&
-        !calibrationActiveRef.current &&
-        !isMeasurementToolActive() &&
+        canGrabOverlay() &&
         !hitShape &&
         !lensLockedRef.current &&
         trackerRectRef.current &&
@@ -334,9 +349,7 @@ export const useViewportInteraction = ({
       }
 
       if (
-        !isFogToolActive() &&
-        !calibrationActiveRef.current &&
-        !isMeasurementToolActive() &&
+        canGrabOverlay() &&
         !hitShape &&
         !lensLockedRef.current &&
         lensRectRef.current &&
@@ -410,13 +423,10 @@ export const useViewportInteraction = ({
           y: hitShape.originY,
         };
         movingShapeStartPointRef.current = mapPoint;
-        measurementPreviewRef.current = {
-          shapeType: hitShape.shapeType,
-          originX: hitShape.originX,
-          originY: hitShape.originY,
-          extentFeet: hitShape.extentFeet,
-          orientation: hitShape.orientation,
-        };
+        measurementPreviewRef.current = toPreviewInput(hitShape, {
+          x: hitShape.originX,
+          y: hitShape.originY,
+        });
         onSelectMeasurementShapeRef.current?.(hitShape.id);
         canvas.setPointerCapture(event.pointerId);
         onScheduleDraw();
@@ -508,13 +518,7 @@ export const useViewportInteraction = ({
             y: start.y + (mapPoint.y - startPoint.y),
           };
           const snapped = snapPointToGrid(dragged, gridRef.current);
-          measurementPreviewRef.current = {
-            shapeType: shape.shapeType,
-            originX: snapped.x,
-            originY: snapped.y,
-            extentFeet: shape.extentFeet,
-            orientation: shape.orientation,
-          };
+          measurementPreviewRef.current = toPreviewInput(shape, snapped);
           onScheduleDraw();
         }
         return;
@@ -613,9 +617,7 @@ export const useViewportInteraction = ({
         isPointInTrackerRect(trackerRectRef.current, mapPoint);
 
       if (
-        !isFogToolActive() &&
-        !calibrationActiveRef.current &&
-        !isMeasurementToolActive() &&
+        canGrabOverlay() &&
         !lensLockedRef.current &&
         !overTracker &&
         lensRectRef.current &&

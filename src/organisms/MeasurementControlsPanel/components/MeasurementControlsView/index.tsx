@@ -3,6 +3,7 @@
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
+import { TextInput } from '~/atoms/TextInput';
 import {
   LABEL_SCALE_PRESETS,
   SIZE_PRESETS_FEET,
@@ -168,9 +169,8 @@ export const MeasurementControlsView = ({
 
       <FieldRow>
         <label htmlFor="measurement-label">Label (optional)</label>
-        <input
+        <TextInput
           id="measurement-label"
-          type="text"
           maxLength={80}
           value={tool.label}
           onChange={event => onToolChange({ label: event.target.value })}
@@ -204,9 +204,8 @@ export const MeasurementControlsView = ({
 
       <FieldRow>
         <label htmlFor="measurement-spell-search">Spell lookup</label>
-        <input
+        <TextInput
           id="measurement-spell-search"
-          type="text"
           placeholder="Search spells…"
           value={spellSearch}
           onChange={event => onSpellSearchChange(event.target.value)}

@@ -90,57 +90,34 @@ export type MeasurementShapeInput = {
 
 /**
  * What the DM is currently aiming, computed live from the fixed origin click
- * and the free-moving cursor. Only the extent (distance) snaps to the grid —
- * orientation is a free angle, per issue #1's placement decision.
+ * and the free-moving cursor. Orientation is always a free angle, per issue
+ * #1's placement decision. Extent (distance) either snaps to the grid from
+ * the cursor position, or — for a preset-sized shape (a spell's own area
+ * size, or a picked 5e preset), where the origin click already fixed both
+ * position and size — is passed in fixed via `presetExtentFeet`, so the
+ * cursor after that only ever aims a direction and never resizes it. A
+ * circle has no facing to aim; callers commit it on the origin click alone
+ * and never reach this function for one.
  */
 export const computeMeasurementPreview = ({
   shapeType,
   origin,
   cursor,
   grid,
+  presetExtentFeet,
 }: {
   shapeType: MeasurementShapeType;
   origin: MapPoint;
   cursor: MapPoint;
   grid: GridSpec;
+  presetExtentFeet?: number;
 }): MeasurementShapeInput => ({
   shapeType,
   originX: origin.x,
   originY: origin.y,
-  extentFeet: Math.max(
-    FEET_PER_GRID_CELL,
-    computeGridDistanceFeet(origin, cursor, grid),
-  ),
-  orientation:
-    shapeType === 'circle'
-      ? null
-      : Math.atan2(cursor.y - origin.y, cursor.x - origin.x),
-});
-
-/**
- * What the DM is aiming for a preset-sized shape (a spell's own area size,
- * from `presetExtentFeet`) — the origin click fixes both position and size,
- * so the cursor after that only ever aims a direction, never resizes it.
- * Same `atan2` orientation math as `computeMeasurementPreview`, minus the
- * distance-derived extent, so an aim-preview and a free-dragged one read
- * identically once confirmed. A circle has no facing to aim; callers commit
- * it on the origin click alone and never reach this function for one.
- */
-export const computeAimPreview = ({
-  shapeType,
-  origin,
-  cursor,
-  extentFeet,
-}: {
-  shapeType: MeasurementShapeType;
-  origin: MapPoint;
-  cursor: MapPoint;
-  extentFeet: number;
-}): MeasurementShapeInput => ({
-  shapeType,
-  originX: origin.x,
-  originY: origin.y,
-  extentFeet,
+  extentFeet:
+    presetExtentFeet ??
+    Math.max(FEET_PER_GRID_CELL, computeGridDistanceFeet(origin, cursor, grid)),
   orientation:
     shapeType === 'circle'
       ? null
