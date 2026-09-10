@@ -635,9 +635,10 @@ Open5e library, none of this is read-only reference data.
   the same spot.
 - **A shape's label font size is a session-wide multiplier, not a per-shape
   or per-screen setting.** `map_sessions.measurementLabelScale` (default 1,
-  same 0.5–3 range and purpose as `trackerOverlayScale` — a TV viewed from
-  across the room needs bigger text than a monospace label sized for a DM's
-  own laptop) scales the base 12px font `drawShapeLabel` draws at, plus its
+  0.5–3 range, same TV-readability purpose as `trackerOverlayScale`'s own
+  0.5–2 range — a TV viewed from across the room needs bigger text than a
+  monospace label sized for a DM's own laptop) scales the base 12px font
+  `drawShapeLabel` draws at, plus its
   background box's padding/offset so a larger label doesn't crowd or
   overflow a box sized for the default. Set from the Measure panel's own
   preset buttons (`LABEL_SCALE_PRESETS`), it applies retroactively to every

@@ -43,7 +43,9 @@ export const FEET_PER_GRID_CELL = 5;
 export const SIZE_PRESETS_FEET = [5, 10, 15, 20, 30, 40, 60] as const;
 
 /** Multipliers on the base 12px label font, for the panel's own preset
- * buttons — matches `measurementLabelScaleInputSchema`'s 0.5–3 range. */
+ * buttons — the upper bound matches `measurementLabelScaleInputSchema`'s
+ * max of 3, but the schema's 0.5 floor has no preset button of its own:
+ * there's no UI path to shrink a label below the default, only enlarge it. */
 export const LABEL_SCALE_PRESETS = [1, 1.5, 2, 2.5, 3] as const;
 
 /** Fixed width for a `line` shape — the SRD default for line-shaped spells.

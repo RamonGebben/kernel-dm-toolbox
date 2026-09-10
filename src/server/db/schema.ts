@@ -789,8 +789,9 @@ export const mapSessions = sqliteTable(
     /** A multiplier on the base 12px label font a placed shape's distance/
      * spell text draws at (`drawShapeLabel`, `~/organisms/MapCanvas`) — the
      * same "make the TV readable from across the room" purpose
-     * `trackerOverlayScale` already serves for the tracker overlay, and the
-     * same 0.5–3 range. Applies on both the DM and player canvases, since
+     * `trackerOverlayScale` already serves for the tracker overlay, though
+     * with a wider 0.5–3 range (tracker's own is 0.5–2). Applies on both
+     * the DM and player canvases, since
      * both draw through the same `MapCanvasView`. */
     measurementLabelScale: real('measurement_label_scale').notNull().default(1),
 
