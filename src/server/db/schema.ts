@@ -259,6 +259,10 @@ export const importRuns = sqliteTable('import_runs', {
   conditionCount: integer('condition_count').notNull().default(0),
   spellCount: integer('spell_count').notNull().default(0),
   castingOptionCount: integer('casting_option_count').notNull().default(0),
+  /** How many spells matched an animated effect this run — see
+   * `spellEffects`. Not how many *files* were downloaded: several spells
+   * commonly share one deduplicated clip. */
+  effectCount: integer('effect_count').notNull().default(0),
   error: text('error'),
 });
 
@@ -367,6 +371,34 @@ export type Spell = typeof spells.$inferSelect;
 export type NewSpell = typeof spells.$inferInsert;
 export type SpellCastingOption = typeof spellCastingOptions.$inferSelect;
 export type NewSpellCastingOption = typeof spellCastingOptions.$inferInsert;
+
+/**
+ * An animated VFX clip auto-matched to a spell by damage type + area shape
+ * (see `~/server/library/effectCandidates`), fetched from
+ * `jackkerouac/animated-spell-effects` (GPL-3.0) at import time. One row per
+ * spell that got a match — most don't, since that repo is a general elemental
+ * VFX library with no per-spell mapping of its own, not a per-spell
+ * compendium. Like the library tables above, this is derived and rewritten
+ * wholesale on every import, so it is exempt from `syncMeta` too.
+ *
+ * `sourcePath` is the upstream repo-relative path (for provenance and to
+ * detect when a re-import's match changed); `storagePath` is content-
+ * addressed (a hash of `sourcePath`), so spells that match the same upstream
+ * clip share one file on disk instead of a copy each.
+ */
+export const spellEffects = sqliteTable('spell_effects', {
+  spellSlug: text('spell_slug')
+    .primaryKey()
+    .references(() => spells.slug, { onDelete: 'cascade' }),
+  sourcePath: text('source_path').notNull(),
+  storagePath: text('storage_path').notNull(),
+  mimeType: text('mime_type').notNull().default('video/webm'),
+  byteSize: integer('byte_size').notNull(),
+});
+
+export type SpellEffect = typeof spellEffects.$inferSelect;
+export type NewSpellEffect = typeof spellEffects.$inferInsert;
+
 export type ImportRun = typeof importRuns.$inferSelect;
 
 /* ---------------------------------------------------------------------------
@@ -817,8 +849,17 @@ export const mapMeasurementShapes = sqliteTable(
     label: text('label'),
     color: text('color').notNull().default('#6fa7ff'),
     /** Set when placed via the spell-lookup auto-fill, so a re-opened panel
-     * could show what it came from. Not used to re-derive anything. */
+     * could show what it came from — and, if that spell matched an animated
+     * effect (`spellEffects`), which clip to play. */
     sourceSpellSlug: text('source_spell_slug').references(() => spells.slug),
+    /** Set once, at creation, when `sourceSpellSlug` is present — never on a
+     * later move. The clip plays once, timed from this moment; moving an
+     * already-placed shape must not replay it. Harmless if the spell turned
+     * out to have no matched effect: the client's video element just 404s
+     * and falls back to the plain static shape. */
+    effectPlaybackStartedAt: integer('effect_playback_started_at', {
+      mode: 'timestamp_ms',
+    }),
   },
   table => [
     check(

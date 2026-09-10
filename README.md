@@ -61,9 +61,11 @@ CAMPAIGN_NAME="Curse of Strahd" docker compose up -d --build
 ```
 
 Either way the container has no creature library the first time it starts, so
-it imports one before serving requests. First boot takes an extra few seconds
-and logs what it is doing. Set `LIBRARY_AUTO_IMPORT=false` on an instance that
-must not reach GitHub at startup.
+it imports one before serving requests — creatures, conditions, spells, and a
+curated set of animated spell-effect clips matched to them (see
+`DECISIONS.md` #29). First boot takes an extra few seconds and logs what it
+is doing. Set `LIBRARY_AUTO_IMPORT=false` on an instance that must not reach
+GitHub at startup.
 
 The campaign database lives in the `campaign-data` volume, so rebuilding or
 replacing the container does not touch your data.
@@ -104,6 +106,7 @@ validated in `src/env.ts`. The ones you are likely to touch:
 | `FEATURE_INITIATIVE_TRACKER` | Feature gate; `"true"` to enable                     |
 | `MAPS_STORAGE_DIR`           | Where uploaded map images/videos are stored on disk  |
 | `MAPS_MAX_UPLOAD_BYTES`      | Upload size cap, in bytes                            |
+| `EFFECTS_STORAGE_DIR`        | Where animated spell-effect clips are stored on disk |
 
 Feature gates are plain server-side environment variables. Changing one takes
 effect on the next container restart.
@@ -116,13 +119,23 @@ Wizards of the Coast, as published in the
 [Open5e API](https://github.com/open5e/open5e-api) fixtures, and is licensed
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-This project is not affiliated with or endorsed by Wizards of the Coast.
+Animated spell-effect clips for the Maps tool's measurement templates come
+from Jack Kerouac's
+[Animated Spell Effects](https://github.com/jackkerouac/animated-spell-effects)
+and are licensed under
+[GPL-3.0](https://github.com/jackkerouac/animated-spell-effects/blob/master/LICENSE).
+A curated subset is fetched at library-import time, not bundled with this
+project — see `DECISIONS.md` #29.
+
+This project is not affiliated with or endorsed by Wizards of the Coast or
+Jack Kerouac.
 
 ## Roadmap
 
 Built and in use: the initiative tracker, spell lookup and virtual tabletop, end
 to end. Dice expressions inside statblock and spell text are already clickable
-and roll in place.
+and roll in place. The Maps tool's ruler and spell-area templates play an
+animated effect clip when a matched spell is placed.
 
 Next, in rough order:
 

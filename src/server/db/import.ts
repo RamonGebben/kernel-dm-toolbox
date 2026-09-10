@@ -15,6 +15,7 @@ import type { Database } from '~/server/db';
 const databaseUrl =
   process.env.DATABASE_URL ?? 'file:.data/kernel-dm-toolbox.db';
 const gitRef = process.argv[2] ?? LIBRARY_GIT_REF;
+const effectsStorageDir = process.env.EFFECTS_STORAGE_DIR ?? '.data/effects';
 
 const run = async (): Promise<void> => {
   const client = createClient({
@@ -28,6 +29,7 @@ const run = async (): Promise<void> => {
   const result = await importLibrary({
     db,
     gitRef,
+    effectsStorageDir,
     onProgress: message => console.log(`  ${message}`),
   });
 
@@ -41,6 +43,7 @@ const run = async (): Promise<void> => {
   console.log(`  conditions ${result.conditionCount}`);
   console.log(`  spells     ${result.spellCount}`);
   console.log(`  options    ${result.castingOptionCount}`);
+  console.log(`  effects    ${result.effectCount}`);
 
   const orphaned =
     result.orphanedActions +

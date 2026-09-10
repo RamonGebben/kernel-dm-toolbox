@@ -378,6 +378,15 @@ one of the few Open5e models with no slug. `fixtures.ts` has a
 `numericPkFixtureRecord` for exactly this, so every library table still has a
 text primary key.
 
+One more library-adjacent table, `spell_effects`, is **not** from Open5e — it
+maps a spell to an animated effect clip from a different upstream
+(`jackkerouac/animated-spell-effects`, GPL-3.0), matched by damage type and
+area shape at import time (`~/server/library/effectCandidates`, DECISIONS
+#29). It's exempt from `syncMeta` for the same reason the tables above are:
+derived, not user data, rewritten wholesale on every import — it just has a
+different upstream to point at when asking "why does this row look like
+this".
+
 Library tables are **the one exception to `syncMeta`**. They are not user data:
 never edited, nothing to reconcile, no soft deletes. Everything else in the app
 still spreads `syncMeta`.
@@ -651,10 +660,34 @@ Open5e library, none of this is read-only reference data.
   placement tool is disarmed (`!isMeasurementToolActive()`); an armed click
   always means "place a new shape," never "grab an existing one." Clicking
   empty canvas (tool disarmed, nothing hit) clears the selection.
+- **A spell-sourced shape's animated effect plays once, from
+  `effectPlaybackStartedAt`, set only at creation.** `map_measurement_shapes`
+  carries `sourceSpellSlug` (already existed, for the auto-fill) and
+  `effectPlaybackStartedAt`; `createMeasurementShape` sets the latter iff the
+  former is present, and a later `updateMeasurementShape` (drag-to-move)
+  never touches it — moving an already-placed shape must not replay its
+  clip. The URL itself (`buildSpellEffectUrl`, `~/utils/mapMeasurement`) is
+  derived purely from the slug, never stored: whether that spell actually
+  matched a clip at import time is irrelevant to the DM/player canvas code,
+  which only ever finds out by trying to load it — a missing `spell_effects`
+  row is a plain 404, and the canvas falls back to the static shape exactly
+  as it would for a load failure. `isEffectPlaying` (pure, grid-independent)
+  decides whether a shape is still within its play window; `MapCanvasView`
+  self-reschedules its own RAF loop for exactly as long as any shape's
+  effect is still playing, then goes idle again — nothing else about this
+  canvas runs a free-running timer, so this is the one exception, contained
+  entirely inside `drawScene`'s own `hasActiveEffect` check.
+- **Several shapes can have effects playing at once**, unlike the map's own
+  media (`useMapMedia`, always exactly one active image/video) — so
+  `useSpellEffectVideoCache` is a pool of `<video>` elements keyed by URL,
+  not a single slot. Each element free-runs on its own clock from creation;
+  the DM's and the player's independently-created elements for the same
+  clip are never explicitly synced to each other, only to their own
+  `effectStartedAtMs` read from the same committed row.
 
 Built: the gallery (folders, upload, rename/move/remove), the canvas (pan,
 zoom, grid calibration, fog of war with a reveal/cover brush), the live
 session (active map, DM viewport persistence, the draggable lens, the
 mode toggle), the mode-aware player screen, and the ruler/spell-area
-measurement tool. Not started: the
+measurement tool with animated spell-effect playback. Not started: the
 Artwork/handout gallery the source app also had.

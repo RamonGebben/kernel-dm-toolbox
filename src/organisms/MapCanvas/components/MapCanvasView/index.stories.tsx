@@ -673,6 +673,28 @@ export const CommittedShapesAreAlwaysDrawn: Story = {
   },
 };
 
+const spellSourcedShape = {
+  ...committedShape,
+  id: 'shape-2',
+  effectUrl: '/api/effects/does-not-exist/file',
+  effectStartedAtMs: Date.now(),
+};
+
+export const SpellSourcedShapeFallsBackWhenItsEffectFailsToLoad: Story = {
+  args: { measurementShapes: [spellSourcedShape], interactive: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // The effect's URL 404s in this environment — proves the canvas keeps
+    // rendering the plain static shape (and stops the self-rescheduled
+    // redraw loop `isEffectPlaying` drives) rather than getting stuck
+    // waiting on a clip that will never load.
+    await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
+    await waitForFrame();
+    await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
+  },
+};
+
 const overlappingShape = {
   id: 'shape-1',
   shapeType: 'circle' as const,

@@ -40,11 +40,12 @@ export const seedLibraryIfEmpty = async (): Promise<SeedOutcome> => {
   try {
     const result = await importLibrary({
       db,
+      effectsStorageDir: env.EFFECTS_STORAGE_DIR,
       onProgress: message => console.log(`[library] ${message}`),
     });
 
     console.log(
-      `[library] imported ${result.creatureCount} creatures and ${result.conditionCount} conditions`,
+      `[library] imported ${result.creatureCount} creatures, ${result.conditionCount} conditions and ${result.effectCount} spell effects`,
     );
 
     return 'imported';

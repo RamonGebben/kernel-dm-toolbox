@@ -63,6 +63,13 @@ export const env = createEnv({
       .int()
       .positive()
       .default(50 * 1024 * 1024),
+
+    /**
+     * Where animated spell-effect clips fetched from
+     * `jackkerouac/animated-spell-effects` (GPL-3.0) are stored. Same
+     * relative-path gotcha as `MAPS_STORAGE_DIR`.
+     */
+    EFFECTS_STORAGE_DIR: z.string().min(1).default('.data/effects'),
   },
 
   client: {

@@ -1,4 +1,5 @@
 import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
+import { buildSpellEffectUrl } from '~/utils/mapMeasurement';
 import type {
   MapAsset,
   MapFogStroke,
@@ -19,6 +20,15 @@ export type PlayerMapViewMeasurementShape = {
   orientation: number | null;
   label: string | null;
   color: string;
+  /** Where to play the animated effect from, if this shape came from a
+   * spell — a plain 404 (and a client-side fallback to the static shape)
+   * when that spell had no matched effect. */
+  effectUrl: string | null;
+  /** Epoch ms, not a `Date` — this payload also travels as plain
+   * `JSON.stringify`'d SSE text (unlike the tRPC/superjson path), so the
+   * type stays consistent across both. Null unless `effectUrl` is also
+   * set. */
+  effectStartedAtMs: number | null;
 };
 
 export type PlayerMapViewMap = {
@@ -125,6 +135,10 @@ export const toPlayerMapView = (args: {
             orientation: shape.orientation,
             label: shape.label,
             color: shape.color,
+            effectUrl: shape.sourceSpellSlug
+              ? buildSpellEffectUrl(shape.sourceSpellSlug)
+              : null,
+            effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
           })),
         }
       : null,

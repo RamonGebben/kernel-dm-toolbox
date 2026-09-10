@@ -58,12 +58,18 @@ const mapsStorageDir = toAbsolutePath(
   process.cwd(),
 );
 
+const effectsStorageDir = toAbsolutePath(
+  process.env.EFFECTS_STORAGE_DIR ?? '.data/effects',
+  process.cwd(),
+);
+
 const server = spawn('node', [`${STANDALONE_DIR}/server.js`], {
   stdio: 'inherit',
   env: {
     ...process.env,
     DATABASE_URL: databaseUrl,
     MAPS_STORAGE_DIR: mapsStorageDir,
+    EFFECTS_STORAGE_DIR: effectsStorageDir,
   },
 });
 

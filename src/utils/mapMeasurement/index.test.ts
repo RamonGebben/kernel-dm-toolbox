@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_EFFECT_WAIT_MS,
   buildMeasurementLabelText,
   computeGridDistanceFeet,
   computeMeasurementPreview,
   computeShapeFootprint,
   computeShapeLabelAnchor,
+  computeShapeVideoBounds,
+  isEffectPlaying,
   isPointInShapeFootprint,
   mapDamageTypesToColor,
   mapSpellShapeType,
@@ -318,5 +321,150 @@ describe('mapSpellShapeType', () => {
   it('falls back to null for an unrecognised or missing shape', () => {
     expect(mapSpellShapeType('mumbo-jumbo')).toBeNull();
     expect(mapSpellShapeType(null)).toBeNull();
+  });
+});
+
+describe('computeShapeVideoBounds', () => {
+  it('bounds a circle at its origin with radius = extent', () => {
+    const bounds = computeShapeVideoBounds(
+      {
+        shapeType: 'circle',
+        originX: 10,
+        originY: 20,
+        extentFeet: 20,
+        orientation: null,
+      },
+      grid,
+    );
+
+    expect(bounds).toEqual({ kind: 'circle', cx: 10, cy: 20, radius: 200 });
+  });
+
+  it('bounds a cone as a square (base width = length) facing its orientation', () => {
+    const bounds = computeShapeVideoBounds(
+      {
+        shapeType: 'cone',
+        originX: 0,
+        originY: 0,
+        extentFeet: 20,
+        orientation: Math.PI / 2,
+      },
+      grid,
+    );
+
+    expect(bounds).toEqual({
+      kind: 'rect',
+      offsetX: 0,
+      offsetY: -100,
+      width: 200,
+      height: 200,
+      rotation: Math.PI / 2,
+    });
+  });
+
+  it('bounds a line as a thin rectangle the fixed SRD width tall', () => {
+    const bounds = computeShapeVideoBounds(
+      {
+        shapeType: 'line',
+        originX: 0,
+        originY: 0,
+        extentFeet: 20,
+        orientation: 0,
+      },
+      grid,
+    );
+
+    expect(bounds.kind).toBe('rect');
+    if (bounds.kind !== 'rect') throw new Error('unreachable');
+    expect(bounds.width).toBe(200);
+    // 5 ft wide at 50px/cell = 50px.
+    expect(bounds.height).toBe(50);
+  });
+
+  it('bounds a cube as a square with one corner at the origin', () => {
+    const bounds = computeShapeVideoBounds(
+      {
+        shapeType: 'cube',
+        originX: 0,
+        originY: 0,
+        extentFeet: 10,
+        orientation: 0,
+      },
+      grid,
+    );
+
+    expect(bounds).toEqual({
+      kind: 'rect',
+      offsetX: 0,
+      offsetY: 0,
+      width: 100,
+      height: 100,
+      rotation: 0,
+    });
+  });
+});
+
+describe('isEffectPlaying', () => {
+  it('is playing while the video has not ended, within the wait window', () => {
+    expect(
+      isEffectPlaying({
+        effectStartedAtMs: 1000,
+        nowMs: 1500,
+        videoEnded: false,
+        failed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('stops once the video itself has ended', () => {
+    expect(
+      isEffectPlaying({
+        effectStartedAtMs: 1000,
+        nowMs: 1500,
+        videoEnded: true,
+        failed: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('gives up once the max-wait window elapses, even if never ended', () => {
+    expect(
+      isEffectPlaying({
+        effectStartedAtMs: 1000,
+        nowMs: 1000 + MAX_EFFECT_WAIT_MS - 1,
+        videoEnded: false,
+        failed: false,
+      }),
+    ).toBe(true);
+    expect(
+      isEffectPlaying({
+        effectStartedAtMs: 1000,
+        nowMs: 1000 + MAX_EFFECT_WAIT_MS + 1,
+        videoEnded: false,
+        failed: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('is never playing once failed, regardless of timing', () => {
+    expect(
+      isEffectPlaying({
+        effectStartedAtMs: 1000,
+        nowMs: 1001,
+        videoEnded: false,
+        failed: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('is not playing before its own start time', () => {
+    expect(
+      isEffectPlaying({
+        effectStartedAtMs: 5000,
+        nowMs: 1000,
+        videoEnded: false,
+        failed: false,
+      }),
+    ).toBe(false);
   });
 });

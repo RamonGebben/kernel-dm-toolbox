@@ -716,3 +716,58 @@ canvas, the checklist is: where does it sit in the existing priority chain
 pan), and is there a story that stages a spatial overlap with each of the
 things ranked above and below it in that chain — not just a story proving
 the new interaction works when nothing else is present.
+
+## 29. Animated spell effects: a curated subset, fetched at runtime, never vendored
+
+**Decision.** A placed measurement shape sourced from a spell (issue #1's
+follow-up) can play a short animated video clip instead of its plain static
+footprint. The clips come from
+[`jackkerouac/animated-spell-effects`](https://github.com/jackkerouac/animated-spell-effects)
+(GPL-3.0, ~1.25GB, transparent WebM). Exactly like the Open5e library
+(DECISIONS #12), the clips are fetched at library-import time into the
+campaign volume — never vendored into this repo's git history and never
+baked into the Docker image. Unlike the Open5e library, only a small,
+hand-picked subset is ever fetched: `~/server/library/effectCandidates`
+matches at most one clip per (damage type, area shape) combination, not per
+spell, and most spells (anything with no damage type, or a shape this
+feature doesn't model) get none at all. In practice this means a few dozen
+clips total, not several hundred — a materially different footprint from
+"the whole repo," which is what makes fetching it automatically on first
+boot (mirroring `LIBRARY_AUTO_IMPORT`) a reasonable default rather than
+something that needed its own opt-in flag.
+
+**Why there's no per-spell mapping in the source repo to lean on.** It was
+checked before building anything: the repo is a general library of ~400
+elemental VFX clips grouped by theme (`fire/`, `ice/`, `lightning/`, …),
+tagged only with a shape suffix (`_CIRCLE_`/`_CONE_`/`_RAY_`/`_SQUARE_`), not
+a spell compendium — not even in its own Foundry VTT module manifest
+(`scripts/effects.js`), which carries only generic labels like "FIRE -
+Explosion 01". `EFFECT_CANDIDATES` is therefore hand-curated data, not a
+runtime folder/keyword matcher: reviewable as code, and immune to silently
+picking a different file if the upstream listing is ever reordered.
+Deliberately excluded: bludgeoning/piercing/slashing damage, which has no
+elemental theme to match — the same "no good match, so no guess" rule
+`mapDamageTypesToColor` already follows for a shape's colour.
+
+**Why content-addressed storage.** Many spells commonly match the exact same
+clip (every fire-damage circle spell, for instance), so `spell_effects` rows
+are deduplicated by hashing the clip's upstream path
+(`~/utils/effectStorage`) into its on-disk filename — one download and one
+file no matter how many spells reference it, rather than one copy per spell.
+
+**Why a licence stronger than the SRD's CC-BY-4.0 matters here.** GPL-3.0 is
+copyleft in a way CC-BY isn't. The non-vendoring pattern that already existed
+for the SRD library turns out to be exactly the right shape for this too:
+nothing GPL-licensed ships as part of this project's own distribution (the
+git repository or the Docker image) — a campaign's Docker volume fetches it
+for itself, the same as it fetches its own creature and spell data. Credited
+in the README per the licence's own requirement, the same way the SRD's
+CC-BY-4.0 credit already is.
+
+**Why a spell's effect never fails the library import.** `importSpellEffects`
+catches per-spell (a flaky fetch, a write error) and the outer
+`importLibrary` call wraps the whole step in its own `try`/`catch` — a
+network hiccup fetching video must never turn a `pnpm db:import` or a first
+boot's automatic import that would otherwise have succeeded into a failed
+one. An animated effect is a bonus layered onto a working text library,
+never a reason to leave one half-imported.

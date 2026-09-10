@@ -19,7 +19,10 @@ import type {
   MapCanvasFogStroke,
   MapCanvasMeasurementShape,
 } from '~/organisms/MapCanvas/components/MapCanvasView';
-import type { MeasurementShapeInput } from '~/utils/mapMeasurement';
+import {
+  buildSpellEffectUrl,
+  type MeasurementShapeInput,
+} from '~/utils/mapMeasurement';
 
 /**
  * How long to wait after the DM's pan/zoom settles before persisting it.
@@ -323,6 +326,10 @@ export const useMapCanvas = () => {
         orientation: shape.orientation,
         color: shape.color,
         label: shape.label,
+        effectUrl: shape.sourceSpellSlug
+          ? buildSpellEffectUrl(shape.sourceSpellSlug)
+          : null,
+        effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
       })),
     [measurementShapesQuery.data],
   );

@@ -36,6 +36,7 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV DATABASE_URL=file:/data/kernel-dm-toolbox.db
 ENV MAPS_STORAGE_DIR=/data/maps
+ENV EFFECTS_STORAGE_DIR=/data/effects
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs \

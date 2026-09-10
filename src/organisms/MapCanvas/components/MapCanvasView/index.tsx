@@ -9,10 +9,13 @@ import { useMapMedia } from '~/organisms/MapCanvas/hooks/useMapMedia';
 import { useFogMask } from '~/organisms/MapCanvas/hooks/useFogMask';
 import { useGridOverlay } from '~/organisms/MapCanvas/hooks/useGridOverlay';
 import { useViewportInteraction } from '~/organisms/MapCanvas/hooks/useViewportInteraction';
+import { useSpellEffectVideoCache } from '~/organisms/MapCanvas/hooks/useSpellEffectVideos';
 import {
   buildMeasurementLabelText,
   computeShapeFootprint,
   computeShapeLabelAnchor,
+  computeShapeVideoBounds,
+  isEffectPlaying,
   type GridSpec,
   type MeasurementShapeInput,
   type MeasurementShapeType,
@@ -70,6 +73,14 @@ export type MapCanvasMeasurementShape = MeasurementShapeInput & {
   id: string;
   color: string;
   label?: string | null;
+  /** Where to play this shape's animated effect from, if it came from a
+   * spell that matched one — null otherwise, or on a plain ruler. A 404
+   * (spell matched to no clip) falls back to the static shape, same as
+   * null. */
+  effectUrl?: string | null;
+  /** Epoch ms; null unless `effectUrl` is also set. Set once at creation,
+   * never touched by a later move. */
+  effectStartedAtMs?: number | null;
 };
 
 /** The armed placement tool — while enabled, a canvas click either sets a
@@ -498,6 +509,8 @@ export const MapCanvasView = ({
 
   const drawGrid = useGridOverlay();
 
+  const { getVideo: getEffectVideo } = useSpellEffectVideoCache(scheduleDraw);
+
   const { calibrationPreviewRef, movingShapeIdRef } = useViewportInteraction({
     canvasRef,
     interactive,
@@ -743,19 +756,80 @@ export const MapCanvasView = ({
         ctx.restore();
       };
 
+      const drawEffectVideoFrame = (
+        video: HTMLVideoElement,
+        shape: MeasurementShapeInput,
+      ) => {
+        const bounds = computeShapeVideoBounds(shape, gridSpecRef.current);
+
+        ctx.save();
+        if (bounds.kind === 'circle') {
+          ctx.drawImage(
+            video,
+            bounds.cx - bounds.radius,
+            bounds.cy - bounds.radius,
+            bounds.radius * 2,
+            bounds.radius * 2,
+          );
+        } else {
+          ctx.translate(shape.originX, shape.originY);
+          ctx.rotate(bounds.rotation);
+          ctx.drawImage(
+            video,
+            bounds.offsetX,
+            bounds.offsetY,
+            bounds.width,
+            bounds.height,
+          );
+        }
+        ctx.restore();
+      };
+
       // Every committed shape, always visible — none of them are secret.
       // The one currently being dragged (if any) is skipped here; its live
       // position is drawn from the preview below instead, so it isn't
-      // rendered twice.
+      // rendered twice. A shape placed from a spell that matched an
+      // animated effect plays it once in place of the plain static
+      // footprint, for as long as `isEffectPlaying` says so — this is also
+      // what keeps `hasActiveEffect` (and so the self-rescheduled redraw
+      // loop below) true while any clip is still running.
+      let hasActiveEffect = false;
+      const now = Date.now();
+
       for (const shape of measurementShapesRef.current) {
         if (shape.id === movingShapeIdRef.current) continue;
 
-        drawShapeFootprint(
-          computeShapeFootprint(shape, gridSpecRef.current),
-          shape.color,
-          false,
-          shape.id === selectedMeasurementShapeIdRef.current,
-        );
+        let drewEffectFrame = false;
+
+        if (shape.effectUrl && shape.effectStartedAtMs != null) {
+          const entry = getEffectVideo(shape.effectUrl);
+          const playing = isEffectPlaying({
+            effectStartedAtMs: shape.effectStartedAtMs,
+            nowMs: now,
+            videoEnded: entry.video.ended,
+            failed: entry.failed,
+          });
+
+          if (playing) {
+            hasActiveEffect = true;
+            // HAVE_CURRENT_DATA — the same readiness canvas drawImage
+            // itself requires; still-loading and failed clips fall through
+            // to the plain static shape below instead of drawing nothing.
+            if (!entry.failed && entry.video.readyState >= 2) {
+              drawEffectVideoFrame(entry.video, shape);
+              drewEffectFrame = true;
+            }
+          }
+        }
+
+        if (!drewEffectFrame) {
+          drawShapeFootprint(
+            computeShapeFootprint(shape, gridSpecRef.current),
+            shape.color,
+            false,
+            shape.id === selectedMeasurementShapeIdRef.current,
+          );
+        }
         drawShapeLabel(
           computeShapeLabelAnchor(shape, gridSpecRef.current),
           buildMeasurementLabelText(shape),
@@ -859,6 +933,13 @@ export const MapCanvasView = ({
           ctx.fillRect(barX, barY, barWidth * progress, barHeight);
         }
       }
+
+      // Self-rescheduling: unlike every other reason this canvas redraws
+      // (a pointer event, a prop change), an effect clip keeps playing on
+      // its own timeline with nothing else prompting a new frame. Keeps
+      // requesting the next one for exactly as long as `isEffectPlaying`
+      // says a clip still is, then goes idle again on its own.
+      if (hasActiveEffect) scheduleDraw();
     };
 
     drawRef.current = drawScene;
@@ -875,6 +956,7 @@ export const MapCanvasView = ({
     fogMask.maskRef,
     fogOpacity,
     fogRef,
+    getEffectVideo,
     grid,
     gridSpecRef,
     lensPreviewRef,

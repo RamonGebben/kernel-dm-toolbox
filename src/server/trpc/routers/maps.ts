@@ -600,6 +600,8 @@ export const mapsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await loadMap(ctx.db, input.mapId);
 
+      const sourceSpellSlug = input.sourceSpellSlug || null;
+
       const [created] = await ctx.db
         .insert(mapMeasurementShapes)
         .values({
@@ -611,7 +613,12 @@ export const mapsRouter = createTRPCRouter({
           orientation: input.orientation,
           label: input.label || null,
           color: input.color || undefined,
-          sourceSpellSlug: input.sourceSpellSlug || null,
+          sourceSpellSlug,
+          // Set once, at creation, never on a later move — see the column's
+          // own comment. Harmless when the spell has no matched effect: the
+          // client's video element just 404s and falls back to the plain
+          // static shape.
+          effectPlaybackStartedAt: sourceSpellSlug ? new Date() : null,
         })
         .returning();
 

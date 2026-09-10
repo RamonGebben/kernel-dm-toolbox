@@ -25,6 +25,8 @@ import { toSpellRow } from '~/server/library/mappers/toSpellRow';
 import { toSpellCastingOptionRow } from '~/server/library/mappers/toSpellCastingOptionRow';
 import { partitionByParent } from '~/server/library/mappers/partitionByParent';
 import { chunk } from '~/utils/chunk';
+import { importSpellEffects } from '~/server/library/importSpellEffects';
+import type { FetchBinary } from '~/server/library/effectsSource';
 
 /**
  * SQLite binds one variable per column per row. The creature table is the
@@ -48,6 +50,13 @@ export type ImportLibraryOptions = {
   gitRef?: string;
   fetchJson?: FetchJson;
   onProgress?: ImportProgress;
+  /** Where animated spell-effect clips are written. Effects are matched and
+   * fetched only when this is set — omitting it (as the existing text-only
+   * integration test does) skips that step entirely, rather than reaching
+   * the network for video with no directory to put it in. */
+  effectsStorageDir?: string;
+  effectsGitRef?: string;
+  fetchBinary?: FetchBinary;
 };
 
 export type ImportLibraryResult = {
@@ -63,6 +72,9 @@ export type ImportLibraryResult = {
   orphanedAttacks: number;
   orphanedTraits: number;
   orphanedCastingOptions: number;
+  /** How many spells matched an animated effect — 0 when `effectsStorageDir`
+   * was not given. */
+  effectCount: number;
 };
 
 /**
@@ -83,6 +95,9 @@ export const importLibrary = async ({
   gitRef = LIBRARY_GIT_REF,
   fetchJson = defaultFetchJson,
   onProgress = () => {},
+  effectsStorageDir,
+  effectsGitRef,
+  fetchBinary,
 }: ImportLibraryOptions): Promise<ImportLibraryResult> => {
   const startedAt = new Date();
   const [run] = await db
@@ -235,6 +250,33 @@ export const importLibrary = async ({
         });
     }
 
+    // A bonus on top of a working text library, never a reason to fail it:
+    // caught here rather than by the outer `catch`, so a network hiccup
+    // fetching video leaves `import_runs` reporting a successful import with
+    // zero effects, not a failed one with zero of everything.
+    let effectCount = 0;
+    if (effectsStorageDir) {
+      try {
+        onProgress('Matching spells to animated effects');
+        const effectsResult = await importSpellEffects({
+          db,
+          spellRows,
+          storageDir: effectsStorageDir,
+          gitRef: effectsGitRef,
+          fetchBinary,
+          onProgress,
+        });
+        effectCount = effectsResult.matchedCount;
+        onProgress(
+          `Matched ${effectsResult.matchedCount} spells to effects (${effectsResult.downloadedCount} clip(s) fetched, ${effectsResult.failedCount} failed)`,
+        );
+      } catch (error) {
+        onProgress(
+          `Spell effects import failed, continuing without them: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     const result: ImportLibraryResult = {
       gitRef,
       creatureCount: creatureRows.length,
@@ -248,6 +290,7 @@ export const importLibrary = async ({
       orphanedAttacks: attackPartition.orphaned.length,
       orphanedTraits: traitPartition.orphaned.length,
       orphanedCastingOptions: castingOptionPartition.orphaned.length,
+      effectCount,
     };
 
     await db
@@ -261,6 +304,7 @@ export const importLibrary = async ({
         conditionCount: result.conditionCount,
         spellCount: result.spellCount,
         castingOptionCount: result.castingOptionCount,
+        effectCount: result.effectCount,
       })
       .where(sql`${importRuns.id} = ${run.id}`);
 

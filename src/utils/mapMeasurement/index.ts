@@ -15,6 +15,14 @@ import type { MapPoint } from '~/utils/mapViewport';
 export type MeasurementShapeType =
   'ruler' | 'circle' | 'cone' | 'line' | 'cube';
 
+/** The URL a spell's animated effect clip is served from, if it matched one
+ * at import time (`~/server/library/effectCandidates`) — a plain 404 (and a
+ * fallback to the static shape) when it didn't. Shared by the server
+ * (`toPlayerMapView`) and the client (`useMapCanvas`) so both derive the
+ * same URL from a `sourceSpellSlug` instead of duplicating the route shape. */
+export const buildSpellEffectUrl = (spellSlug: string): string =>
+  `/api/effects/${spellSlug}/file`;
+
 export type GridSpec = { cellSize: number; originX: number; originY: number };
 
 export const FEET_PER_GRID_CELL = 5;
@@ -199,6 +207,132 @@ export const computeShapeFootprint = (
     y: origin.y + perp.y * length,
   };
   return { kind: 'polygon', points: [origin, end, corner3, corner4] };
+};
+
+export type ShapeVideoBounds =
+  | { kind: 'circle'; cx: number; cy: number; radius: number }
+  | {
+      kind: 'rect';
+      /** Local-space (pre-rotation, origin at the shape's own origin) —
+       * the caller translates to `(originX, originY)`, rotates by
+       * `rotation`, then draws an unrotated rect at this offset. Mirrors
+       * `computeShapeFootprint`'s own local `dir`/`perp` construction
+       * rather than deriving from its already-world-rotated output points,
+       * so a video frame can be drawn axis-aligned in local space instead
+       * of needing to fit an enlarged, rotation-agnostic bounding box. */
+      offsetX: number;
+      offsetY: number;
+      width: number;
+      height: number;
+      rotation: number;
+    };
+
+/**
+ * Where to draw an animated effect clip for a shape — a plain bounding box
+ * a video frame is scaled to fit, the same "scale/anchor/angle, no per-shape
+ * clip mask" approach the source clips are already authored for (their own
+ * alpha channel does the visual shaping, per the upstream Foundry VTT
+ * module's own overlay code).
+ */
+export const computeShapeVideoBounds = (
+  shape: MeasurementShapeInput,
+  grid: GridSpec,
+): ShapeVideoBounds => {
+  const length = feetToPixels(shape.extentFeet, grid);
+
+  if (shape.shapeType === 'circle') {
+    return {
+      kind: 'circle',
+      cx: shape.originX,
+      cy: shape.originY,
+      radius: length,
+    };
+  }
+
+  const rotation = shape.orientation ?? 0;
+
+  if (shape.shapeType === 'line') {
+    const height = feetToPixels(LINE_WIDTH_FEET, grid);
+    return {
+      kind: 'rect',
+      offsetX: 0,
+      offsetY: -height / 2,
+      width: length,
+      height,
+      rotation,
+    };
+  }
+
+  if (shape.shapeType === 'cone') {
+    // Base width at the far end equals the length, same convention
+    // `computeShapeFootprint` uses.
+    return {
+      kind: 'rect',
+      offsetX: 0,
+      offsetY: -length / 2,
+      width: length,
+      height: length,
+      rotation,
+    };
+  }
+
+  // cube (and ruler, though a ruler is never spell-sourced and so never has
+  // an effect to draw) — a square, one corner at the origin.
+  return {
+    kind: 'rect',
+    offsetX: 0,
+    offsetY: 0,
+    width: length,
+    height: length,
+    rotation,
+  };
+};
+
+/** How long to keep assuming a clip is still playing when its real duration
+ * hasn't loaded yet (a slow fetch, or one that never resolves) — long
+ * enough for any real clip in the library, short enough that a stuck load
+ * doesn't keep the canvas redrawing every frame forever.
+ *
+ * This is also the ONLY use of `effectStartedAtMs` once a clip is actually
+ * decodable: it gates whether a client should bother trying to play a shape's
+ * effect at all (so a page reload minutes later shows the static footprint,
+ * not a replayed fireball), never how long it plays for. Most real clips are
+ * only ~2s — far shorter than the network+render latency between "the DM
+ * placed a shape" and "this client's `<video>` element exists and has a
+ * frame ready to draw" can easily be, especially over SSE to a second
+ * screen. Gating "still playing" on `nowMs - effectStartedAtMs < clip
+ * duration` (as an earlier version of this function did) could therefore
+ * already read false before a single frame was ever drawn — the clip played
+ * out invisibly in a `<video>` element nothing was reading from. Whether a
+ * clip is still playing is instead the browser's own `ended` state on that
+ * element, which reflects its actual local decode timeline. */
+export const MAX_EFFECT_WAIT_MS = 8000;
+
+/**
+ * Whether a shape's animated effect should still be drawn instead of its
+ * plain static footprint — pure so the at-most-once-per-frame "should I
+ * keep scheduling redraws" check in `MapCanvasView` is testable without a
+ * real `<video>` element.
+ */
+export const isEffectPlaying = ({
+  effectStartedAtMs,
+  nowMs,
+  videoEnded,
+  failed,
+}: {
+  effectStartedAtMs: number;
+  nowMs: number;
+  /** `entry.video.ended` — the clip's own local playback state. */
+  videoEnded: boolean;
+  failed: boolean;
+}): boolean => {
+  if (failed) return false;
+
+  const elapsed = nowMs - effectStartedAtMs;
+  if (elapsed < 0) return false;
+  if (elapsed > MAX_EFFECT_WAIT_MS) return false;
+
+  return !videoEnded;
 };
 
 const pointToSegmentDistance = (
