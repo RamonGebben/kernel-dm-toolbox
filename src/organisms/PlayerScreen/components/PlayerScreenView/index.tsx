@@ -28,6 +28,7 @@ export type PlayerScreenViewProps = {
   /** Only read in `'both'` mode. */
   trackerOverlay: PlayerMapViewTrackerOverlay;
   livePreviewShape: PlayerMapView['livePreviewShape'];
+  measurementCursor: PlayerMapView['measurementCursor'];
 };
 
 /**
@@ -44,6 +45,7 @@ export const PlayerScreenView = ({
   mapAreaRef,
   trackerOverlay,
   livePreviewShape,
+  measurementCursor,
 }: PlayerScreenViewProps) => {
   if (mode === 'tracker') return <PlayerBoard />;
 
@@ -72,6 +74,7 @@ export const PlayerScreenView = ({
         map={map}
         viewport={viewport}
         livePreviewShape={livePreviewShape}
+        measurementCursor={measurementCursor}
       />
       {!isConnected && <Reconnecting>Reconnecting…</Reconnecting>}
       {mode === 'both' && (

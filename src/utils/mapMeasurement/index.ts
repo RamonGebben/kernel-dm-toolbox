@@ -91,6 +91,45 @@ export const computeMeasurementPreview = ({
       : Math.atan2(cursor.y - origin.y, cursor.x - origin.x),
 });
 
+/**
+ * The point a shape's size is measured out to — the far edge of a circle,
+ * or the apex-opposite end of everything else. Shared by the footprint math
+ * below and `computeShapeLabelAnchor`, so a label always sits exactly where
+ * the shape actually ends.
+ */
+const computeShapeEndPoint = (
+  shape: MeasurementShapeInput,
+  grid: GridSpec,
+): MapPoint => {
+  const origin = { x: shape.originX, y: shape.originY };
+  const length = feetToPixels(shape.extentFeet, grid);
+
+  if (shape.shapeType === 'circle')
+    return { x: origin.x + length, y: origin.y };
+
+  const angle = shape.orientation ?? 0;
+  return {
+    x: origin.x + Math.cos(angle) * length,
+    y: origin.y + Math.sin(angle) * length,
+  };
+};
+
+/** Where to draw a shape's distance label — its far end, so the label reads
+ * naturally as the DM drags the second point outward. */
+export const computeShapeLabelAnchor = (
+  shape: MeasurementShapeInput,
+  grid: GridSpec,
+): MapPoint => computeShapeEndPoint(shape, grid);
+
+/** `"20 ft"`, or `"Fireball · 20 ft"` when the shape carries a label. */
+export const buildMeasurementLabelText = (shape: {
+  extentFeet: number;
+  label?: string | null;
+}): string =>
+  shape.label
+    ? `${shape.label} · ${shape.extentFeet} ft`
+    : `${shape.extentFeet} ft`;
+
 export type ShapeFootprint =
   | { kind: 'circle'; cx: number; cy: number; radius: number }
   | { kind: 'polygon'; points: MapPoint[] };
@@ -122,7 +161,7 @@ export const computeShapeFootprint = (
   const angle = shape.orientation ?? 0;
   const dir = { x: Math.cos(angle), y: Math.sin(angle) };
   const perp = { x: -dir.y, y: dir.x };
-  const end = { x: origin.x + dir.x * length, y: origin.y + dir.y * length };
+  const end = computeShapeEndPoint(shape, grid);
 
   if (shape.shapeType === 'ruler') {
     return { kind: 'polygon', points: [origin, end] };
@@ -160,6 +199,72 @@ export const computeShapeFootprint = (
     y: origin.y + perp.y * length,
   };
   return { kind: 'polygon', points: [origin, end, corner3, corner4] };
+};
+
+const pointToSegmentDistance = (
+  point: MapPoint,
+  a: MapPoint,
+  b: MapPoint,
+): number => {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq === 0) return Math.hypot(point.x - a.x, point.y - a.y);
+
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq),
+  );
+  const projection = { x: a.x + t * dx, y: a.y + t * dy };
+  return Math.hypot(point.x - projection.x, point.y - projection.y);
+};
+
+/** Standard ray-casting point-in-polygon test. */
+const isPointInPolygon = (point: MapPoint, points: MapPoint[]): boolean => {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const a = points[i]!;
+    const b = points[j]!;
+    const crosses =
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+};
+
+/**
+ * Whether a map-space point falls inside a shape — the click-to-select hit
+ * test. A `ruler` (and any other bare line) has no area of its own, so it
+ * hit-tests against a small tolerance around the line instead of exact
+ * containment.
+ */
+export const isPointInShapeFootprint = (
+  shape: MeasurementShapeInput,
+  grid: GridSpec,
+  point: MapPoint,
+): boolean => {
+  const footprint = computeShapeFootprint(shape, grid);
+
+  if (footprint.kind === 'circle') {
+    return (
+      Math.hypot(point.x - footprint.cx, point.y - footprint.cy) <=
+      footprint.radius
+    );
+  }
+
+  if (footprint.points.length <= 2) {
+    const tolerance = Math.max(4, (grid.cellSize || 1) * 0.08);
+    return (
+      pointToSegmentDistance(
+        point,
+        footprint.points[0]!,
+        footprint.points[1]!,
+      ) <= tolerance
+    );
+  }
+
+  return isPointInPolygon(point, footprint.points);
 };
 
 /**

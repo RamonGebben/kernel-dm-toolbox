@@ -512,7 +512,8 @@ maps                    an uploaded image/video; grid calibration and fog of
 map_sessions            singleton (`CURRENT_MAP_SESSION_ID`), mirroring
                         `encounters`: the active map, the DM's own viewport,
                         the player-view lens, grid display prefs, the player
-                        screen mode, and the in-progress measurement preview
+                        screen mode, the in-progress measurement preview, and
+                        the DM's live "aim" cursor before it
 map_measurement_shapes  a placed ruler or spell-area template, per map;
                         several coexist, each cleared individually
 ```
@@ -603,6 +604,46 @@ Open5e library, none of this is read-only reference data.
   shape while the DM is still aiming it, not just once it's committed to
   `map_measurement_shapes`. Committed shapes need no player-side filtering:
   every placed shape is meant to be seen, there is no "secret" measurement.
+- **Every shape (committed, live-drag, or remote) draws its distance as a
+  label at its far end.** `computeShapeLabelAnchor` + `buildMeasurementLabelText`
+  are pure and shared by all three draw call sites in `MapCanvasView`, so a
+  DM reading their own drag, a spectator reading the player screen's live
+  preview, and a glance at an already-placed shape all read the same text in
+  the same spot.
+- **Before an origin is even clicked, the player screen shows an "aim"
+  reticle at the DM's live cursor.** `map_sessions.measurementCursor`
+  (nullable JSON, same per-map-id guard as `livePreviewShape`) is written
+  from the same RAF scheduler, but only while the tool is armed _and_ no
+  shape preview exists yet — once a shape preview exists it takes over, so
+  the two never draw at once. Requires `useViewportInteraction`'s
+  `handlePointerMove` to call `onScheduleDraw()` on every move while armed
+  even with no drag in progress (mirroring the fog brush's hover-preview
+  cadence) — the RAF loop is what actually broadcasts it, so without this
+  the cursor updates the ref but nothing ever notices.
+- **A placed shape's hit test must run — and win — before the lens/tracker
+  hit test, not after.** `map_sessions`' lens defaults to an uncalibrated,
+  screen-sized rect (`computeLensRect` off the session's own defaults, e.g.
+  1920×1080) that in practice blankets almost any point on a freshly
+  uploaded map. `findHitMeasurementShape` in `useViewportInteraction` is
+  computed once per `pointerdown`, ahead of the tracker/lens checks, and
+  gates them (`!hitShape`) the same way `isFogToolActive()`/calibration
+  already do — otherwise a click meant to select/drag a shape silently
+  grabs the lens instead. Caught by
+  `SelectingAndMovingAPlacedShapeWinsOverTheLens` after showing up as a
+  real, reproducible bug against the dev server — storybook's synthetic
+  events didn't exercise the default (non-null) lens rect the way a real
+  session does, worth remembering when a canvas-interaction change looks
+  correct in stories but hasn't been driven against a live session.
+- **Selecting and dragging a placed shape is a single grab-and-drag
+  gesture, not select-then-drag.** `pointerdown` on a hit shape both selects
+  it (`onSelectMeasurementShape`) and starts the move in one step; a plain
+  click (no movement) still counts as a select since the resulting no-op
+  update is harmless. The moving shape is excluded from the committed-shapes
+  draw loop (via `movingShapeIdRef`) so it isn't rendered twice — once stale
+  at its old position, once live at the new one. Only available while the
+  placement tool is disarmed (`!isMeasurementToolActive()`); an armed click
+  always means "place a new shape," never "grab an existing one." Clicking
+  empty canvas (tool disarmed, nothing hit) clears the selection.
 
 Built: the gallery (folders, upload, rename/move/remove), the canvas (pan,
 zoom, grid calibration, fog of war with a reveal/cover brush), the live

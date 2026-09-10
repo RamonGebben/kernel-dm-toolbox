@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildMeasurementLabelText,
   computeGridDistanceFeet,
   computeMeasurementPreview,
   computeShapeFootprint,
+  computeShapeLabelAnchor,
+  isPointInShapeFootprint,
   mapSpellShapeType,
   snapPointToGrid,
 } from '~/utils/mapMeasurement';
@@ -187,6 +190,94 @@ describe('computeShapeFootprint', () => {
     expect(side(p0!, p1!)).toBeCloseTo(100);
     expect(side(p1!, p2!)).toBeCloseTo(100);
     expect(side(p2!, p3!)).toBeCloseTo(100);
+  });
+});
+
+describe('computeShapeLabelAnchor', () => {
+  it('anchors a circle label at its far edge', () => {
+    expect(
+      computeShapeLabelAnchor(
+        {
+          shapeType: 'circle',
+          originX: 0,
+          originY: 0,
+          extentFeet: 20,
+          orientation: null,
+        },
+        grid,
+      ),
+    ).toEqual({ x: 200, y: 0 });
+  });
+
+  it('anchors a directional shape label at its end point', () => {
+    const anchor = computeShapeLabelAnchor(
+      {
+        shapeType: 'cone',
+        originX: 0,
+        originY: 0,
+        extentFeet: 20,
+        orientation: Math.PI / 2,
+      },
+      grid,
+    );
+
+    expect(anchor.x).toBeCloseTo(0);
+    expect(anchor.y).toBeCloseTo(200);
+  });
+});
+
+describe('buildMeasurementLabelText', () => {
+  it('shows just the distance when there is no label', () => {
+    expect(buildMeasurementLabelText({ extentFeet: 20, label: null })).toBe(
+      '20 ft',
+    );
+  });
+
+  it('prefixes the label when one is set', () => {
+    expect(
+      buildMeasurementLabelText({ extentFeet: 20, label: 'Fireball' }),
+    ).toBe('Fireball · 20 ft');
+  });
+});
+
+describe('isPointInShapeFootprint', () => {
+  const circle = {
+    shapeType: 'circle' as const,
+    originX: 0,
+    originY: 0,
+    extentFeet: 20,
+    orientation: null,
+  };
+
+  it('hits inside a circle and misses outside it', () => {
+    expect(isPointInShapeFootprint(circle, grid, { x: 50, y: 0 })).toBe(true);
+    expect(isPointInShapeFootprint(circle, grid, { x: 500, y: 0 })).toBe(false);
+  });
+
+  it('hits inside a polygon shape (cube)', () => {
+    const cube = {
+      shapeType: 'cube' as const,
+      originX: 0,
+      originY: 0,
+      extentFeet: 10,
+      orientation: 0,
+    };
+
+    expect(isPointInShapeFootprint(cube, grid, { x: 50, y: 50 })).toBe(true);
+    expect(isPointInShapeFootprint(cube, grid, { x: -50, y: -50 })).toBe(false);
+  });
+
+  it('hits near a bare line (ruler) within tolerance, misses further away', () => {
+    const ruler = {
+      shapeType: 'ruler' as const,
+      originX: 0,
+      originY: 0,
+      extentFeet: 20,
+      orientation: 0,
+    };
+
+    expect(isPointInShapeFootprint(ruler, grid, { x: 100, y: 1 })).toBe(true);
+    expect(isPointInShapeFootprint(ruler, grid, { x: 100, y: 50 })).toBe(false);
   });
 });
 

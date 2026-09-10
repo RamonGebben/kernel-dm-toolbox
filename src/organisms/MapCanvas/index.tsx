@@ -43,6 +43,10 @@ export const MapCanvas = () => {
       measurementTool={canvas.measurementTool}
       onMeasurementConfirm={canvas.onMeasurementConfirm}
       onMeasurementPreviewChange={canvas.onMeasurementPreviewChange}
+      onMeasurementCursorChange={canvas.onMeasurementCursorChange}
+      selectedMeasurementShapeId={canvas.selectedMeasurementShapeId}
+      onSelectMeasurementShape={canvas.onSelectMeasurementShape}
+      onMeasurementShapeMoved={canvas.onMeasurementShapeMoved}
     />
   );
 };

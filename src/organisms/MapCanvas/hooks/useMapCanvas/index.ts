@@ -61,6 +61,12 @@ export const useMapCanvas = () => {
     state => state.activePanel === 'session',
   );
   const measurementTool = useMapToolStore(state => state.measurementTool);
+  const selectedMeasurementShapeId = useMapToolStore(
+    state => state.selectedMeasurementShapeId,
+  );
+  const setSelectedMeasurementShapeId = useMapToolStore(
+    state => state.setSelectedMeasurementShapeId,
+  );
 
   const session = useQuery(trpc.maps.getSession.queryOptions());
   const activeMapId = session.data?.activeMapId ?? null;
@@ -129,11 +135,19 @@ export const useMapCanvas = () => {
       onSuccess: invalidateMeasurementShapes,
     }),
   );
-  // No `onSuccess` invalidation: this is a per-frame live broadcast, not a
+  const updateMeasurementShape = useMutation(
+    trpc.maps.updateMeasurementShape.mutationOptions({
+      onSuccess: invalidateMeasurementShapes,
+    }),
+  );
+  // No `onSuccess` invalidation: these are per-frame live broadcasts, not a
   // change the DM's own screen needs to refetch anything over — only the
-  // player screen (over SSE) ever reads it.
+  // player screen (over SSE) ever reads them.
   const setLivePreviewShape = useMutation(
     trpc.maps.setLivePreviewShape.mutationOptions(),
+  );
+  const setMeasurementCursor = useMutation(
+    trpc.maps.setMeasurementCursor.mutationOptions(),
   );
 
   // Stable prop identities: none of these need to be recreated on every
@@ -359,6 +373,61 @@ export const useMapCanvas = () => {
     [mapId, setLivePreviewShape, measurementTool],
   );
 
+  // Live while the tool is armed and the cursor is over the canvas, before
+  // there's a shape preview to take over — the same cadence as
+  // `handleMeasurementPreviewChange`.
+  const handleMeasurementCursorChange = useCallback(
+    (point: { x: number; y: number } | null) => {
+      if (!mapId) return;
+
+      setMeasurementCursor.mutate({
+        cursor: point ? { mapId, x: point.x, y: point.y } : null,
+      });
+    },
+    [mapId, setMeasurementCursor],
+  );
+
+  const handleSelectMeasurementShape = useCallback(
+    (id: string | null) => setSelectedMeasurementShapeId(id),
+    [setSelectedMeasurementShapeId],
+  );
+
+  // Fired once, on release, at the end of a drag-to-move.
+  const handleMeasurementShapeMoved = useCallback(
+    (id: string, origin: { x: number; y: number }) => {
+      updateMeasurementShape.mutate({
+        id,
+        originX: origin.x,
+        originY: origin.y,
+      });
+    },
+    [updateMeasurementShape],
+  );
+
+  const handleRemoveMeasurementShape = useCallback(
+    (id: string) => {
+      removeMeasurementShape.mutate({ id });
+      if (selectedMeasurementShapeId === id) {
+        setSelectedMeasurementShapeId(null);
+      }
+    },
+    [
+      removeMeasurementShape,
+      selectedMeasurementShapeId,
+      setSelectedMeasurementShapeId,
+    ],
+  );
+
+  // A shape selected on the previous map has nothing to highlight once the
+  // DM switches to a different one.
+  const previousMapIdRef = useRef(mapId);
+  useEffect(() => {
+    if (previousMapIdRef.current !== mapId) {
+      previousMapIdRef.current = mapId;
+      setSelectedMeasurementShapeId(null);
+    }
+  }, [mapId, setSelectedMeasurementShapeId]);
+
   return {
     map: map.data
       ? {
@@ -393,11 +462,15 @@ export const useMapCanvas = () => {
           shapeType: measurementTool.shapeType,
           color: measurementTool.color,
           presetExtentFeet: measurementTool.presetExtentFeet,
+          label: measurementTool.label.trim() || null,
         }
       : undefined,
     onMeasurementConfirm: handleMeasurementConfirm,
     onMeasurementPreviewChange: handleMeasurementPreviewChange,
-    onRemoveMeasurementShape: (id: string) =>
-      removeMeasurementShape.mutate({ id }),
+    onMeasurementCursorChange: handleMeasurementCursorChange,
+    selectedMeasurementShapeId,
+    onSelectMeasurementShape: handleSelectMeasurementShape,
+    onMeasurementShapeMoved: handleMeasurementShapeMoved,
+    onRemoveMeasurementShape: handleRemoveMeasurementShape,
   };
 };

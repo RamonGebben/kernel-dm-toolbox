@@ -13,6 +13,7 @@ export type PlayerMapBoardViewProps = {
   map: PlayerMapViewMap | null;
   viewport: Viewport;
   livePreviewShape?: PlayerMapView['livePreviewShape'];
+  measurementCursor?: PlayerMapView['measurementCursor'];
 };
 
 /**
@@ -24,6 +25,7 @@ export const PlayerMapBoardView = ({
   map,
   viewport,
   livePreviewShape = null,
+  measurementCursor = null,
 }: PlayerMapBoardViewProps) => {
   if (!map) {
     return (
@@ -66,6 +68,7 @@ export const PlayerMapBoardView = ({
               }
             : null
         }
+        measurementCursor={measurementCursor}
       />
     </Wrapper>
   );

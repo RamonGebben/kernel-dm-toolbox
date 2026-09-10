@@ -38,6 +38,8 @@ export type MeasurementControlsViewProps = {
   onToolChange: (patch: Partial<MeasurementControlsTool>) => void;
   shapes: MeasurementControlsShape[];
   onRemoveShape: (id: string) => void;
+  selectedShapeId: string | null;
+  onSelectShape: (id: string | null) => void;
   spellSearch: string;
   onSpellSearchChange: (search: string) => void;
   spellOptions: MeasurementControlsSpellOption[];
@@ -64,6 +66,8 @@ export const MeasurementControlsView = ({
   onToolChange,
   shapes,
   onRemoveShape,
+  selectedShapeId,
+  onSelectShape,
   spellSearch,
   onSpellSearchChange,
   spellOptions,
@@ -89,12 +93,18 @@ export const MeasurementControlsView = ({
         {tool.enabled ? 'Stop placing' : 'Place on canvas'}
       </Button>
 
-      {tool.enabled && (
+      {tool.enabled ? (
         <Instructions>
           {tool.presetExtentFeet
             ? 'Click the canvas to place it.'
             : 'Click the canvas to set the origin, then click again to set its size.'}
         </Instructions>
+      ) : (
+        shapes.length > 0 && (
+          <Instructions>
+            Drag a placed shape on the canvas to move it.
+          </Instructions>
+        )
       )}
 
       <FieldRow>
@@ -207,24 +217,33 @@ export const MeasurementControlsView = ({
         <Muted>Nothing placed on this map yet.</Muted>
       ) : (
         <ShapeList>
-          {shapes.map(shape => (
-            <ShapeRow key={shape.id}>
-              <ShapeSwatch $color={shape.color} />
-              <ShapeRowLabel>
-                {shape.label || SHAPE_LABELS[shape.shapeType]}
-                <ShapeRowMeta>
-                  {SHAPE_LABELS[shape.shapeType]} · {shape.extentFeet} ft
-                </ShapeRowMeta>
-              </ShapeRowLabel>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemoveShape(shape.id)}
-              >
-                Remove
-              </Button>
-            </ShapeRow>
-          ))}
+          {shapes.map(shape => {
+            const isSelected = shape.id === selectedShapeId;
+            return (
+              <ShapeRow key={shape.id} $isSelected={isSelected}>
+                <ShapeSelectButton
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => onSelectShape(isSelected ? null : shape.id)}
+                >
+                  <ShapeSwatch $color={shape.color} />
+                  <ShapeRowLabel>
+                    {shape.label || SHAPE_LABELS[shape.shapeType]}
+                    <ShapeRowMeta>
+                      {SHAPE_LABELS[shape.shapeType]} · {shape.extentFeet} ft
+                    </ShapeRowMeta>
+                  </ShapeRowLabel>
+                </ShapeSelectButton>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemoveShape(shape.id)}
+                >
+                  Remove
+                </Button>
+              </ShapeRow>
+            );
+          })}
         </ShapeList>
       )}
     </Wrapper>
@@ -352,13 +371,41 @@ const ShapeList = styled.div`
   gap: ${props => props.theme.space.xs};
 `;
 
-const ShapeRow = styled.div`
+/** A plain row — the swatch/label are a real \`<button>\` (\`ShapeSelectButton\`)
+ * and "Remove" is a sibling \`Button\`. Nesting the whole row as one button
+ * containing another button is both invalid HTML and a "nested interactive
+ * controls" a11y violation, so the two affordances live side by side
+ * instead. Selection is shown with the border only, never a background
+ * fill — \`accentMuted\` behind the row's muted text fails colour-contrast. */
+const ShapeRow = styled.div<{ $isSelected: boolean }>`
   display: flex;
   align-items: center;
   gap: ${props => props.theme.space.sm};
+  width: 100%;
   padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
+  border: 1px solid
+    ${props =>
+      props.$isSelected ? props.theme.color.accent : props.theme.color.border};
   border-radius: ${props => props.theme.radius.sm};
+  background: ${props => props.theme.color.canvas};
+`;
+
+const ShapeSelectButton = styled.button`
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: ${props => props.theme.space.sm};
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid ${props => props.theme.color.accent};
+    outline-offset: 2px;
+  }
 `;
 
 const ShapeSwatch = styled.span<{ $color: string }>`

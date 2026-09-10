@@ -653,6 +653,15 @@ export type MapMeasurementPreview = {
   label: string | null;
 };
 
+/** Where the DM's cursor sits on the map while the measurement tool is
+ * armed but no origin has been clicked yet — see `measurementCursor` below.
+ * `mapId` guards the same way `MapMeasurementPreview.mapId` does. */
+export type MapMeasurementCursor = {
+  mapId: string;
+  x: number;
+  y: number;
+};
+
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
 export type PlayerScreenOrientation = 'auto' | 'landscape' | 'portrait';
 
@@ -754,6 +763,16 @@ export const mapSessions = sqliteTable(
     livePreviewShape: text('live_preview_shape', {
       mode: 'json',
     }).$type<MapMeasurementPreview | null>(),
+
+    /** The DM's raw cursor position while the measurement tool is armed and
+     * no origin has been clicked yet — lets the player screen show an "aim"
+     * reticle before there's a shape to preview at all. Same live, at-most-
+     * once-per-frame cadence as `livePreviewShape`; null whenever the tool
+     * isn't armed, the pointer has left the canvas, or a shape is already
+     * being aimed (`livePreviewShape` takes over at that point). */
+    measurementCursor: text('measurement_cursor', {
+      mode: 'json',
+    }).$type<MapMeasurementCursor | null>(),
   },
   table => [
     check(

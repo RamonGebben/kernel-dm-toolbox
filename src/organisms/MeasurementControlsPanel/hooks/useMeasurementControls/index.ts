@@ -12,6 +12,12 @@ export const useMeasurementControls = () => {
 
   const tool = useMapToolStore(state => state.measurementTool);
   const setTool = useMapToolStore(state => state.setMeasurementTool);
+  const selectedShapeId = useMapToolStore(
+    state => state.selectedMeasurementShapeId,
+  );
+  const setSelectedShapeId = useMapToolStore(
+    state => state.setSelectedMeasurementShapeId,
+  );
 
   const session = useQuery(trpc.maps.getSession.queryOptions());
   const activeMapId = session.data?.activeMapId ?? null;
@@ -69,7 +75,12 @@ export const useMeasurementControls = () => {
     tool,
     onToolChange: setTool,
     shapes: shapes.data ?? [],
-    onRemoveShape: (id: string) => removeMeasurementShape.mutate({ id }),
+    onRemoveShape: (id: string) => {
+      removeMeasurementShape.mutate({ id });
+      if (selectedShapeId === id) setSelectedShapeId(null);
+    },
+    selectedShapeId,
+    onSelectShape: setSelectedShapeId,
     spellSearch,
     onSpellSearchChange: setSpellSearch,
     spellOptions,

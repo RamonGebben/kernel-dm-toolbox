@@ -673,3 +673,46 @@ inventing a second live-update mechanism — cleared back to `null` once the
 confirming click lands (or the placement is abandoned with a right-click),
 which the RAF diff loop notices and broadcasts on its own, the same way a
 lens drag's every frame is diffed against the last one sent.
+
+## 28. A placed shape's hit test runs, and wins, ahead of the lens/tracker
+
+**Decision.** Selecting and dragging an already-placed measurement shape
+(#27) needed a click-to-grab hit test on the canvas — the same kind of
+"which thing under the cursor wins" problem the fog brush and grid
+calibration already solved by gating the lens/tracker's own hit tests with
+`!isFogToolActive()`/`!calibrationActiveRef.current`. `useViewportInteraction`
+now computes `findHitMeasurementShape(mapPoint)` once at the top of
+`handlePointerDown`, ahead of the tracker/lens checks, and adds `!hitShape`
+to both their guard conditions — a placed shape under the cursor wins the
+same way an active tool already did.
+
+**Why this needed a real dev-server session to catch, not just stories.**
+The first implementation added the shape hit test in its own branch,
+positioned _after_ the lens/tracker checks — reasonable on paper, wrong in
+practice. `map_sessions`' player-view lens defaults to an **uncalibrated,
+screen-sized rect** (`computeLensRect` off the session's own defaults:
+`playerViewportZoom` 1, `playerScreenWidth`/`Height` 1920×1080) whenever a
+DM hasn't yet deliberately positioned it — which is every fresh session, and
+every Storybook fixture that doesn't explicitly set a small `lensRect`. That
+default rect is enormous relative to a freshly uploaded, uncalibrated map, so
+it blankets almost any point a DM would actually click. Every interaction
+story for this feature passed regardless, because none of them exercised the
+combination of "a lens rect present" and "a shape under the click" at once —
+the existing `MeasurementToolTakesPriorityOverTheLens` story covers the
+_armed placement_ case, not the _disarmed select-and-drag_ case. The bug was
+only visible by actually driving a build against a live `pnpm start` session
+end to end: placing a shape, then dragging it, and watching nothing move.
+
+**The general lesson.** A synthetic-event story proves a specific
+interaction works in isolation; it does not prove the _priority order_
+between two interactions is correct unless a story explicitly stages both
+conditions at once — and a "the lens is drawn but tiny/off-screen in this
+fixture" default is an easy thing to never stage. `SelectingAndMovingAPlacedShapeWinsOverTheLens`
+now stages both deliberately (a `lensRect` fixture plus a shape positioned
+inside it) specifically so this regression can't silently return. For any
+future canvas interaction that adds a new hit-testable "thing" to this
+canvas, the checklist is: where does it sit in the existing priority chain
+(fog/calibration → measurement placement → shape select → lens → tracker →
+pan), and is there a story that stages a spatial overlap with each of the
+things ranked above and below it in that chain — not just a story proving
+the new interaction works when nothing else is present.

@@ -2,6 +2,7 @@ import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
 import type {
   MapAsset,
   MapFogStroke,
+  MapMeasurementCursor,
   MapMeasurementPreview,
   MapMeasurementShape,
   MapSession,
@@ -67,6 +68,10 @@ export type PlayerMapView = {
    * nothing is in progress. Guarded against a stale preview left over from
    * a since-switched-away-from map. */
   livePreviewShape: MapMeasurementPreview | null;
+  /** Where the DM's cursor sits while aiming, before there's a shape to
+   * preview yet — null once a shape preview exists (it takes over) or
+   * nothing is being aimed at all. Same stale-map guard as above. */
+  measurementCursor: MapMeasurementCursor | null;
 };
 
 /**
@@ -141,6 +146,10 @@ export const toPlayerMapView = (args: {
     livePreviewShape:
       session.livePreviewShape && session.livePreviewShape.mapId === map?.id
         ? session.livePreviewShape
+        : null,
+    measurementCursor:
+      session.measurementCursor && session.measurementCursor.mapId === map?.id
+        ? session.measurementCursor
         : null,
   };
 };

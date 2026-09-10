@@ -35,6 +35,9 @@ const meta = {
     onTrackerRectChange: fn(),
     onMeasurementConfirm: fn(),
     onMeasurementPreviewChange: fn(),
+    onMeasurementCursorChange: fn(),
+    onSelectMeasurementShape: fn(),
+    onMeasurementShapeMoved: fn(),
   },
   parameters: {
     // A fixed-size wrapper so pointer coordinates are stable across runs.
@@ -469,6 +472,7 @@ export const PlacingACircleByFreeDrag: Story = {
       shapeType: 'circle',
       color: '#6fa7ff',
       presetExtentFeet: null,
+      label: null,
     },
   },
   play: async ({ args, canvasElement }) => {
@@ -512,6 +516,7 @@ export const PlacingACubeAtAFixedPreset: Story = {
       shapeType: 'cube',
       color: '#6fa7ff',
       presetExtentFeet: 20,
+      label: null,
     },
   },
   play: async ({ args, canvasElement }) => {
@@ -544,6 +549,7 @@ export const RulerIgnoresAPresetAndAlwaysFreeDrags: Story = {
       shapeType: 'ruler',
       color: '#6fa7ff',
       presetExtentFeet: 20,
+      label: null,
     },
   },
   play: async ({ args, canvasElement }) => {
@@ -585,6 +591,7 @@ export const RightClickCancelsAPendingPlacement: Story = {
       shapeType: 'circle',
       color: '#6fa7ff',
       presetExtentFeet: null,
+      label: null,
     },
   },
   play: async ({ args, canvasElement }) => {
@@ -627,6 +634,7 @@ export const MeasurementToolTakesPriorityOverTheLens: Story = {
       shapeType: 'circle',
       color: '#6fa7ff',
       presetExtentFeet: 10,
+      label: null,
     },
   },
   play: async ({ args, canvasElement }) => {
@@ -662,5 +670,95 @@ export const CommittedShapesAreAlwaysDrawn: Story = {
     // throwing, the same guarantee `NotInteractive` gives the rest of the
     // props.
     await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
+  },
+};
+
+const overlappingShape = {
+  id: 'shape-1',
+  shapeType: 'circle' as const,
+  originX: 75,
+  originY: 65,
+  extentFeet: 5,
+  orientation: null,
+  color: '#ff8a5c',
+};
+
+export const SelectingAndMovingAPlacedShapeWinsOverTheLens: Story = {
+  args: {
+    // The lens defaults to an uncalibrated, screen-sized rect wherever the
+    // session's own settings put it — it must never blanket a click meant
+    // for a shape that happens to sit inside it (a real bug this regression
+    // test caught: the lens hit test ran before the shape hit test).
+    lensRect,
+    measurementShapes: [overlappingShape],
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // Inside both the lens body and the shape's own footprint.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 75, clientY: 65 });
+    fireEvent.pointerMove(element, { pointerId: 1, clientX: 100, clientY: 90 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 90 });
+    await waitForFrame();
+
+    await expect(args.onSelectMeasurementShape).toHaveBeenCalledWith('shape-1');
+    await expect(args.onMeasurementShapeMoved).toHaveBeenCalledWith('shape-1', {
+      x: 100,
+      y: 100,
+    });
+    await expect(args.onLensChange).not.toHaveBeenCalled();
+  },
+};
+
+export const ClickingEmptyCanvasDeselects: Story = {
+  // Args are static per story (there's no state loop feeding a click's
+  // callback back into a prop here), so the "already selected" state is
+  // set directly rather than produced by an earlier click in this test.
+  args: {
+    measurementShapes: [overlappingShape],
+    selectedMeasurementShapeId: 'shape-1',
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // A click well outside the shape's footprint deselects, rather than
+    // moving it.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 400,
+      clientY: 400,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 400, clientY: 400 });
+
+    await expect(args.onSelectMeasurementShape).toHaveBeenCalledWith(null);
+    await expect(args.onMeasurementShapeMoved).not.toHaveBeenCalled();
+  },
+};
+
+export const BroadcastsTheAimCursorBeforeAnOriginIsClicked: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: null,
+      label: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    fireEvent.pointerMove(element, { pointerId: 1, clientX: 120, clientY: 90 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementCursorChange).toHaveBeenCalledWith({
+      x: 120,
+      y: 90,
+    });
+
+    fireEvent.pointerLeave(element);
+    await waitForFrame();
+
+    await expect(args.onMeasurementCursorChange).toHaveBeenLastCalledWith(null);
   },
 };

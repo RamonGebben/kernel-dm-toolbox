@@ -18,6 +18,8 @@ export const MeasurementControlsPanel = () => {
       onToolChange={measurement.onToolChange}
       shapes={measurement.shapes}
       onRemoveShape={measurement.onRemoveShape}
+      selectedShapeId={measurement.selectedShapeId}
+      onSelectShape={measurement.onSelectShape}
       spellSearch={measurement.spellSearch}
       onSpellSearchChange={measurement.onSpellSearchChange}
       spellOptions={measurement.spellOptions}

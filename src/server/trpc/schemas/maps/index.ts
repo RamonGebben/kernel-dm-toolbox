@@ -149,3 +149,24 @@ const measurementPreviewSchema = z.object({
 export const setLivePreviewShapeInputSchema = z.object({
   preview: measurementPreviewSchema.nullable(),
 });
+
+/** Repositioning an already-placed shape — a drag-to-move, not a resize.
+ * Shape/size/orientation/label/color are set once at creation and edited
+ * only by removing and re-placing. */
+export const updateMeasurementShapeInputSchema = z.object({
+  id: z.uuid(),
+  originX: z.number(),
+  originY: z.number(),
+});
+
+const measurementCursorSchema = z.object({
+  mapId: z.uuid(),
+  x: z.number(),
+  y: z.number(),
+});
+
+/** `cursor: null` clears it — the tool was disarmed or the pointer left the
+ * canvas. */
+export const setMeasurementCursorInputSchema = z.object({
+  cursor: measurementCursorSchema.nullable(),
+});

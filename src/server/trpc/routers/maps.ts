@@ -28,9 +28,11 @@ import {
   setFogOpacityInputSchema,
   setGridCalibrationInputSchema,
   setLivePreviewShapeInputSchema,
+  setMeasurementCursorInputSchema,
   toggleFogInputSchema,
   toggleViewportLockInputSchema,
   trackerOverlayInputSchema,
+  updateMeasurementShapeInputSchema,
   viewportInputSchema,
 } from '~/server/trpc/schemas/maps';
 import { buildMapGallery } from '~/server/trpc/helpers/buildMapGallery';
@@ -618,6 +620,40 @@ export const mapsRouter = createTRPCRouter({
       return created;
     }),
 
+  /** A drag-to-move of an already-placed shape — position only. Size,
+   * orientation, label and color are set once at creation. */
+  updateMeasurementShape: publicProcedure
+    .input(updateMeasurementShapeInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.query.mapMeasurementShapes.findFirst({
+        where: and(
+          eq(mapMeasurementShapes.id, input.id),
+          isNull(mapMeasurementShapes.deletedAt),
+        ),
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'That shape is already gone.',
+        });
+      }
+
+      const [updated] = await ctx.db
+        .update(mapMeasurementShapes)
+        .set({
+          originX: input.originX,
+          originY: input.originY,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapMeasurementShapes.id, input.id))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
   removeMeasurementShape: publicProcedure
     .input(measurementShapeIdInputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -658,6 +694,29 @@ export const mapsRouter = createTRPCRouter({
         .update(mapSessions)
         .set({
           livePreviewShape: input.preview,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /** Where the DM's cursor sits while the measurement tool is armed but no
+   * origin has been clicked yet — the "aim" reticle the player screen shows
+   * before there's a shape to preview. Same live, at-most-once-per-frame
+   * cadence as `setLivePreviewShape`. */
+  setMeasurementCursor: publicProcedure
+    .input(setMeasurementCursorInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          measurementCursor: input.cursor,
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))

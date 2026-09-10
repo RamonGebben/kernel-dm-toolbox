@@ -70,6 +70,12 @@ type MapToolState = {
 
   measurementTool: MeasurementToolSettings;
   setMeasurementTool: (patch: Partial<MeasurementToolSettings>) => void;
+
+  /** The placed shape currently highlighted for drag-to-move — set by
+   * clicking it on the canvas or a row in the Measure panel's list, cleared
+   * by clicking empty canvas or removing the shape. */
+  selectedMeasurementShapeId: string | null;
+  setSelectedMeasurementShapeId: (id: string | null) => void;
 };
 
 export const useMapToolStore = create<MapToolState>(set => ({
@@ -106,4 +112,7 @@ export const useMapToolStore = create<MapToolState>(set => ({
     set(state => ({
       measurementTool: { ...state.measurementTool, ...patch },
     })),
+
+  selectedMeasurementShapeId: null,
+  setSelectedMeasurementShapeId: id => set({ selectedMeasurementShapeId: id }),
 }));

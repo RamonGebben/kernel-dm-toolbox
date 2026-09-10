@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { type Viewport } from '~/utils/mapViewport';
+import { type MapPoint, type Viewport } from '~/utils/mapViewport';
 import type { LensRect } from '~/utils/mapLens';
 import { useCanvasSize } from '~/organisms/MapCanvas/hooks/useCanvasSize';
 import { useMapMedia } from '~/organisms/MapCanvas/hooks/useMapMedia';
@@ -10,7 +10,9 @@ import { useFogMask } from '~/organisms/MapCanvas/hooks/useFogMask';
 import { useGridOverlay } from '~/organisms/MapCanvas/hooks/useGridOverlay';
 import { useViewportInteraction } from '~/organisms/MapCanvas/hooks/useViewportInteraction';
 import {
+  buildMeasurementLabelText,
   computeShapeFootprint,
+  computeShapeLabelAnchor,
   type GridSpec,
   type MeasurementShapeInput,
   type MeasurementShapeType,
@@ -81,6 +83,8 @@ export type MapCanvasMeasurementTool = {
    * size instead of arming the two-click free-drag gesture. Null is the
    * free-drag default. */
   presetExtentFeet: number | null;
+  /** Shown on the live-drag preview's label alongside its distance. */
+  label: string | null;
 };
 
 export type MapCanvasViewProps = {
@@ -132,6 +136,28 @@ export type MapCanvasViewProps = {
    * the same cadence `onLensChange` uses — so the player screen can track
    * it live via `setLivePreviewShape`. */
   onMeasurementPreviewChange?: (shape: MeasurementShapeInput | null) => void;
+  /** The DM's raw cursor position while the tool is armed but no origin has
+   * been clicked yet — null once a shape preview exists (it takes over) or
+   * there's nothing to show. Only meaningful on the player screen; the DM's
+   * own canvas already shows their actual cursor. */
+  measurementCursor?: MapPoint | null;
+  /** Fires at most once per animation frame while the tool is armed and the
+   * cursor is over the canvas — the "aim" reticle feed for the player
+   * screen, via `setMeasurementCursor`. */
+  onMeasurementCursorChange?: (point: MapPoint | null) => void;
+  /** Highlights one placed shape — set by clicking it (see
+   * `onSelectMeasurementShape`) or a row in the Measure panel's list. */
+  selectedMeasurementShapeId?: string | null;
+  /** Fired when a placed shape is clicked (selects it) or empty canvas is
+   * clicked while something was selected (clears it). Only fires while the
+   * placement tool is disarmed — an armed click always places instead. */
+  onSelectMeasurementShape?: (id: string | null) => void;
+  /** Fired once, on release, after dragging a placed shape to a new
+   * position — not per frame; the drag itself is only ever local. */
+  onMeasurementShapeMoved?: (
+    id: string,
+    origin: { x: number; y: number },
+  ) => void;
 };
 
 const DEFAULT_BACKGROUND = '#0f1014';
@@ -176,6 +202,11 @@ export const MapCanvasView = ({
   livePreviewShape = null,
   onMeasurementConfirm,
   onMeasurementPreviewChange,
+  measurementCursor = null,
+  onMeasurementCursorChange,
+  selectedMeasurementShapeId = null,
+  onSelectMeasurementShape,
+  onMeasurementShapeMoved,
 }: MapCanvasViewProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafIdRef = useRef(0);
@@ -320,6 +351,31 @@ export const MapCanvasView = ({
   /** Mirrors `lastNotifiedLensRef`, for the measurement preview. */
   const lastNotifiedMeasurementRef = useRef<MeasurementShapeInput | null>(null);
 
+  const measurementCursorRef = useRef(measurementCursor);
+  useEffect(() => {
+    measurementCursorRef.current = measurementCursor;
+  }, [measurementCursor]);
+
+  const onMeasurementCursorChangeRef = useRef(onMeasurementCursorChange);
+  useEffect(() => {
+    onMeasurementCursorChangeRef.current = onMeasurementCursorChange;
+  }, [onMeasurementCursorChange]);
+
+  /** Mirrors `lastNotifiedMeasurementRef`, for the DM's own "aim" cursor
+   * broadcast while the tool is armed and nothing is being placed yet. */
+  const lastNotifiedCursorRef = useRef<MapPoint | null>(null);
+
+  const selectedMeasurementShapeIdRef = useRef(selectedMeasurementShapeId);
+  useEffect(() => {
+    selectedMeasurementShapeIdRef.current = selectedMeasurementShapeId;
+  }, [selectedMeasurementShapeId]);
+
+  /** Owned here (rather than by `useViewportInteraction`) so `scheduleDraw`
+   * below can read it to broadcast the DM's "aim" cursor live — the same
+   * "caller owns it because the RAF loop needs it" reasoning as
+   * `measurementPreviewRef`/`lensPreviewRef`. */
+  const cursorMapPosRef = useRef<MapPoint | null>(null);
+
   const scheduleDraw = useMemo(
     () => () => {
       if (rafIdRef.current !== 0) return;
@@ -393,6 +449,25 @@ export const MapCanvasView = ({
           lastNotifiedMeasurementRef.current = null;
           onMeasurementPreviewChangeRef.current?.(null);
         }
+
+        // The DM's own "aim" cursor, broadcast only while the tool is armed
+        // and nothing is being placed yet (a shape preview takes over once
+        // there is one) — lets the player screen show where a placement is
+        // about to start, before the origin is even clicked.
+        const armed = measurementToolRef.current?.enabled;
+        const currentCursor =
+          armed && !currentMeasurement ? cursorMapPosRef.current : null;
+        const lastCursor = lastNotifiedCursorRef.current;
+        if (
+          (currentCursor &&
+            (!lastCursor ||
+              currentCursor.x !== lastCursor.x ||
+              currentCursor.y !== lastCursor.y)) ||
+          (!currentCursor && lastCursor)
+        ) {
+          lastNotifiedCursorRef.current = currentCursor;
+          onMeasurementCursorChangeRef.current?.(currentCursor);
+        }
       });
     },
     [],
@@ -423,7 +498,7 @@ export const MapCanvasView = ({
 
   const drawGrid = useGridOverlay();
 
-  const { cursorMapPosRef, calibrationPreviewRef } = useViewportInteraction({
+  const { calibrationPreviewRef, movingShapeIdRef } = useViewportInteraction({
     canvasRef,
     interactive,
     viewportRef,
@@ -445,6 +520,11 @@ export const MapCanvasView = ({
     gridRef: gridSpecRef,
     measurementPreviewRef,
     onMeasurementConfirm,
+    measurementShapesRef,
+    selectedMeasurementShapeIdRef,
+    onSelectMeasurementShape,
+    onMeasurementShapeMoved,
+    cursorMapPosRef,
     onScheduleDraw: scheduleDraw,
   });
 
@@ -590,13 +670,14 @@ export const MapCanvasView = ({
         footprint: ReturnType<typeof computeShapeFootprint>,
         color: string,
         dashed: boolean,
+        highlighted: boolean,
       ) => {
         const zoom = currentViewport.zoom || 1;
 
         ctx.save();
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
-        ctx.lineWidth = 2 / zoom;
+        ctx.lineWidth = (highlighted ? 3.5 : 2) / zoom;
         if (dashed) ctx.setLineDash([8 / zoom, 6 / zoom]);
 
         if (footprint.kind === 'circle') {
@@ -621,35 +702,133 @@ export const MapCanvasView = ({
           ctx.stroke();
         }
         ctx.setLineDash([]);
+
+        if (highlighted) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 1 / zoom;
+          ctx.setLineDash([3 / zoom, 3 / zoom]);
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+      };
+
+      const drawShapeLabel = (anchor: MapPoint, text: string) => {
+        const zoom = currentViewport.zoom || 1;
+        const fontSize = 12 / zoom;
+
+        ctx.save();
+        ctx.font = `${fontSize}px system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+
+        const paddingX = 4 / zoom;
+        const paddingY = 2 / zoom;
+        const offset = 6 / zoom;
+        const metrics = ctx.measureText(text);
+        const boxX = anchor.x + offset;
+        const boxY = anchor.y;
+
+        ctx.fillStyle = 'rgba(10, 10, 14, 0.75)';
+        ctx.fillRect(
+          boxX - paddingX,
+          boxY - fontSize / 2 - paddingY,
+          metrics.width + paddingX * 2,
+          fontSize + paddingY * 2,
+        );
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillText(text, boxX, boxY);
         ctx.restore();
       };
 
       // Every committed shape, always visible — none of them are secret.
+      // The one currently being dragged (if any) is skipped here; its live
+      // position is drawn from the preview below instead, so it isn't
+      // rendered twice.
       for (const shape of measurementShapesRef.current) {
+        if (shape.id === movingShapeIdRef.current) continue;
+
         drawShapeFootprint(
           computeShapeFootprint(shape, gridSpecRef.current),
           shape.color,
           false,
+          shape.id === selectedMeasurementShapeIdRef.current,
+        );
+        drawShapeLabel(
+          computeShapeLabelAnchor(shape, gridSpecRef.current),
+          buildMeasurementLabelText(shape),
         );
       }
 
-      // The shape currently being aimed: this DM's own drag takes priority
-      // (updated synchronously), falling back to the live session field for
-      // a non-interactive canvas (the player screen) tracking it over SSE.
+      // The shape currently being aimed or dragged: this DM's own drag
+      // takes priority (updated synchronously), falling back to the live
+      // session field for a non-interactive canvas (the player screen)
+      // tracking it over SSE.
       const previewShape = measurementPreviewRef.current;
       const remotePreview = livePreviewShapeRef.current;
       if (previewShape) {
+        const movingShapeId = movingShapeIdRef.current;
+        const movingOriginal = movingShapeId
+          ? measurementShapesRef.current.find(
+              candidate => candidate.id === movingShapeId,
+            )
+          : undefined;
+        const color =
+          movingOriginal?.color ??
+          measurementToolRef.current?.color ??
+          '#6fa7ff';
+        const label = movingOriginal
+          ? movingOriginal.label
+          : measurementToolRef.current?.label;
+
         drawShapeFootprint(
           computeShapeFootprint(previewShape, gridSpecRef.current),
-          measurementToolRef.current?.color ?? '#6fa7ff',
+          color,
           true,
+          Boolean(movingShapeId),
+        );
+        drawShapeLabel(
+          computeShapeLabelAnchor(previewShape, gridSpecRef.current),
+          buildMeasurementLabelText({
+            extentFeet: previewShape.extentFeet,
+            label,
+          }),
         );
       } else if (remotePreview) {
         drawShapeFootprint(
           computeShapeFootprint(remotePreview, gridSpecRef.current),
           remotePreview.color,
           true,
+          false,
         );
+        drawShapeLabel(
+          computeShapeLabelAnchor(remotePreview, gridSpecRef.current),
+          buildMeasurementLabelText(remotePreview),
+        );
+      } else {
+        // Nothing is being aimed locally or remotely yet — show where a
+        // placement is about to start, before the origin is even clicked.
+        const remoteCursor = measurementCursorRef.current;
+        if (remoteCursor) {
+          const zoom = currentViewport.zoom || 1;
+          const r = 8 / zoom;
+
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 1.5 / zoom;
+          ctx.beginPath();
+          ctx.moveTo(remoteCursor.x - r, remoteCursor.y);
+          ctx.lineTo(remoteCursor.x + r, remoteCursor.y);
+          ctx.moveTo(remoteCursor.x, remoteCursor.y - r);
+          ctx.lineTo(remoteCursor.x, remoteCursor.y + r);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(remoteCursor.x, remoteCursor.y, r * 0.6, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
       }
 
       ctx.restore();
@@ -702,6 +881,8 @@ export const MapCanvasView = ({
     lensRectRef,
     livePreviewShape,
     livePreviewShapeRef,
+    measurementCursor,
+    measurementCursorRef,
     measurementPreviewRef,
     measurementShapes,
     measurementShapesRef,
@@ -710,7 +891,10 @@ export const MapCanvasView = ({
     media.drawableRef,
     media.isLoadingRef,
     media.progressRef,
+    movingShapeIdRef,
     scheduleDraw,
+    selectedMeasurementShapeId,
+    selectedMeasurementShapeIdRef,
     trackerPreviewRef,
     trackerRectRef,
     // Read inside `drawScene` only via `viewportRef`, never directly — but a

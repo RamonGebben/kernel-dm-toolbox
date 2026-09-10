@@ -52,6 +52,7 @@ const meta = {
     isConnected: true,
     trackerOverlay: DEFAULT_TRACKER_OVERLAY,
     livePreviewShape: null,
+    measurementCursor: null,
   },
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof Fixture>;

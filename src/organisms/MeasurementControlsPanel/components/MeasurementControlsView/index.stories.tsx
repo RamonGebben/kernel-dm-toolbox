@@ -18,6 +18,8 @@ const meta = {
     onToolChange: fn(),
     shapes: [],
     onRemoveShape: fn(),
+    selectedShapeId: null,
+    onSelectShape: fn(),
     spellSearch: '',
     onSpellSearchChange: fn(),
     spellOptions: [],
@@ -134,32 +136,61 @@ export const SpellSourceBadge: Story = {
   },
 };
 
-export const PlacedShapes: Story = {
-  args: {
-    shapes: [
-      {
-        id: 'shape-1',
-        shapeType: 'cone',
-        extentFeet: 15,
-        label: 'Burning Hands',
-        color: '#ff8a5c',
-      },
-      {
-        id: 'shape-2',
-        shapeType: 'ruler',
-        extentFeet: 30,
-        label: null,
-        color: '#6fa7ff',
-      },
-    ],
+const placedShapes = [
+  {
+    id: 'shape-1',
+    shapeType: 'cone' as const,
+    extentFeet: 15,
+    label: 'Burning Hands',
+    color: '#ff8a5c',
   },
+  {
+    id: 'shape-2',
+    shapeType: 'ruler' as const,
+    extentFeet: 30,
+    label: null,
+    color: '#6fa7ff',
+  },
+];
+
+export const PlacedShapes: Story = {
+  args: { shapes: placedShapes },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('Placed (2)')).toBeVisible();
     await expect(canvas.getByText('Burning Hands')).toBeVisible();
+    // Disarmed with shapes on the board: the drag-to-move hint shows.
+    await expect(
+      canvas.getByText('Drag a placed shape on the canvas to move it.'),
+    ).toBeVisible();
 
     fireEvent.click(canvas.getAllByText('Remove')[0]!);
     await expect(args.onRemoveShape).toHaveBeenCalledWith('shape-1');
+  },
+};
+
+export const ClickingARowSelectsIt: Story = {
+  args: { shapes: placedShapes },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    fireEvent.click(canvas.getByText('Burning Hands'));
+
+    await expect(args.onSelectShape).toHaveBeenCalledWith('shape-1');
+    // The Remove button is a separate control nested in the row — clicking
+    // it must not also select the row.
+    await expect(args.onRemoveShape).not.toHaveBeenCalled();
+  },
+};
+
+export const SelectedRowIsHighlighted: Story = {
+  args: { shapes: placedShapes, selectedShapeId: 'shape-1' },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Clicking the already-selected row toggles it off.
+    fireEvent.click(canvas.getByText('Burning Hands'));
+    await expect(args.onSelectShape).toHaveBeenCalledWith(null);
   },
 };
