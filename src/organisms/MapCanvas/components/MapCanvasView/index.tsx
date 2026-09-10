@@ -806,6 +806,13 @@ export const MapCanvasView = ({
         // it stays put regardless of the rect case's subsequent local-space
         // transform.
         clipToShapeFootprint(computeShapeFootprint(shape, grid));
+        // The downloaded clips have no real alpha channel (confirmed against
+        // the actual files) — they're authored, like the upstream Foundry
+        // module that plays them, for additive/screen compositing over a
+        // black background instead: black contributes nothing, only the
+        // bright flame/glow pixels show, so the map underneath still reads
+        // through without needing per-pixel transparency.
+        ctx.globalCompositeOperation = 'screen';
         if (bounds.kind === 'circle') {
           ctx.drawImage(
             video,
