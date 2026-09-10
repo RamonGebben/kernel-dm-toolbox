@@ -16,6 +16,8 @@ const meta = {
       presetExtentFeet: null,
     },
     onToolChange: fn(),
+    labelScale: 1,
+    onLabelScaleChange: fn(),
     shapes: [],
     onRemoveShape: fn(),
     selectedShapeId: null,
@@ -112,6 +114,19 @@ export const PickingASizePreset: Story = {
     await expect(args.onToolChange).toHaveBeenCalledWith({
       presetExtentFeet: 20,
     });
+  },
+};
+
+export const PickingALabelScale: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Session-wide, so it's reachable even with the placement tool
+    // disarmed — unlike the Size presets, which only mean something for
+    // the next shape about to be placed.
+    fireEvent.click(canvas.getByText('2x'));
+
+    await expect(args.onLabelScaleChange).toHaveBeenCalledWith(2);
   },
 };
 

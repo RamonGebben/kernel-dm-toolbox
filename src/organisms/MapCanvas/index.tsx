@@ -40,6 +40,7 @@ export const MapCanvas = () => {
       trackerRect={canvas.trackerRect}
       onTrackerRectChange={canvas.onTrackerRectChange}
       measurementShapes={canvas.measurementShapes}
+      measurementLabelScale={canvas.measurementLabelScale}
       measurementTool={canvas.measurementTool}
       onMeasurementConfirm={canvas.onMeasurementConfirm}
       onMeasurementPreviewChange={canvas.onMeasurementPreviewChange}

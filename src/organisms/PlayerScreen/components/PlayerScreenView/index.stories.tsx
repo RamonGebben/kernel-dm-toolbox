@@ -20,6 +20,7 @@ const EXAMPLE_MAP = {
   fog: { enabled: false, baseState: 'covered' as const, strokes: [] },
   fogOpacity: 0.9,
   measurementShapes: [],
+  measurementLabelScale: 1,
 };
 
 /** `mapAreaRef` is owned by the connected boundary in real usage — a story

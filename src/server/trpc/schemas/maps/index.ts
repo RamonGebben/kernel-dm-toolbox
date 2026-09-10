@@ -82,6 +82,10 @@ export const gridDisplayInputSchema = z.object({
   backgroundColor: z.string().trim().min(1).max(20).optional(),
 });
 
+export const measurementLabelScaleInputSchema = z.object({
+  scale: z.number().min(0.5).max(3),
+});
+
 export const setActiveMapInputSchema = z.object({
   mapId: z.uuid().nullable(),
 });

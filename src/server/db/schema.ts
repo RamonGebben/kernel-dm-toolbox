@@ -786,6 +786,16 @@ export const mapSessions = sqliteTable(
       .notNull()
       .default(false),
 
+    /** A multiplier on the base 12px label font a placed shape's distance/
+     * spell text draws at (`drawShapeLabel`, `~/organisms/MapCanvas`) — the
+     * same "make the TV readable from across the room" purpose
+     * `trackerOverlayScale` already serves for the tracker overlay, and the
+     * same 0.5–3 range. Applies on both the DM and player canvases, since
+     * both draw through the same `MapCanvasView`. */
+    measurementLabelScale: real('measurement_label_scale')
+      .notNull()
+      .default(1),
+
     /** The measurement shape the DM is currently dragging into place, before
      * the confirming second click commits it to `map_measurement_shapes`.
      * Written live, at most once per animation frame, the same cadence as

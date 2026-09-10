@@ -139,6 +139,10 @@ export type MapCanvasViewProps = {
   /** Every shape already placed on this map — drawn on both the DM and
    * player screens, always, since none of them are secret (issue #1). */
   measurementShapes?: MapCanvasMeasurementShape[];
+  /** Multiplier on a shape's label font size, so it can be bumped up for a
+   * TV viewed from across the room — 1 (the base 12px) when unset. Session-
+   * wide: the DM and player canvases always draw labels at the same size. */
+  measurementLabelScale?: number;
   /** The armed placement tool. Undefined/disabled on the player screen,
    * which never places anything itself. */
   measurementTool?: MapCanvasMeasurementTool;
@@ -213,6 +217,7 @@ export const MapCanvasView = ({
   trackerRect = null,
   onTrackerRectChange,
   measurementShapes = [],
+  measurementLabelScale = 1,
   measurementTool,
   livePreviewShape = null,
   onMeasurementConfirm,
@@ -744,16 +749,19 @@ export const MapCanvasView = ({
 
       const drawShapeLabel = (anchor: MapPoint, text: string) => {
         const zoom = currentViewport.zoom || 1;
-        const fontSize = 12 / zoom;
+        const fontSize = (12 * measurementLabelScale) / zoom;
 
         ctx.save();
         ctx.font = `${fontSize}px system-ui, sans-serif`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
 
-        const paddingX = 4 / zoom;
-        const paddingY = 2 / zoom;
-        const offset = 6 / zoom;
+        // Padding/offset scale with the font so a larger label keeps the
+        // same proportions instead of the text crowding or overflowing a
+        // background box sized for the default 12px.
+        const paddingX = (4 * measurementLabelScale) / zoom;
+        const paddingY = (2 * measurementLabelScale) / zoom;
+        const offset = (6 * measurementLabelScale) / zoom;
         const metrics = ctx.measureText(text);
         const boxX = anchor.x + offset;
         const boxY = anchor.y;
@@ -1027,6 +1035,7 @@ export const MapCanvasView = ({
     livePreviewShapeRef,
     measurementCursor,
     measurementCursorRef,
+    measurementLabelScale,
     measurementPreviewRef,
     measurementShapes,
     measurementShapesRef,

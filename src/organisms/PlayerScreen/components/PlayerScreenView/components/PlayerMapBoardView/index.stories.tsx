@@ -50,6 +50,7 @@ export const Loaded: Story = {
       fog: { enabled: false, baseState: 'covered', strokes: [] },
       fogOpacity: 0.9,
       measurementShapes: [],
+      measurementLabelScale: 1,
     },
   },
   play: async ({ canvasElement }) => {

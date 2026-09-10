@@ -41,6 +41,15 @@ export const useMeasurementControls = () => {
     }),
   );
 
+  const setMeasurementLabelScale = useMutation(
+    trpc.maps.setMeasurementLabelScale.mutationOptions({
+      onSuccess: () =>
+        queryClient.invalidateQueries({
+          queryKey: trpc.maps.getSession.queryKey(),
+        }),
+    }),
+  );
+
   const [spellSearch, setSpellSearch] = useState('');
   const spellResults = useQuery({
     ...trpc.library.listSpells.queryOptions({
@@ -81,6 +90,9 @@ export const useMeasurementControls = () => {
     hasSelectedMap: activeMapId !== null,
     tool,
     onToolChange: setTool,
+    labelScale: session.data?.measurementLabelScale ?? 1,
+    onLabelScaleChange: (scale: number) =>
+      setMeasurementLabelScale.mutate({ scale }),
     shapes: shapes.data ?? [],
     onRemoveShape: (id: string) => {
       removeMeasurementShape.mutate({ id });

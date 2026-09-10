@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import {
+  LABEL_SCALE_PRESETS,
   SIZE_PRESETS_FEET,
   type MeasurementShapeType,
 } from '~/utils/mapMeasurement';
@@ -40,6 +41,11 @@ export type MeasurementControlsViewProps = {
   hasSelectedMap: boolean;
   tool: MeasurementControlsTool;
   onToolChange: (patch: Partial<MeasurementControlsTool>) => void;
+  /** Session-wide, unlike everything else here: applies to every label
+   * already on the board, on both the DM and player canvases, not just the
+   * next shape placed. */
+  labelScale: number;
+  onLabelScaleChange: (scale: number) => void;
   shapes: MeasurementControlsShape[];
   onRemoveShape: (id: string) => void;
   selectedShapeId: string | null;
@@ -68,6 +74,8 @@ export const MeasurementControlsView = ({
   hasSelectedMap,
   tool,
   onToolChange,
+  labelScale,
+  onLabelScaleChange,
   shapes,
   onRemoveShape,
   selectedShapeId,
@@ -112,6 +120,22 @@ export const MeasurementControlsView = ({
           </Instructions>
         )
       )}
+
+      <FieldRow>
+        <label>Label size</label>
+        <PresetRow>
+          {LABEL_SCALE_PRESETS.map(scale => (
+            <PresetButton
+              key={scale}
+              type="button"
+              $isActive={labelScale === scale}
+              onClick={() => onLabelScaleChange(scale)}
+            >
+              {scale}x
+            </PresetButton>
+          ))}
+        </PresetRow>
+      </FieldRow>
 
       <FieldRow>
         <label htmlFor="measurement-shape">Shape</label>

@@ -56,6 +56,10 @@ export type PlayerMapViewMap = {
   };
   fogOpacity: number;
   measurementShapes: PlayerMapViewMeasurementShape[];
+  /** Multiplier on a shape's label font size — see `mapSessions.
+   * measurementLabelScale`. Session-wide, so the DM and player canvases
+   * always agree on it (there is no separate player-only override). */
+  measurementLabelScale: number;
 };
 
 export type PlayerMapViewTrackerOverlay = {
@@ -145,6 +149,7 @@ export const toPlayerMapView = (args: {
             effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
             effectLoops: shape.effectLoops,
           })),
+          measurementLabelScale: session.measurementLabelScale,
         }
       : null,
     viewport: {

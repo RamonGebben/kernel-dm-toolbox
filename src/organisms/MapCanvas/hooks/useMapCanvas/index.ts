@@ -464,6 +464,7 @@ export const useMapCanvas = () => {
     trackerRect,
     onTrackerRectChange,
     measurementShapes,
+    measurementLabelScale: session.data?.measurementLabelScale ?? 1,
     measurementTool: mapId
       ? {
           enabled: measurementTool.enabled,

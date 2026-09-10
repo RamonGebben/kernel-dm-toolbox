@@ -42,6 +42,10 @@ export const FEET_PER_GRID_CELL = 5;
 /** Standard 5e area sizes, for the panel's preset buttons. */
 export const SIZE_PRESETS_FEET = [5, 10, 15, 20, 30, 40, 60] as const;
 
+/** Multipliers on the base 12px label font, for the panel's own preset
+ * buttons — matches `measurementLabelScaleInputSchema`'s 0.5–3 range. */
+export const LABEL_SCALE_PRESETS = [1, 1.5, 2, 2.5, 3] as const;
+
 /** Fixed width for a `line` shape — the SRD default for line-shaped spells.
  * An open question in issue #1 resolved to a constant rather than a DM-
  * configurable field, since the placement gesture has nowhere to drive a

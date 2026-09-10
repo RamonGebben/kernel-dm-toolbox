@@ -17,6 +17,7 @@ import {
   gridDisplayInputSchema,
   listMeasurementShapesInputSchema,
   mapIdInputSchema,
+  measurementLabelScaleInputSchema,
   measurementShapeIdInputSchema,
   moveMapInputSchema,
   playerScreenModeInputSchema,
@@ -551,6 +552,25 @@ export const mapsRouter = createTRPCRouter({
           ...(input.backgroundColor !== undefined && {
             gridBackgroundColor: input.backgroundColor,
           }),
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  setMeasurementLabelScale: publicProcedure
+    .input(measurementLabelScaleInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          measurementLabelScale: input.scale,
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))

@@ -16,6 +16,8 @@ export const MeasurementControlsPanel = () => {
       hasSelectedMap={measurement.hasSelectedMap}
       tool={measurement.tool}
       onToolChange={measurement.onToolChange}
+      labelScale={measurement.labelScale}
+      onLabelScaleChange={measurement.onLabelScaleChange}
       shapes={measurement.shapes}
       onRemoveShape={measurement.onRemoveShape}
       selectedShapeId={measurement.selectedShapeId}

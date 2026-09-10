@@ -54,6 +54,7 @@ export const PlayerMapBoardView = ({
         fogOpacity={map.fogOpacity}
         backgroundColor={map.backgroundColor}
         measurementShapes={map.measurementShapes}
+        measurementLabelScale={map.measurementLabelScale}
         livePreviewShape={
           livePreviewShape
             ? {
