@@ -19,6 +19,7 @@ import {
   moveTrackerRect,
 } from '~/utils/trackerOverlayRect';
 import {
+  computeAimPreview,
   computeMeasurementPreview,
   isPointInShapeFootprint,
   snapPointToGrid,
@@ -241,6 +242,39 @@ export const useViewportInteraction = ({
       !!(fogToolRef.current?.enabled && fogRef.current?.enabled);
     const isMeasurementToolActive = () => !!measurementToolRef.current?.enabled;
 
+    /** The shape to preview/confirm from an already-clicked origin and the
+     * current cursor. A preset-sized, orientable shape (a spell's cone/line/
+     * cube) keeps its extent fixed and only aims — a circle has no facing to
+     * aim, and a ruler has no size of its own and always free-drags
+     * (DECISIONS #27), so a leftover `presetExtentFeet` from a previously
+     * selected shape type is ignored for both, same as a custom (no-preset)
+     * shape, all three via `computeMeasurementPreview`. Called from the
+     * pointermove handler too, unguarded by `isMeasurementToolActive` (an
+     * in-progress drag must keep previewing even if the tool prop goes away
+     * mid-drag, e.g. the DM switches maps), so `tool` falls back the same
+     * way that call site always has. */
+    const previewFromOrigin = (
+      origin: MapPoint,
+      cursor: MapPoint,
+    ): MeasurementShapeInput => {
+      const tool = measurementToolRef.current;
+      const shapeType = tool?.shapeType ?? 'circle';
+      const isAimable = shapeType !== 'circle' && shapeType !== 'ruler';
+      return tool?.presetExtentFeet && isAimable
+        ? computeAimPreview({
+            shapeType,
+            origin,
+            cursor,
+            extentFeet: tool.presetExtentFeet,
+          })
+        : computeMeasurementPreview({
+            shapeType,
+            origin,
+            cursor,
+            grid: gridRef.current,
+          });
+    };
+
     // A placed shape wins the hit test over the lens/tracker the same way
     // the fog brush and calibration already do — the lens defaults to an
     // uncalibrated, screen-sized rect (`computeLensRect` off the session's
@@ -331,38 +365,33 @@ export const useViewportInteraction = ({
         if (!measurementOriginRef.current) {
           const origin = snapPointToGrid(mapPoint, grid);
 
-          // A size preset places in one click, at a default orientation,
-          // rather than arming the two-click free-drag gesture — a ruler
-          // has no size of its own, so it always free-drags.
-          if (tool.presetExtentFeet && tool.shapeType !== 'ruler') {
+          // A circle/sphere has no facing to aim, preset or not — one click
+          // is the whole placement. Every other preset shape (a spell's
+          // cone/line/cube) arms a second, aiming click instead of
+          // committing immediately, same as a ruler or a custom size
+          // already do — see `previewFromOrigin`.
+          if (tool.presetExtentFeet && tool.shapeType === 'circle') {
             onMeasurementConfirmRef.current?.({
               shapeType: tool.shapeType,
               originX: origin.x,
               originY: origin.y,
               extentFeet: tool.presetExtentFeet,
-              orientation: tool.shapeType === 'circle' ? null : 0,
+              orientation: null,
             });
             onScheduleDraw();
             return;
           }
 
           measurementOriginRef.current = origin;
-          measurementPreviewRef.current = computeMeasurementPreview({
-            shapeType: tool.shapeType,
-            origin,
-            cursor: mapPoint,
-            grid,
-          });
+          measurementPreviewRef.current = previewFromOrigin(origin, mapPoint);
           onScheduleDraw();
           return;
         }
 
-        const finalShape = computeMeasurementPreview({
-          shapeType: tool.shapeType,
-          origin: measurementOriginRef.current,
-          cursor: mapPoint,
-          grid,
-        });
+        const finalShape = previewFromOrigin(
+          measurementOriginRef.current,
+          mapPoint,
+        );
         onMeasurementConfirmRef.current?.(finalShape);
         measurementOriginRef.current = null;
         measurementPreviewRef.current = null;
@@ -492,13 +521,10 @@ export const useViewportInteraction = ({
       }
 
       if (measurementOriginRef.current) {
-        const tool = measurementToolRef.current;
-        measurementPreviewRef.current = computeMeasurementPreview({
-          shapeType: tool?.shapeType ?? 'circle',
-          origin: measurementOriginRef.current,
-          cursor: mapPoint,
-          grid: gridRef.current,
-        });
+        measurementPreviewRef.current = previewFromOrigin(
+          measurementOriginRef.current,
+          mapPoint,
+        );
         onScheduleDraw();
         return;
       }

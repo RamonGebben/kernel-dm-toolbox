@@ -100,7 +100,9 @@ export const MeasurementControlsView = ({
       {tool.enabled ? (
         <Instructions>
           {tool.presetExtentFeet
-            ? 'Click the canvas to place it.'
+            ? tool.shapeType === 'circle'
+              ? 'Click the canvas to place it.'
+              : 'Click the canvas to set the origin, then move to aim and click again to confirm.'
             : 'Click the canvas to set the origin, then click again to set its size.'}
         </Instructions>
       ) : (

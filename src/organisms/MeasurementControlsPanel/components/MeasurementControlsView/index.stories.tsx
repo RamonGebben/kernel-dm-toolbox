@@ -76,6 +76,24 @@ export const ArmedWithPreset: Story = {
   },
 };
 
+export const ArmedWithPresetAndAOrientation: Story = {
+  args: {
+    tool: {
+      ...meta.args.tool,
+      enabled: true,
+      shapeType: 'cone',
+      presetExtentFeet: 20,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByText(/then move to aim and click again to confirm/),
+    ).toBeVisible();
+  },
+};
+
 export const RulerHasNoSizePresets: Story = {
   args: { tool: { ...meta.args.tool, shapeType: 'ruler' } },
   play: async ({ canvasElement }) => {

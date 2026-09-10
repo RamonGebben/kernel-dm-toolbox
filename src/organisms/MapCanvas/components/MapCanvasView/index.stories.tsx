@@ -509,7 +509,7 @@ export const PlacingACircleByFreeDrag: Story = {
   },
 };
 
-export const PlacingACubeAtAFixedPreset: Story = {
+export const PlacingACubeAtAFixedPresetByAiming: Story = {
   args: {
     measurementTool: {
       enabled: true,
@@ -522,14 +522,44 @@ export const PlacingACubeAtAFixedPreset: Story = {
   play: async ({ args, canvasElement }) => {
     const element = within(canvasElement).getByLabelText('Map canvas');
 
-    // A size preset commits in a single click, at a default orientation —
-    // no second click needed.
+    // A size preset fixes the extent, but an orientable shape still arms a
+    // second click — to aim its direction, not to resize it. The first
+    // click only sets the origin.
     fireEvent.pointerDown(element, {
       pointerId: 1,
       clientX: 100,
       clientY: 100,
     });
     fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 100 });
+    await waitForFrame();
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+
+    // Moving the cursor before the second click live-previews the aim —
+    // broadcast to the player screen the same as a free-drag's preview.
+    fireEvent.pointerMove(element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 150,
+    });
+    await waitForFrame();
+    await expect(args.onMeasurementPreviewChange).toHaveBeenCalledWith(
+      expect.objectContaining({ extentFeet: 20, orientation: Math.PI / 2 }),
+    );
+
+    // The second, confirming click keeps the preset extent regardless of
+    // how far away it lands — only the angle to it matters, here back to
+    // level with the origin for a clean 0° so the assertion below isn't
+    // fighting floating-point noise from an arbitrary angle.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 10_000,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, {
+      pointerId: 1,
+      clientX: 10_000,
+      clientY: 100,
+    });
     await waitForFrame();
 
     await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({

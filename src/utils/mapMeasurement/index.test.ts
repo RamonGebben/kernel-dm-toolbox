@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_EFFECT_WAIT_MS,
   buildMeasurementLabelText,
+  computeAimPreview,
   computeGridDistanceFeet,
   computeMeasurementPreview,
   computeShapeFootprint,
@@ -89,6 +90,50 @@ describe('computeMeasurementPreview', () => {
     });
 
     expect(preview.extentFeet).toBe(5);
+  });
+});
+
+describe('computeAimPreview', () => {
+  it('has no orientation for a circle', () => {
+    const preview = computeAimPreview({
+      shapeType: 'circle',
+      origin: { x: 0, y: 0 },
+      cursor: { x: 100, y: 100 },
+      extentFeet: 20,
+    });
+
+    expect(preview.orientation).toBeNull();
+    expect(preview.extentFeet).toBe(20);
+  });
+
+  it('aims a cone at the cursor without changing its extent', () => {
+    const preview = computeAimPreview({
+      shapeType: 'cone',
+      origin: { x: 0, y: 0 },
+      cursor: { x: 0, y: 100 },
+      extentFeet: 20,
+    });
+
+    expect(preview.orientation).toBeCloseTo(Math.PI / 2);
+    expect(preview.extentFeet).toBe(20);
+  });
+
+  it('keeps the fixed extent regardless of cursor distance', () => {
+    const near = computeAimPreview({
+      shapeType: 'line',
+      origin: { x: 0, y: 0 },
+      cursor: { x: 1, y: 0 },
+      extentFeet: 60,
+    });
+    const far = computeAimPreview({
+      shapeType: 'line',
+      origin: { x: 0, y: 0 },
+      cursor: { x: 1000, y: 0 },
+      extentFeet: 60,
+    });
+
+    expect(near.extentFeet).toBe(60);
+    expect(far.extentFeet).toBe(60);
   });
 });
 

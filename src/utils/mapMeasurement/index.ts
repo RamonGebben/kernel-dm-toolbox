@@ -112,6 +112,36 @@ export const computeMeasurementPreview = ({
 });
 
 /**
+ * What the DM is aiming for a preset-sized shape (a spell's own area size,
+ * from `presetExtentFeet`) — the origin click fixes both position and size,
+ * so the cursor after that only ever aims a direction, never resizes it.
+ * Same `atan2` orientation math as `computeMeasurementPreview`, minus the
+ * distance-derived extent, so an aim-preview and a free-dragged one read
+ * identically once confirmed. A circle has no facing to aim; callers commit
+ * it on the origin click alone and never reach this function for one.
+ */
+export const computeAimPreview = ({
+  shapeType,
+  origin,
+  cursor,
+  extentFeet,
+}: {
+  shapeType: MeasurementShapeType;
+  origin: MapPoint;
+  cursor: MapPoint;
+  extentFeet: number;
+}): MeasurementShapeInput => ({
+  shapeType,
+  originX: origin.x,
+  originY: origin.y,
+  extentFeet,
+  orientation:
+    shapeType === 'circle'
+      ? null
+      : Math.atan2(cursor.y - origin.y, cursor.x - origin.x),
+});
+
+/**
  * The point a shape's size is measured out to — the far edge of a circle,
  * or the apex-opposite end of everything else. Shared by the footprint math
  * below and `computeShapeLabelAnchor`, so a label always sits exactly where

@@ -601,11 +601,18 @@ Open5e library, none of this is read-only reference data.
   through React state or the zustand store — nothing outside the canvas
   needs the in-progress point, the same reasoning `calibrationPreviewRef`
   already documents.
-- **A size preset collapses the gesture to one click.** Picking a 5e preset
-  size (or a spell via `mapSpellShapeType`) sets `measurementTool.presetExtentFeet`;
-  the next click commits immediately at that exact size and a 0° default
-  orientation instead of arming the two-click drag. A `ruler` has no size of
-  its own and always free-drags regardless (DECISIONS #27).
+- **A size preset fixes the extent, not the gesture.** Picking a 5e preset
+  size (or a spell via `mapSpellShapeType`) sets
+  `measurementTool.presetExtentFeet`. For a `circle` — no facing to aim —
+  the next click commits immediately at that exact size, since a second
+  click would have nothing left to do. Every other shape still arms a
+  second click, but to aim its direction rather than to free-drag its size:
+  the origin click fixes both position and extent, and the cursor between
+  the two clicks only rotates it (`computeAimPreview`, distinct from
+  `computeMeasurementPreview`'s distance-derived extent for a custom/no-
+  preset placement), broadcast live to the player screen the same way a
+  free-drag's in-progress preview already is. A `ruler` has no size of its
+  own and always free-drags regardless (DECISIONS #27).
 - **Picking a spell also auto-assigns the shape's colour from its damage
   type** — `mapDamageTypesToColor` (a fixed hex palette: acid green, fire
   red, cold icy blue, radiant gold, …). Only overrides `measurementTool.color`
