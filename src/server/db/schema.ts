@@ -792,9 +792,7 @@ export const mapSessions = sqliteTable(
      * `trackerOverlayScale` already serves for the tracker overlay, and the
      * same 0.5–3 range. Applies on both the DM and player canvases, since
      * both draw through the same `MapCanvasView`. */
-    measurementLabelScale: real('measurement_label_scale')
-      .notNull()
-      .default(1),
+    measurementLabelScale: real('measurement_label_scale').notNull().default(1),
 
     /** The measurement shape the DM is currently dragging into place, before
      * the confirming second click commits it to `map_measurement_shapes`.
