@@ -770,13 +770,42 @@ export const MapCanvasView = ({
         ctx.restore();
       };
 
+      // The clip's raw frame is a square/rect with an opaque (non-alpha)
+      // background — confirmed against the real downloaded clips, not just
+      // assumed — so drawing it unclipped shows that background outside the
+      // spell's actual area (a fireball's video square instead of a
+      // circle). Clipping to the same footprint `drawShapeFootprint` already
+      // fills/strokes for the static shape keeps the animated and static
+      // silhouettes identical.
+      const clipToShapeFootprint = (
+        footprint: ReturnType<typeof computeShapeFootprint>,
+      ) => {
+        ctx.beginPath();
+        if (footprint.kind === 'circle') {
+          ctx.arc(footprint.cx, footprint.cy, footprint.radius, 0, Math.PI * 2);
+        } else {
+          footprint.points.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
+          });
+          ctx.closePath();
+        }
+        ctx.clip();
+      };
+
       const drawEffectVideoFrame = (
         video: HTMLVideoElement,
         shape: MeasurementShapeInput,
       ) => {
-        const bounds = computeShapeVideoBounds(shape, gridSpecRef.current);
+        const grid = gridSpecRef.current;
+        const bounds = computeShapeVideoBounds(shape, grid);
 
         ctx.save();
+        // In world space, before any translate/rotate below — a clip
+        // region is fixed in device space at the moment `clip()` runs, so
+        // it stays put regardless of the rect case's subsequent local-space
+        // transform.
+        clipToShapeFootprint(computeShapeFootprint(shape, grid));
         if (bounds.kind === 'circle') {
           ctx.drawImage(
             video,

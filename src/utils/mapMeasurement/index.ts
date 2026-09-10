@@ -240,11 +240,14 @@ export type ShapeVideoBounds =
     };
 
 /**
- * Where to draw an animated effect clip for a shape — a plain bounding box
- * a video frame is scaled to fit, the same "scale/anchor/angle, no per-shape
- * clip mask" approach the source clips are already authored for (their own
- * alpha channel does the visual shaping, per the upstream Foundry VTT
- * module's own overlay code).
+ * Where to draw an animated effect clip for a shape — a bounding box a video
+ * frame is scaled to fit. The real downloaded clips turned out to have an
+ * opaque (non-alpha) background, not the transparency the source library's
+ * own Foundry VTT overlay code can rely on — so this bounding box alone is
+ * not the shape's visible silhouette; `MapCanvasView` additionally clips the
+ * draw to `computeShapeFootprint`'s own geometry (the same one the static
+ * fallback fills/strokes) so a circle spell reads as a circle, not the
+ * clip's underlying square/rect frame.
  */
 export const computeShapeVideoBounds = (
   shape: MeasurementShapeInput,
