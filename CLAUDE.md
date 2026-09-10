@@ -597,6 +597,13 @@ Open5e library, none of this is read-only reference data.
   the next click commits immediately at that exact size and a 0° default
   orientation instead of arming the two-click drag. A `ruler` has no size of
   its own and always free-drags regardless (DECISIONS #27).
+- **Picking a spell also auto-assigns the shape's colour from its damage
+  type** — `mapDamageTypesToColor` (a fixed hex palette: acid green, fire
+  red, cold icy blue, radiant gold, …). Only overrides `measurementTool.color`
+  when a mapping exists; a spell with no damage type (a buff, a utility
+  effect) leaves whatever colour was already set untouched rather than
+  overwriting it with a guess. The first listed damage type wins for a spell
+  with more than one (`listSpells` now selects `damageTypes` for this).
 - **The live-drag preview reuses the lens's exact broadcast pattern.**
   `map_sessions.livePreviewShape` (nullable JSON) is written from the same
   RAF-notify scheduler as `onLensChange`, at most once per animation frame,

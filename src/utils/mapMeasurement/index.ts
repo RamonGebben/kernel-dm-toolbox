@@ -268,6 +268,46 @@ export const isPointInShapeFootprint = (
 };
 
 /**
+ * A shape's colour, auto-assigned from a spell's damage type — acid is
+ * green, fire is red, cold is icy blue, radiant is gold, and so on — so a
+ * DM doesn't have to hand-pick a colour for every spell they place. A
+ * fixed hex palette, not `theme.color.*`: this is domain data written to
+ * `map_measurement_shapes.color` and read back out raw, the same way the
+ * colour picker's own value is a hex string, not a theme token.
+ */
+const DAMAGE_TYPE_COLORS: Record<string, string> = {
+  acid: '#8bc34a',
+  bludgeoning: '#9e9e9e',
+  cold: '#4fc3f7',
+  fire: '#ef5350',
+  force: '#ec407a',
+  lightning: '#42a5f5',
+  necrotic: '#5e4b8b',
+  piercing: '#bdbdbd',
+  poison: '#7e57c2',
+  psychic: '#f06292',
+  radiant: '#ffd54f',
+  slashing: '#cfd8dc',
+  thunder: '#607d8b',
+};
+
+/**
+ * The colour to auto-assign a shape placed from a spell, or `null` for a
+ * spell with no damage type (a buff, a utility effect, …) — callers keep
+ * whatever colour was already set rather than overwriting it with a guess.
+ * The first listed damage type wins for a spell with more than one.
+ */
+export const mapDamageTypesToColor = (
+  damageTypes: readonly string[],
+): string | null => {
+  for (const damageType of damageTypes) {
+    const color = DAMAGE_TYPE_COLORS[damageType.toLowerCase()];
+    if (color) return color;
+  }
+  return null;
+};
+
+/**
  * Best-effort mapping from Open5e's `shapeType` vocabulary onto this
  * feature's shape enum. Only `sphere` is confirmed against real imported
  * data (see issue #1); the rest are reasonable guesses at the SRD's other

@@ -4,7 +4,10 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useMapToolStore } from '~/stores/mapTool';
-import { mapSpellShapeType } from '~/utils/mapMeasurement';
+import {
+  mapDamageTypesToColor,
+  mapSpellShapeType,
+} from '~/utils/mapMeasurement';
 
 export const useMeasurementControls = () => {
   const trpc = useTRPC();
@@ -51,7 +54,10 @@ export const useMeasurementControls = () => {
 
   // Only spells whose upstream shape maps onto this feature's enum are
   // offered — see `mapSpellShapeType`. Everything else has no size to
-  // auto-fill (a touch spell, a single target, …).
+  // auto-fill (a touch spell, a single target, …). `color` is the
+  // damage-type auto-assignment (acid green, fire red, …) — null for a
+  // spell with no damage type, which leaves the tool's current colour
+  // untouched rather than overwriting it with a guess.
   const spellOptions = useMemo(
     () =>
       (spellResults.data ?? []).flatMap(spell => {
@@ -64,6 +70,7 @@ export const useMeasurementControls = () => {
             name: spell.name,
             shapeType,
             extentFeet: spell.shapeSize,
+            color: mapDamageTypesToColor(spell.damageTypes),
           },
         ];
       }),
@@ -94,6 +101,7 @@ export const useMeasurementControls = () => {
         label: spell.name,
         sourceSpellSlug: spell.slug,
         presetExtentFeet: spell.extentFeet,
+        ...(spell.color ? { color: spell.color } : {}),
       });
     },
     onClearSpell: () =>

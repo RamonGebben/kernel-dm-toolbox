@@ -30,6 +30,10 @@ export type MeasurementControlsSpellOption = {
   name: string;
   shapeType: MeasurementShapeType;
   extentFeet: number;
+  /** Auto-assigned from the spell's damage type (acid green, fire red, …) —
+   * null for a spell with no damage type, which keeps the tool's current
+   * colour rather than overwriting it with a guess. */
+  color: string | null;
 };
 
 export type MeasurementControlsViewProps = {
@@ -185,7 +189,10 @@ export const MeasurementControlsView = ({
 
       {tool.sourceSpellSlug && (
         <SpellBadge>
-          From {tool.label || 'a spell'}
+          <SpellBadgeLabel>
+            <ShapeSwatch $color={tool.color} />
+            From {tool.label || 'a spell'}
+          </SpellBadgeLabel>
           <Button variant="ghost" size="sm" onClick={onClearSpell}>
             Clear
           </Button>
@@ -203,7 +210,10 @@ export const MeasurementControlsView = ({
               type="button"
               onClick={() => onSelectSpell(option.slug)}
             >
-              {option.name}
+              <SpellOptionHeader>
+                {option.color && <ShapeSwatch $color={option.color} />}
+                {option.name}
+              </SpellOptionHeader>
               <SpellOptionMeta>
                 {SHAPE_LABELS[option.shapeType]} · {option.extentFeet} ft
               </SpellOptionMeta>
@@ -314,6 +324,12 @@ const SpellBadge = styled.div`
   font-size: ${props => props.theme.fontSize.sm};
 `;
 
+const SpellBadgeLabel = styled.span`
+  display: flex;
+  align-items: center;
+  gap: ${props => props.theme.space.xs};
+`;
+
 const SpellList = styled.div`
   display: flex;
   flex-direction: column;
@@ -345,6 +361,12 @@ const SpellOption = styled.button`
   &:hover {
     background: ${props => props.theme.color.surfaceRaised};
   }
+`;
+
+const SpellOptionHeader = styled.span`
+  display: flex;
+  align-items: center;
+  gap: ${props => props.theme.space.xs};
 `;
 
 const SpellOptionMeta = styled.span`

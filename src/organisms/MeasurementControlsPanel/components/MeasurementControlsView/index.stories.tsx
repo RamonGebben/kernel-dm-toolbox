@@ -106,6 +106,7 @@ export const SpellLookupResults: Story = {
         name: 'Fireball',
         shapeType: 'circle',
         extentFeet: 20,
+        color: '#ef5350',
       },
     ],
   },
@@ -115,6 +116,28 @@ export const SpellLookupResults: Story = {
     fireEvent.click(canvas.getByText('Fireball'));
 
     await expect(args.onSelectSpell).toHaveBeenCalledWith('srd-2024_fireball');
+  },
+};
+
+export const SpellLookupResultWithNoDamageType: Story = {
+  args: {
+    spellSearch: 'shield',
+    spellOptions: [
+      {
+        slug: 'srd-2024_shield',
+        name: 'Shield',
+        shapeType: 'circle',
+        extentFeet: 5,
+        color: null,
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // No damage type to auto-assign a colour from, so no swatch is shown —
+    // picking this spell leaves the tool's current colour untouched.
+    await expect(canvas.getByText('Shield')).toBeVisible();
   },
 };
 

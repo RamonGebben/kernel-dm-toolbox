@@ -6,6 +6,7 @@ import {
   computeShapeFootprint,
   computeShapeLabelAnchor,
   isPointInShapeFootprint,
+  mapDamageTypesToColor,
   mapSpellShapeType,
   snapPointToGrid,
 } from '~/utils/mapMeasurement';
@@ -278,6 +279,28 @@ describe('isPointInShapeFootprint', () => {
 
     expect(isPointInShapeFootprint(ruler, grid, { x: 100, y: 1 })).toBe(true);
     expect(isPointInShapeFootprint(ruler, grid, { x: 100, y: 50 })).toBe(false);
+  });
+});
+
+describe('mapDamageTypesToColor', () => {
+  it('assigns a distinct colour per elemental damage type', () => {
+    expect(mapDamageTypesToColor(['acid'])).toBe('#8bc34a');
+    expect(mapDamageTypesToColor(['fire'])).toBe('#ef5350');
+    expect(mapDamageTypesToColor(['cold'])).toBe('#4fc3f7');
+    expect(mapDamageTypesToColor(['radiant'])).toBe('#ffd54f');
+  });
+
+  it('is case-insensitive', () => {
+    expect(mapDamageTypesToColor(['Fire'])).toBe('#ef5350');
+  });
+
+  it('uses the first recognised damage type when a spell lists several', () => {
+    expect(mapDamageTypesToColor(['fire', 'radiant'])).toBe('#ef5350');
+  });
+
+  it('returns null for no damage type or an unrecognised one', () => {
+    expect(mapDamageTypesToColor([])).toBeNull();
+    expect(mapDamageTypesToColor(['made-up'])).toBeNull();
   });
 });
 
