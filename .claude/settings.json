@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx|js|jsx|mjs|cjs|json|md|css|ya?ml)$'); if [ -n \"$files\" ]; then echo \"$files\" | xargs pnpm exec prettier --write --ignore-unknown && echo \"$files\" | xargs git add; fi || true",
+            "if": "Bash(git commit*)",
+            "statusMessage": "Formatting staged diff with Prettier…",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
