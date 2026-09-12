@@ -55,6 +55,7 @@ export const PlayerMapBoardView = ({
         backgroundColor={map.backgroundColor}
         measurementShapes={map.measurementShapes}
         measurementLabelScale={map.measurementLabelScale}
+        measurementCursorScale={map.measurementCursorScale}
         livePreviewShape={
           livePreviewShape
             ? {

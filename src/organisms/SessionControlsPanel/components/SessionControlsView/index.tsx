@@ -3,6 +3,7 @@
 import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import { Tabs, type TabOption } from '~/atoms/Tabs';
+import { OpenPlayerScreenLink } from '~/molecules/OpenPlayerScreenLink';
 
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
 export type PlayerScreenOrientation = 'auto' | 'landscape' | 'portrait';
@@ -171,6 +172,9 @@ export const SessionControlsView = ({
           description="Preview a map from the Maps tab before positioning the player view."
         />
       )}
+      <Footer>
+        <OpenPlayerScreenLink />
+      </Footer>
     </Wrapper>
   );
 };
@@ -179,6 +183,12 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.space.lg};
+`;
+
+const Footer = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  font-size: ${props => props.theme.fontSize.sm};
 `;
 
 const FieldGroup = styled.div`

@@ -692,6 +692,11 @@ export type MapMeasurementCursor = {
   mapId: string;
   x: number;
   y: number;
+  /** The armed tool's own color, broadcast alongside the position — the
+   * player screen has no other way to know what color to tint the aim-cell
+   * highlight, since `measurementTool` itself is DM-local UI state that
+   * never reaches the player canvas. */
+  color: string;
 };
 
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
@@ -814,6 +819,15 @@ export const mapSessions = sqliteTable(
     measurementCursor: text('measurement_cursor', {
       mode: 'json',
     }).$type<MapMeasurementCursor | null>(),
+
+    /** A multiplier on the base 8px radius the "aim" reticle draws at
+     * (`~/organisms/MapCanvas`'s `MapCanvasView`) — same TV-readability
+     * purpose and range as `measurementLabelScale` above, kept as a
+     * separate column since a DM may want a bigger reticle without also
+     * enlarging every placed shape's label, or vice versa. */
+    measurementCursorScale: real('measurement_cursor_scale')
+      .notNull()
+      .default(1),
   },
   table => [
     check(

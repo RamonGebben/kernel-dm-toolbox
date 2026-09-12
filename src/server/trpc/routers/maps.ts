@@ -17,7 +17,6 @@ import {
   gridDisplayInputSchema,
   listMeasurementShapesInputSchema,
   mapIdInputSchema,
-  measurementLabelScaleInputSchema,
   measurementShapeIdInputSchema,
   moveMapInputSchema,
   playerScreenModeInputSchema,
@@ -26,6 +25,7 @@ import {
   renameFolderInputSchema,
   renameMapInputSchema,
   reportDimensionsInputSchema,
+  scaleInputSchema,
   setActiveMapInputSchema,
   setFogOpacityInputSchema,
   setGridCalibrationInputSchema,
@@ -581,7 +581,7 @@ export const mapsRouter = createTRPCRouter({
     }),
 
   setMeasurementLabelScale: publicProcedure
-    .input(measurementLabelScaleInputSchema)
+    .input(scaleInputSchema)
     .mutation(async ({ ctx, input }) => {
       const existing = await ensureMapSession(ctx.db);
 
@@ -589,6 +589,25 @@ export const mapsRouter = createTRPCRouter({
         .update(mapSessions)
         .set({
           measurementLabelScale: input.scale,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  setMeasurementCursorScale: publicProcedure
+    .input(scaleInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          measurementCursorScale: input.scale,
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))

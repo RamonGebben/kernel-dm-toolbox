@@ -18,6 +18,8 @@ const meta = {
     onToolChange: fn(),
     labelScale: 1,
     onLabelScaleChange: fn(),
+    cursorScale: 1,
+    onCursorScaleChange: fn(),
     shapes: [],
     onRemoveShape: fn(),
     selectedShapeId: null,
@@ -123,10 +125,21 @@ export const PickingALabelScale: Story = {
 
     // Session-wide, so it's reachable even with the placement tool
     // disarmed — unlike the Size presets, which only mean something for
-    // the next shape about to be placed.
-    fireEvent.click(canvas.getByText('2x'));
+    // the next shape about to be placed. The label-size and cursor-size
+    // preset rows share the same "2x" labels, in that order.
+    fireEvent.click(canvas.getAllByText('2x')[0]!);
 
     await expect(args.onLabelScaleChange).toHaveBeenCalledWith(2);
+  },
+};
+
+export const PickingACursorScale: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    fireEvent.click(canvas.getAllByText('2x')[1]!);
+
+    await expect(args.onCursorScaleChange).toHaveBeenCalledWith(2);
   },
 };
 

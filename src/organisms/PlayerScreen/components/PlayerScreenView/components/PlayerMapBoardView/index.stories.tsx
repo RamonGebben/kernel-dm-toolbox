@@ -51,6 +51,7 @@ export const Loaded: Story = {
       fogOpacity: 0.9,
       measurementShapes: [],
       measurementLabelScale: 1,
+      measurementCursorScale: 1,
     },
   },
   play: async ({ canvasElement }) => {

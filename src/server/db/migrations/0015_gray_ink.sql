@@ -1,0 +1,1 @@
+ALTER TABLE `map_sessions` ADD `measurement_cursor_scale` real DEFAULT 1 NOT NULL;

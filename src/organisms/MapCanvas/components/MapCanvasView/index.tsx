@@ -12,10 +12,12 @@ import { useViewportInteraction } from '~/organisms/MapCanvas/hooks/useViewportI
 import { useSpellEffectVideoCache } from '~/organisms/MapCanvas/hooks/useSpellEffectVideos';
 import {
   buildMeasurementLabelText,
+  computeGridCellRect,
   computeShapeFootprint,
   computeShapeLabelAnchor,
   computeShapeVideoBounds,
   isEffectPlaying,
+  snapPointToGridCellCenter,
   type GridSpec,
   type MeasurementShapeInput,
   type MeasurementShapeType,
@@ -143,6 +145,10 @@ export type MapCanvasViewProps = {
    * TV viewed from across the room — 1 (the base 12px) when unset. Session-
    * wide: the DM and player canvases always draw labels at the same size. */
   measurementLabelScale?: number;
+  /** Multiplier on the "aim" reticle's base 8px radius — 1 (the base size)
+   * when unset. Only meaningful together with `measurementCursor`, so only
+   * the player screen ever has a reason to pass a non-default value. */
+  measurementCursorScale?: number;
   /** The armed placement tool. Undefined/disabled on the player screen,
    * which never places anything itself. */
   measurementTool?: MapCanvasMeasurementTool;
@@ -155,15 +161,19 @@ export type MapCanvasViewProps = {
    * the same cadence `onLensChange` uses — so the player screen can track
    * it live via `setLivePreviewShape`. */
   onMeasurementPreviewChange?: (shape: MeasurementShapeInput | null) => void;
-  /** The DM's raw cursor position while the tool is armed but no origin has
-   * been clicked yet — null once a shape preview exists (it takes over) or
-   * there's nothing to show. Only meaningful on the player screen; the DM's
-   * own canvas already shows their actual cursor. */
-  measurementCursor?: MapPoint | null;
+  /** The DM's raw cursor position (plus the armed tool's own color, since
+   * `measurementTool` itself is DM-local state the player canvas never
+   * receives) while the tool is armed but no origin has been clicked yet —
+   * null once a shape preview exists (it takes over) or there's nothing to
+   * show. Only meaningful on the player screen; the DM's own canvas already
+   * shows their actual cursor. */
+  measurementCursor?: (MapPoint & { color: string }) | null;
   /** Fires at most once per animation frame while the tool is armed and the
    * cursor is over the canvas — the "aim" reticle feed for the player
    * screen, via `setMeasurementCursor`. */
-  onMeasurementCursorChange?: (point: MapPoint | null) => void;
+  onMeasurementCursorChange?: (
+    cursor: (MapPoint & { color: string }) | null,
+  ) => void;
   /** Highlights one placed shape — set by clicking it (see
    * `onSelectMeasurementShape`) or a row in the Measure panel's list. */
   selectedMeasurementShapeId?: string | null;
@@ -218,6 +228,7 @@ export const MapCanvasView = ({
   onTrackerRectChange,
   measurementShapes = [],
   measurementLabelScale = 1,
+  measurementCursorScale = 1,
   measurementTool,
   livePreviewShape = null,
   onMeasurementConfirm,
@@ -335,6 +346,13 @@ export const MapCanvasView = ({
     measurementToolRef.current = measurementTool;
   }, [measurementTool]);
 
+  /** The single definition of "armed" for this canvas — read by both the
+   * per-frame broadcast (below) and the draw loop's aim highlight, so the
+   * two can never drift apart on what counts as armed. Mirrors
+   * `useViewportInteraction`'s own `isMeasurementToolActive`. */
+  const isMeasurementToolArmed = () =>
+    Boolean(measurementToolRef.current?.enabled);
+
   const livePreviewShapeRef = useRef(livePreviewShape);
   useEffect(() => {
     livePreviewShapeRef.current = livePreviewShape;
@@ -383,7 +401,9 @@ export const MapCanvasView = ({
 
   /** Mirrors `lastNotifiedMeasurementRef`, for the DM's own "aim" cursor
    * broadcast while the tool is armed and nothing is being placed yet. */
-  const lastNotifiedCursorRef = useRef<MapPoint | null>(null);
+  const lastNotifiedCursorRef = useRef<(MapPoint & { color: string }) | null>(
+    null,
+  );
 
   const selectedMeasurementShapeIdRef = useRef(selectedMeasurementShapeId);
   useEffect(() => {
@@ -473,16 +493,27 @@ export const MapCanvasView = ({
         // The DM's own "aim" cursor, broadcast only while the tool is armed
         // and nothing is being placed yet (a shape preview takes over once
         // there is one) — lets the player screen show where a placement is
-        // about to start, before the origin is even clicked.
-        const armed = measurementToolRef.current?.enabled;
+        // about to start, before the origin is even clicked. Snapped to the
+        // grid cell's center (not the raw pointer position): the value below
+        // only changes when the cursor crosses into a different cell, so a
+        // pointer sweeping across one square produces one write instead of
+        // one per animation frame.
+        const armed = isMeasurementToolArmed();
+        const rawCursor = cursorMapPosRef.current;
         const currentCursor =
-          armed && !currentMeasurement ? cursorMapPosRef.current : null;
+          armed && !currentMeasurement && rawCursor
+            ? {
+                ...snapPointToGridCellCenter(rawCursor, gridSpecRef.current),
+                color: measurementToolRef.current?.color ?? '#6fa7ff',
+              }
+            : null;
         const lastCursor = lastNotifiedCursorRef.current;
         if (
           (currentCursor &&
             (!lastCursor ||
               currentCursor.x !== lastCursor.x ||
-              currentCursor.y !== lastCursor.y)) ||
+              currentCursor.y !== lastCursor.y ||
+              currentCursor.color !== lastCursor.color)) ||
           (!currentCursor && lastCursor)
         ) {
           lastNotifiedCursorRef.current = currentCursor;
@@ -952,12 +983,46 @@ export const MapCanvasView = ({
           buildMeasurementLabelText(remotePreview),
         );
       } else {
-        // Nothing is being aimed locally or remotely yet — show where a
-        // placement is about to start, before the origin is even clicked.
+        // Nothing is being aimed locally or remotely yet — highlight the
+        // grid cell a placement is about to start in, on both the DM's own
+        // canvas and the player screen. The DM's own canvas reads its live
+        // pointer straight from `cursorMapPosRef` (never networked, and
+        // always null on the player screen — a non-interactive canvas never
+        // attaches the pointer handler that would populate it); the player
+        // screen instead falls back to the broadcast `measurementCursor`
+        // (already cell-center-snapped by the DM's own scheduler).
+        const armed = isMeasurementToolArmed();
         const remoteCursor = measurementCursorRef.current;
+        const localCursor = armed ? cursorMapPosRef.current : null;
+        const aimPoint = localCursor || remoteCursor;
+        const zoom = currentViewport.zoom || 1;
+        if (aimPoint) {
+          // The DM's own canvas reads the armed tool's color straight from
+          // local state; the player canvas never receives `measurementTool`
+          // (it's DM-local UI state), so it reads the color the DM already
+          // broadcast alongside the cursor position instead.
+          const color =
+            (localCursor
+              ? measurementToolRef.current?.color
+              : remoteCursor?.color) ?? '#6fa7ff';
+          const cell = computeGridCellRect(aimPoint, gridSpecRef.current);
+
+          ctx.save();
+          ctx.fillStyle = color;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2 / zoom;
+          ctx.globalAlpha = 0.25;
+          ctx.fillRect(cell.x, cell.y, cell.size, cell.size);
+          ctx.globalAlpha = 0.9;
+          ctx.strokeRect(cell.x, cell.y, cell.size, cell.size);
+          ctx.restore();
+        }
+
+        // The small reticle is an extra marker only the player screen
+        // needs — the DM already sees their own real cursor inside the
+        // highlighted tile above.
         if (remoteCursor) {
-          const zoom = currentViewport.zoom || 1;
-          const r = 8 / zoom;
+          const r = (8 * measurementCursorScale) / zoom;
 
           ctx.save();
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
@@ -1035,6 +1100,7 @@ export const MapCanvasView = ({
     livePreviewShapeRef,
     measurementCursor,
     measurementCursorRef,
+    measurementCursorScale,
     measurementLabelScale,
     measurementPreviewRef,
     measurementShapes,

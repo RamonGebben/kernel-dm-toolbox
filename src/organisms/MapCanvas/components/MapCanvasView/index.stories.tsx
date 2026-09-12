@@ -478,8 +478,10 @@ export const PlacingACircleByFreeDrag: Story = {
   play: async ({ args, canvasElement }) => {
     const element = within(canvasElement).getByLabelText('Map canvas');
 
-    // First click sets the origin (snapped to the nearest grid intersection)
-    // — VTT-ruler style, not a held drag, so this is not a confirm yet.
+    // First click sets the origin (snapped to the center of the grid cell
+    // it lands in — (100, 80) falls in the 50px cell spanning x: 100-150,
+    // y: 50-100) — VTT-ruler style, not a held drag, so this is not a
+    // confirm yet.
     fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 80 });
     fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 80 });
     await waitForFrame();
@@ -499,8 +501,8 @@ export const PlacingACircleByFreeDrag: Story = {
 
     await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
       shapeType: 'circle',
-      originX: 100,
-      originY: 100,
+      originX: 125,
+      originY: 75,
       extentFeet: 5,
       orientation: null,
     });
@@ -524,7 +526,8 @@ export const PlacingACubeAtAFixedPresetByAiming: Story = {
 
     // A size preset fixes the extent, but an orientable shape still arms a
     // second click — to aim its direction, not to resize it. The first
-    // click only sets the origin.
+    // click only sets the origin, snapped to the center of its 50px cell
+    // — (100, 100) lands exactly on a corner, snapping to (125, 125).
     fireEvent.pointerDown(element, {
       pointerId: 1,
       clientX: 100,
@@ -536,10 +539,11 @@ export const PlacingACubeAtAFixedPresetByAiming: Story = {
 
     // Moving the cursor before the second click live-previews the aim —
     // broadcast to the player screen the same as a free-drag's preview.
+    // Directly below the (snapped) origin for a clean 90°.
     fireEvent.pointerMove(element, {
       pointerId: 1,
-      clientX: 100,
-      clientY: 150,
+      clientX: 125,
+      clientY: 200,
     });
     await waitForFrame();
     await expect(args.onMeasurementPreviewChange).toHaveBeenCalledWith(
@@ -548,24 +552,24 @@ export const PlacingACubeAtAFixedPresetByAiming: Story = {
 
     // The second, confirming click keeps the preset extent regardless of
     // how far away it lands — only the angle to it matters, here back to
-    // level with the origin for a clean 0° so the assertion below isn't
-    // fighting floating-point noise from an arbitrary angle.
+    // level with the (snapped) origin for a clean 0° so the assertion below
+    // isn't fighting floating-point noise from an arbitrary angle.
     fireEvent.pointerDown(element, {
       pointerId: 1,
       clientX: 10_000,
-      clientY: 100,
+      clientY: 125,
     });
     fireEvent.pointerUp(element, {
       pointerId: 1,
       clientX: 10_000,
-      clientY: 100,
+      clientY: 125,
     });
     await waitForFrame();
 
     await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
       shapeType: 'cube',
-      originX: 100,
-      originY: 100,
+      originX: 125,
+      originY: 125,
       extentFeet: 20,
       orientation: 0,
     });
@@ -586,7 +590,8 @@ export const RulerIgnoresAPresetAndAlwaysFreeDrags: Story = {
     const element = within(canvasElement).getByLabelText('Map canvas');
 
     // A ruler has no size of its own, so a preset is a no-op for it — the
-    // first click only sets the origin.
+    // first click only sets the origin, snapped to the center of its 50px
+    // cell — (100, 100) snaps to (125, 125).
     fireEvent.pointerDown(element, {
       pointerId: 1,
       clientX: 100,
@@ -596,18 +601,19 @@ export const RulerIgnoresAPresetAndAlwaysFreeDrags: Story = {
     await waitForFrame();
     await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
 
+    // Level with the snapped origin for a clean 0° angle.
     fireEvent.pointerDown(element, {
       pointerId: 1,
-      clientX: 200,
-      clientY: 100,
+      clientX: 225,
+      clientY: 125,
     });
-    fireEvent.pointerUp(element, { pointerId: 1, clientX: 200, clientY: 100 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 225, clientY: 125 });
     await waitForFrame();
 
     await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
       shapeType: 'ruler',
-      originX: 100,
-      originY: 100,
+      originX: 125,
+      originY: 125,
       extentFeet: 10,
       orientation: 0,
     });
@@ -754,9 +760,10 @@ export const SelectingAndMovingAPlacedShapeWinsOverTheLens: Story = {
     await waitForFrame();
 
     await expect(args.onSelectMeasurementShape).toHaveBeenCalledWith('shape-1');
+    // Dragged to (100, 90) — the center of the 50px cell it lands in.
     await expect(args.onMeasurementShapeMoved).toHaveBeenCalledWith('shape-1', {
-      x: 100,
-      y: 100,
+      x: 125,
+      y: 75,
     });
     await expect(args.onLensChange).not.toHaveBeenCalled();
   },
@@ -803,10 +810,22 @@ export const BroadcastsTheAimCursorBeforeAnOriginIsClicked: Story = {
     fireEvent.pointerMove(element, { pointerId: 1, clientX: 120, clientY: 90 });
     await waitForFrame();
 
+    // Snapped to the center of the containing 50px grid cell — (120, 90)
+    // falls in the cell spanning x: 100-150, y: 50-100 — not the raw
+    // pointer position, so the broadcast only changes tile to tile. The
+    // armed tool's own color rides along, since the player screen has no
+    // other way to know it (`measurementTool` is DM-local state).
     await expect(args.onMeasurementCursorChange).toHaveBeenCalledWith({
-      x: 120,
-      y: 90,
+      x: 125,
+      y: 75,
+      color: '#6fa7ff',
     });
+
+    // Moving elsewhere inside the same cell must not re-broadcast — only a
+    // tile-to-tile move should trigger a write.
+    fireEvent.pointerMove(element, { pointerId: 1, clientX: 140, clientY: 95 });
+    await waitForFrame();
+    await expect(args.onMeasurementCursorChange).toHaveBeenCalledTimes(1);
 
     fireEvent.pointerLeave(element);
     await waitForFrame();

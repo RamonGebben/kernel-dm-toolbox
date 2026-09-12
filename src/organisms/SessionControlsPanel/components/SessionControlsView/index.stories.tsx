@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, spyOn, userEvent, within } from 'storybook/test';
 import { SessionControlsView } from '~/organisms/SessionControlsPanel/components/SessionControlsView';
 
 const meta = {
@@ -30,7 +30,23 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const MapMode: Story = {};
+export const MapMode: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    const openSpy = spyOn(window, 'open').mockImplementation(() => null);
+
+    await userEvent.click(canvas.getByText('Open the player screen ↗'));
+
+    await expect(openSpy).toHaveBeenCalledWith(
+      '/player',
+      'kernel-dm-toolbox-player-screen',
+      expect.stringContaining('popup'),
+    );
+
+    openSpy.mockRestore();
+  },
+};
 
 export const TrackerMode: Story = {
   args: { mode: 'tracker' },

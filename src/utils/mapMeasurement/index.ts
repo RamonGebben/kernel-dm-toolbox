@@ -42,11 +42,14 @@ export const FEET_PER_GRID_CELL = 5;
 /** Standard 5e area sizes, for the panel's preset buttons. */
 export const SIZE_PRESETS_FEET = [5, 10, 15, 20, 30, 40, 60] as const;
 
-/** Multipliers on the base 12px label font, for the panel's own preset
- * buttons — the upper bound matches `measurementLabelScaleInputSchema`'s
- * max of 3, but the schema's 0.5 floor has no preset button of its own:
- * there's no UI path to shrink a label below the default, only enlarge it. */
-export const LABEL_SCALE_PRESETS = [1, 1.5, 2, 2.5, 3] as const;
+/** Multipliers shared by every "TV-readability" preset row in the Measure
+ * panel — the label font scale and the aim-reticle radius scale both pick
+ * from this same set, since both exist for the same reason: a size tuned for
+ * the DM's own monitor reads as too small on a TV viewed from across the
+ * room. The upper bound matches `scaleInputSchema`'s max of 3, but the
+ * schema's 0.5 floor has no preset button of its own — there's no
+ * UI path to shrink either below the default, only enlarge it. */
+export const TV_READABILITY_SCALE_PRESETS = [1, 1.5, 2, 2.5, 3] as const;
 
 /** Fixed width for a `line` shape — the SRD default for line-shaped spells.
  * An open question in issue #1 resolved to a constant rather than a DM-
@@ -54,13 +57,44 @@ export const LABEL_SCALE_PRESETS = [1, 1.5, 2, 2.5, 3] as const;
  * second size from. */
 export const LINE_WIDTH_FEET = 5;
 
-/** The origin (and only the origin) snaps to the nearest grid intersection. */
-export const snapPointToGrid = (point: MapPoint, grid: GridSpec): MapPoint => {
+export type GridCellRect = { x: number; y: number; size: number };
+
+/**
+ * The rectangle (top-left corner + side length, in map-space pixels) of
+ * whichever grid cell a point falls in. Shared by `snapPointToGridCellCenter`
+ * and the aim-tile highlight `MapCanvasView` draws, so both agree on exactly
+ * which cell a given point belongs to.
+ */
+export const computeGridCellRect = (
+  point: MapPoint,
+  grid: GridSpec,
+): GridCellRect => {
   const cell = grid.cellSize || 1;
+  const col = Math.floor((point.x - grid.originX) / cell);
+  const row = Math.floor((point.y - grid.originY) / cell);
   return {
-    x: grid.originX + Math.round((point.x - grid.originX) / cell) * cell,
-    y: grid.originY + Math.round((point.y - grid.originY) / cell) * cell,
+    x: grid.originX + col * cell,
+    y: grid.originY + row * cell,
+    size: cell,
   };
+};
+
+/**
+ * The center of whichever grid cell a point falls in. This is what a
+ * placement's origin click snaps to (`useViewportInteraction`) — a
+ * ruler/circle/cone/etc always originates from the middle of the selected
+ * tile, the tabletop convention for where a token/creature sits in its
+ * square, not the nearest corner. It's also what the DM's live "aim" cursor
+ * broadcasts: reading this instead of the raw pointer position means the
+ * broadcast value (and the write it triggers) only changes when the pointer
+ * crosses into a different cell, not on every pixel of movement.
+ */
+export const snapPointToGridCellCenter = (
+  point: MapPoint,
+  grid: GridSpec,
+): MapPoint => {
+  const rect = computeGridCellRect(point, grid);
+  return { x: rect.x + rect.size / 2, y: rect.y + rect.size / 2 };
 };
 
 /** Grid-square-counted distance in feet between two map-space points. */

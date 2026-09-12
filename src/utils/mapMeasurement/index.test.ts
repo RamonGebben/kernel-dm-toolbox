@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_EFFECT_WAIT_MS,
   buildMeasurementLabelText,
+  computeGridCellRect,
   computeGridDistanceFeet,
   computeMeasurementPreview,
   computeShapeFootprint,
@@ -12,23 +13,57 @@ import {
   mapDamageTypesToColor,
   mapSpellShapeType,
   shouldLoopSpellEffect,
-  snapPointToGrid,
+  snapPointToGridCellCenter,
 } from '~/utils/mapMeasurement';
 
 const grid = { cellSize: 50, originX: 0, originY: 0 };
 
-describe('snapPointToGrid', () => {
-  it('rounds to the nearest grid intersection', () => {
-    expect(snapPointToGrid({ x: 62, y: 38 }, grid)).toEqual({ x: 50, y: 50 });
+describe('computeGridCellRect', () => {
+  it('returns the containing cell, anchored at its top-left corner', () => {
+    expect(computeGridCellRect({ x: 62, y: 38 }, grid)).toEqual({
+      x: 50,
+      y: 0,
+      size: 50,
+    });
   });
 
   it('accounts for a non-zero grid origin', () => {
     expect(
-      snapPointToGrid(
+      computeGridCellRect(
         { x: 37, y: 12 },
         { cellSize: 50, originX: 10, originY: 10 },
       ),
-    ).toEqual({ x: 60, y: 10 });
+    ).toEqual({ x: 10, y: 10, size: 50 });
+  });
+});
+
+describe('snapPointToGridCellCenter', () => {
+  it('snaps to the center of the containing cell', () => {
+    expect(snapPointToGridCellCenter({ x: 62, y: 38 }, grid)).toEqual({
+      x: 75,
+      y: 25,
+    });
+  });
+
+  it('is stable for every point inside the same cell', () => {
+    const first = snapPointToGridCellCenter({ x: 51, y: 51 }, grid);
+    const second = snapPointToGridCellCenter({ x: 99, y: 99 }, grid);
+    expect(first).toEqual(second);
+  });
+
+  it('changes only once the point crosses into the next cell', () => {
+    const inside = snapPointToGridCellCenter({ x: 99, y: 20 }, grid);
+    const outside = snapPointToGridCellCenter({ x: 101, y: 20 }, grid);
+    expect(outside).not.toEqual(inside);
+  });
+
+  it('accounts for a non-zero grid origin', () => {
+    expect(
+      snapPointToGridCellCenter(
+        { x: 37, y: 12 },
+        { cellSize: 50, originX: 10, originY: 10 },
+      ),
+    ).toEqual({ x: 35, y: 35 });
   });
 });
 

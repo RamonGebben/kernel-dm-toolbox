@@ -344,6 +344,20 @@ is a key in that map, not a dependency.
 There is **no campaign header**. The campaign name is in the browser tab title
 only (DECISIONS #25).
 
+**Opening `/player` goes through `window.open`, not a plain `target="_blank"`
+anchor — but it's still an anchor.** `~/molecules/OpenPlayerScreenLink` is an
+`<a href="/player" target="_blank" rel="noreferrer">` whose `onClick` only
+intercepts a plain left-click (no modifier key) to call `window.open('/player',
+'kernel-dm-toolbox-player-screen')` instead — a named window, so a second
+plain click refocuses the window already open (one the DM likely dragged out
+to a second monitor/TV already) rather than spawning a fresh tab every time.
+A ctrl/cmd/shift/alt-click returns early and lets the anchor's own `href`/
+`target` do the native thing; middle-click and the right-click context menu
+("open in new tab", "copy link") never fire `onClick` at all, so they were
+never at risk. Shared by the tracker's own panel footer (`TrackerTemplate`)
+and the Maps tool's Player Screen tab (`SessionControlsView`) — the same
+action, not two.
+
 ## The initiative tracker
 
 The first real feature. A replacement for Improved Initiative: a three-panel
@@ -591,7 +605,10 @@ Open5e library, none of this is read-only reference data.
   (Chebyshev distance in grid cells) — never true Euclidean geometry. This is
   a deliberate divergence from the pixel-accurate `mapViewport`/`mapLens`
   math elsewhere on this canvas; do not "fix" it to match (DECISIONS #27).
-  Only the origin snaps to the grid; a cone/line/cube's orientation stays a
+  Only the origin snaps — to the selected tile's **center**
+  (`snapPointToGridCellCenter`), not its nearest corner, so a shape always
+  originates from the middle of the square it's placed in, the same as
+  where a token/creature sits — a cone/line/cube's orientation stays a
   free angle.
 - **A placement is two clicks, not a held drag** — origin click, then the
   shape live-follows the cursor, then a confirm click — mirroring
@@ -654,7 +671,26 @@ Open5e library, none of this is read-only reference data.
   `handlePointerMove` to call `onScheduleDraw()` on every move while armed
   even with no drag in progress (mirroring the fog brush's hover-preview
   cadence) — the RAF loop is what actually broadcasts it, so without this
-  the cursor updates the ref but nothing ever notices.
+  the cursor updates the ref but nothing ever notices. The broadcast value
+  is `snapPointToGridCellCenter` of the raw pointer (`~/utils/
+mapMeasurement`), not the raw position — the diff check that gates
+  `onMeasurementCursorChange` (in `MapCanvasView`'s `scheduleDraw`) then
+  only fires a write when the cursor crosses into a different grid cell,
+  not on every pixel of movement, which is what keeps a sweeping gesture
+  from hammering `setMeasurementCursor`. The reticle's own radius is a
+  further `measurementCursorScale` multiplier on `map_sessions` (same
+  TV-readability shape as `measurementLabelScale`, its own preset row in
+  the Measure panel) — a DM watching a small monitor and a TV across the
+  room need different sizes for the same 8px base radius. The whole grid
+  cell under the aim point is also highlighted (fill + stroke, tinted the
+  armed tool's own color) — on _both_ canvases, not just the player's:
+  `MapCanvasView`'s draw code resolves the cell to highlight from
+  `cursorMapPosRef` (the DM's own live pointer, always null on a
+  non-interactive canvas since it has no pointer handler to populate it)
+  falling back to the broadcast `measurementCursor`, so the same branch
+  serves the DM's own canvas and the player screen without either passing
+  the other's data around. The small reticle stays player-only — the DM
+  already sees their real cursor inside the highlighted tile.
 - **A placed shape's hit test must run — and win — before the lens/tracker
   hit test, not after.** `map_sessions`' lens defaults to an uncalibrated,
   screen-sized rect (`computeLensRect` off the session's own defaults, e.g.

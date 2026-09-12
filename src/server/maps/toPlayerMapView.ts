@@ -60,6 +60,10 @@ export type PlayerMapViewMap = {
    * measurementLabelScale`. Session-wide, so the DM and player canvases
    * always agree on it (there is no separate player-only override). */
   measurementLabelScale: number;
+  /** Multiplier on the "aim" reticle's radius — see `mapSessions.
+   * measurementCursorScale`. Same session-wide reasoning as
+   * `measurementLabelScale`. */
+  measurementCursorScale: number;
 };
 
 export type PlayerMapViewTrackerOverlay = {
@@ -150,6 +154,7 @@ export const toPlayerMapView = (args: {
             effectLoops: shape.effectLoops,
           })),
           measurementLabelScale: session.measurementLabelScale,
+          measurementCursorScale: session.measurementCursorScale,
         }
       : null,
     viewport: {

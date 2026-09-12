@@ -82,7 +82,9 @@ export const gridDisplayInputSchema = z.object({
   backgroundColor: z.string().trim().min(1).max(20).optional(),
 });
 
-export const measurementLabelScaleInputSchema = z.object({
+/** Shared by every "TV-readability" scale mutation (label size, aim-cursor
+ * size, …) — they all take the same 0.5–3 multiplier. */
+export const scaleInputSchema = z.object({
   scale: z.number().min(0.5).max(3),
 });
 
@@ -167,6 +169,7 @@ const measurementCursorSchema = z.object({
   mapId: z.uuid(),
   x: z.number(),
   y: z.number(),
+  color: z.string().trim().min(1).max(20),
 });
 
 /** `cursor: null` clears it — the tool was disarmed or the pointer left the

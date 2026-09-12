@@ -389,10 +389,12 @@ export const useMapCanvas = () => {
       if (!mapId) return;
 
       setMeasurementCursor.mutate({
-        cursor: point ? { mapId, x: point.x, y: point.y } : null,
+        cursor: point
+          ? { mapId, x: point.x, y: point.y, color: measurementTool.color }
+          : null,
       });
     },
-    [mapId, setMeasurementCursor],
+    [mapId, measurementTool.color, setMeasurementCursor],
   );
 
   const handleSelectMeasurementShape = useCallback(
@@ -465,6 +467,7 @@ export const useMapCanvas = () => {
     onTrackerRectChange,
     measurementShapes,
     measurementLabelScale: session.data?.measurementLabelScale ?? 1,
+    measurementCursorScale: session.data?.measurementCursorScale ?? 1,
     measurementTool: mapId
       ? {
           enabled: measurementTool.enabled,

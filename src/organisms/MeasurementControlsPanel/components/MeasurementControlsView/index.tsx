@@ -5,8 +5,8 @@ import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { TextInput } from '~/atoms/TextInput';
 import {
-  LABEL_SCALE_PRESETS,
   SIZE_PRESETS_FEET,
+  TV_READABILITY_SCALE_PRESETS,
   type MeasurementShapeType,
 } from '~/utils/mapMeasurement';
 
@@ -47,6 +47,10 @@ export type MeasurementControlsViewProps = {
    * next shape placed. */
   labelScale: number;
   onLabelScaleChange: (scale: number) => void;
+  /** Session-wide, same reasoning as `labelScale`: scales the "aim" reticle
+   * shown on the player screen before a shape exists to preview. */
+  cursorScale: number;
+  onCursorScaleChange: (scale: number) => void;
   shapes: MeasurementControlsShape[];
   onRemoveShape: (id: string) => void;
   selectedShapeId: string | null;
@@ -77,6 +81,8 @@ export const MeasurementControlsView = ({
   onToolChange,
   labelScale,
   onLabelScaleChange,
+  cursorScale,
+  onCursorScaleChange,
   shapes,
   onRemoveShape,
   selectedShapeId,
@@ -122,21 +128,17 @@ export const MeasurementControlsView = ({
         )
       )}
 
-      <FieldRow>
-        <label>Label size</label>
-        <PresetRow>
-          {LABEL_SCALE_PRESETS.map(scale => (
-            <PresetButton
-              key={scale}
-              type="button"
-              $isActive={labelScale === scale}
-              onClick={() => onLabelScaleChange(scale)}
-            >
-              {scale}x
-            </PresetButton>
-          ))}
-        </PresetRow>
-      </FieldRow>
+      <ScalePresetField
+        label="Label size"
+        value={labelScale}
+        onChange={onLabelScaleChange}
+      />
+
+      <ScalePresetField
+        label="Aim cursor size"
+        value={cursorScale}
+        onChange={onCursorScaleChange}
+      />
 
       <FieldRow>
         <label htmlFor="measurement-shape">Shape</label>
@@ -284,6 +286,34 @@ export const MeasurementControlsView = ({
     </Wrapper>
   );
 };
+
+/** Both `labelScale` and `cursorScale` are a label + a row of multiplier
+ * presets over the same `TV_READABILITY_SCALE_PRESETS` set — the only thing
+ * that differs between them is which value they read and which handler they
+ * call. */
+type ScalePresetFieldProps = {
+  label: string;
+  value: number;
+  onChange: (scale: number) => void;
+};
+
+const ScalePresetField = ({ label, value, onChange }: ScalePresetFieldProps) => (
+  <FieldRow>
+    <label>{label}</label>
+    <PresetRow>
+      {TV_READABILITY_SCALE_PRESETS.map(scale => (
+        <PresetButton
+          key={scale}
+          type="button"
+          $isActive={value === scale}
+          onClick={() => onChange(scale)}
+        >
+          {scale}x
+        </PresetButton>
+      ))}
+    </PresetRow>
+  </FieldRow>
+);
 
 const Wrapper = styled.div`
   display: flex;

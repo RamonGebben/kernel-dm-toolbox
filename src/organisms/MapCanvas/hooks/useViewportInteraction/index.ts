@@ -21,7 +21,7 @@ import {
 import {
   computeMeasurementPreview,
   isPointInShapeFootprint,
-  snapPointToGrid,
+  snapPointToGridCellCenter,
   type GridSpec,
   type MeasurementShapeInput,
 } from '~/utils/mapMeasurement';
@@ -376,7 +376,10 @@ export const useViewportInteraction = ({
         const grid = gridRef.current;
 
         if (!measurementOriginRef.current) {
-          const origin = snapPointToGrid(mapPoint, grid);
+          // Snaps to the selected tile's center, not its nearest corner —
+          // a shape always originates from the middle of the square it's
+          // placed in, matching where a token/creature sits.
+          const origin = snapPointToGridCellCenter(mapPoint, grid);
 
           // A circle/sphere has no facing to aim, preset or not — one click
           // is the whole placement. Every other preset shape (a spell's
@@ -517,7 +520,7 @@ export const useViewportInteraction = ({
             x: start.x + (mapPoint.x - startPoint.x),
             y: start.y + (mapPoint.y - startPoint.y),
           };
-          const snapped = snapPointToGrid(dragged, gridRef.current);
+          const snapped = snapPointToGridCellCenter(dragged, gridRef.current);
           measurementPreviewRef.current = toPreviewInput(shape, snapped);
           onScheduleDraw();
         }

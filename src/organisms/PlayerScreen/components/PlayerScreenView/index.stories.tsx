@@ -21,6 +21,7 @@ const EXAMPLE_MAP = {
   fogOpacity: 0.9,
   measurementShapes: [],
   measurementLabelScale: 1,
+  measurementCursorScale: 1,
 };
 
 /** `mapAreaRef` is owned by the connected boundary in real usage — a story
