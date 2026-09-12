@@ -297,7 +297,11 @@ type ScalePresetFieldProps = {
   onChange: (scale: number) => void;
 };
 
-const ScalePresetField = ({ label, value, onChange }: ScalePresetFieldProps) => (
+const ScalePresetField = ({
+  label,
+  value,
+  onChange,
+}: ScalePresetFieldProps) => (
   <FieldRow>
     <label>{label}</label>
     <PresetRow>
