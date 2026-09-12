@@ -7,6 +7,7 @@ import { MapGalleryPanel } from '~/organisms/MapGalleryPanel';
 import { GridControlsPanel } from '~/organisms/GridControlsPanel';
 import { FogControlsPanel } from '~/organisms/FogControlsPanel';
 import { SessionControlsPanel } from '~/organisms/SessionControlsPanel';
+import { MeasurementControlsPanel } from '~/organisms/MeasurementControlsPanel';
 import { PlayerViewLockButton } from '~/organisms/PlayerViewLockButton';
 
 const SECTIONS: readonly {
@@ -17,6 +18,7 @@ const SECTIONS: readonly {
   { id: 'gallery', label: 'Maps', icon: 'images' },
   { id: 'grid', label: 'Grid', icon: 'grid' },
   { id: 'fog', label: 'Fog', icon: 'cloud' },
+  { id: 'measure', label: 'Measure', icon: 'ruler' },
   { id: 'session', label: 'Player Screen', icon: 'cast' },
 ];
 
@@ -79,6 +81,7 @@ export const MapControlPanel = () => {
               {activePanel === 'gallery' && <MapGalleryPanel />}
               {activePanel === 'grid' && <GridControlsPanel />}
               {activePanel === 'fog' && <FogControlsPanel />}
+              {activePanel === 'measure' && <MeasurementControlsPanel />}
               {activePanel === 'session' && <SessionControlsPanel />}
             </DrawerBody>
           </>

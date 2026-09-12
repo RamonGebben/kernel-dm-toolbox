@@ -19,6 +19,9 @@ const EXAMPLE_MAP = {
   backgroundColor: '#0c0d11',
   fog: { enabled: false, baseState: 'covered' as const, strokes: [] },
   fogOpacity: 0.9,
+  measurementShapes: [],
+  measurementLabelScale: 1,
+  measurementCursorScale: 1,
 };
 
 /** `mapAreaRef` is owned by the connected boundary in real usage — a story
@@ -50,6 +53,8 @@ const meta = {
     viewport: { x: 0, y: 0, zoom: 1 },
     isConnected: true,
     trackerOverlay: DEFAULT_TRACKER_OVERLAY,
+    livePreviewShape: null,
+    measurementCursor: null,
   },
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof Fixture>;

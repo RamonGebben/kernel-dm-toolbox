@@ -14,6 +14,9 @@ services:
       DATABASE_URL: file:/data/kernel-dm-toolbox.db
       # Same volume as the database, so map uploads survive a redeploy too.
       MAPS_STORAGE_DIR: /data/maps
+      # Animated spell-effect clips, fetched alongside the creature library
+      # below (GPL-3.0 — see the README's attribution section).
+      EFFECTS_STORAGE_DIR: /data/effects
       # A fresh volume has no creature library, and `pnpm db:import` is not
       # available to someone whose only dependency is Docker — so the server
       # imports it the first time it boots. Set to "false" to opt out.

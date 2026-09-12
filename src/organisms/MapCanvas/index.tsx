@@ -39,6 +39,16 @@ export const MapCanvas = () => {
       onLensChange={canvas.onLensChange}
       trackerRect={canvas.trackerRect}
       onTrackerRectChange={canvas.onTrackerRectChange}
+      measurementShapes={canvas.measurementShapes}
+      measurementLabelScale={canvas.measurementLabelScale}
+      measurementCursorScale={canvas.measurementCursorScale}
+      measurementTool={canvas.measurementTool}
+      onMeasurementConfirm={canvas.onMeasurementConfirm}
+      onMeasurementPreviewChange={canvas.onMeasurementPreviewChange}
+      onMeasurementCursorChange={canvas.onMeasurementCursorChange}
+      selectedMeasurementShapeId={canvas.selectedMeasurementShapeId}
+      onSelectMeasurementShape={canvas.onSelectMeasurementShape}
+      onMeasurementShapeMoved={canvas.onMeasurementShapeMoved}
     />
   );
 };

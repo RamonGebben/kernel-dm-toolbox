@@ -2,13 +2,26 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { type Viewport } from '~/utils/mapViewport';
+import { type MapPoint, type Viewport } from '~/utils/mapViewport';
 import type { LensRect } from '~/utils/mapLens';
 import { useCanvasSize } from '~/organisms/MapCanvas/hooks/useCanvasSize';
 import { useMapMedia } from '~/organisms/MapCanvas/hooks/useMapMedia';
 import { useFogMask } from '~/organisms/MapCanvas/hooks/useFogMask';
 import { useGridOverlay } from '~/organisms/MapCanvas/hooks/useGridOverlay';
 import { useViewportInteraction } from '~/organisms/MapCanvas/hooks/useViewportInteraction';
+import { useSpellEffectVideoCache } from '~/organisms/MapCanvas/hooks/useSpellEffectVideos';
+import {
+  buildMeasurementLabelText,
+  computeGridCellRect,
+  computeShapeFootprint,
+  computeShapeLabelAnchor,
+  computeShapeVideoBounds,
+  isEffectPlaying,
+  snapPointToGridCellCenter,
+  type GridSpec,
+  type MeasurementShapeInput,
+  type MeasurementShapeType,
+} from '~/utils/mapMeasurement';
 
 export type MapCanvasFogStrokeShape = 'circle' | 'square';
 export type MapCanvasFogStrokeMode = 'reveal' | 'cover';
@@ -57,6 +70,40 @@ export type MapCanvasMedia = {
 
 export type CalibrationPoint = { x: number; y: number };
 
+/** A committed ruler/spell-area shape, ready to draw. */
+export type MapCanvasMeasurementShape = MeasurementShapeInput & {
+  id: string;
+  color: string;
+  label?: string | null;
+  /** Where to play this shape's animated effect from, if it came from a
+   * spell that matched one — null otherwise, or on a plain ruler. A 404
+   * (spell matched to no clip) falls back to the static shape, same as
+   * null. */
+  effectUrl?: string | null;
+  /** Epoch ms; null unless `effectUrl` is also set. Set once at creation,
+   * never touched by a later move. */
+  effectStartedAtMs?: number | null;
+  /** An ongoing-duration spell (Spirit Guardians, Wall of Fire, …) loops its
+   * clip for as long as this shape stays on the board, instead of the
+   * one-shot instantaneous-spell behaviour `isEffectPlaying` gates. */
+  effectLoops?: boolean;
+};
+
+/** The armed placement tool — while enabled, a canvas click either sets a
+ * shape's origin or (if one is pending) confirms it. `color` drives the
+ * live-drag preview's stroke before the shape has an id of its own. */
+export type MapCanvasMeasurementTool = {
+  enabled: boolean;
+  shapeType: MeasurementShapeType;
+  color: string;
+  /** A chosen size preset: the next click commits a shape at exactly this
+   * size instead of arming the two-click free-drag gesture. Null is the
+   * free-drag default. */
+  presetExtentFeet: number | null;
+  /** Shown on the live-drag preview's label alongside its distance. */
+  label: string | null;
+};
+
 export type MapCanvasViewProps = {
   map: MapCanvasMedia;
   viewport: Viewport;
@@ -91,6 +138,55 @@ export type MapCanvasViewProps = {
    * the same way a `null` `lensRect` means "nothing to show yet" for it. */
   trackerRect?: LensRect | null;
   onTrackerRectChange?: (rect: LensRect) => void;
+  /** Every shape already placed on this map — drawn on both the DM and
+   * player screens, always, since none of them are secret (issue #1). */
+  measurementShapes?: MapCanvasMeasurementShape[];
+  /** Multiplier on a shape's label font size, so it can be bumped up for a
+   * TV viewed from across the room — 1 (the base 12px) when unset. Session-
+   * wide: the DM and player canvases always draw labels at the same size. */
+  measurementLabelScale?: number;
+  /** Multiplier on the "aim" reticle's base 8px radius — 1 (the base size)
+   * when unset. Only meaningful together with `measurementCursor`, so only
+   * the player screen ever has a reason to pass a non-default value. */
+  measurementCursorScale?: number;
+  /** The armed placement tool. Undefined/disabled on the player screen,
+   * which never places anything itself. */
+  measurementTool?: MapCanvasMeasurementTool;
+  /** The shape currently being aimed, live — either this DM's own drag
+   * (reflected immediately via a local ref) or, on the player screen, the
+   * committed session field arriving over SSE. */
+  livePreviewShape?: MapCanvasMeasurementShape | null;
+  onMeasurementConfirm?: (shape: MeasurementShapeInput) => void;
+  /** Fires at most once per animation frame while a shape is being aimed —
+   * the same cadence `onLensChange` uses — so the player screen can track
+   * it live via `setLivePreviewShape`. */
+  onMeasurementPreviewChange?: (shape: MeasurementShapeInput | null) => void;
+  /** The DM's raw cursor position (plus the armed tool's own color, since
+   * `measurementTool` itself is DM-local state the player canvas never
+   * receives) while the tool is armed but no origin has been clicked yet —
+   * null once a shape preview exists (it takes over) or there's nothing to
+   * show. Only meaningful on the player screen; the DM's own canvas already
+   * shows their actual cursor. */
+  measurementCursor?: (MapPoint & { color: string }) | null;
+  /** Fires at most once per animation frame while the tool is armed and the
+   * cursor is over the canvas — the "aim" reticle feed for the player
+   * screen, via `setMeasurementCursor`. */
+  onMeasurementCursorChange?: (
+    cursor: (MapPoint & { color: string }) | null,
+  ) => void;
+  /** Highlights one placed shape — set by clicking it (see
+   * `onSelectMeasurementShape`) or a row in the Measure panel's list. */
+  selectedMeasurementShapeId?: string | null;
+  /** Fired when a placed shape is clicked (selects it) or empty canvas is
+   * clicked while something was selected (clears it). Only fires while the
+   * placement tool is disarmed — an armed click always places instead. */
+  onSelectMeasurementShape?: (id: string | null) => void;
+  /** Fired once, on release, after dragging a placed shape to a new
+   * position — not per frame; the drag itself is only ever local. */
+  onMeasurementShapeMoved?: (
+    id: string,
+    origin: { x: number; y: number },
+  ) => void;
 };
 
 const DEFAULT_BACKGROUND = '#0f1014';
@@ -130,6 +226,18 @@ export const MapCanvasView = ({
   onLensChange,
   trackerRect = null,
   onTrackerRectChange,
+  measurementShapes = [],
+  measurementLabelScale = 1,
+  measurementCursorScale = 1,
+  measurementTool,
+  livePreviewShape = null,
+  onMeasurementConfirm,
+  onMeasurementPreviewChange,
+  measurementCursor = null,
+  onMeasurementCursorChange,
+  selectedMeasurementShapeId = null,
+  onSelectMeasurementShape,
+  onMeasurementShapeMoved,
 }: MapCanvasViewProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafIdRef = useRef(0);
@@ -228,6 +336,86 @@ export const MapCanvasView = ({
   /** Mirrors `lastNotifiedLensRef`, for the tracker overlay. */
   const lastNotifiedTrackerRef = useRef<LensRect | null>(null);
 
+  const measurementShapesRef = useRef(measurementShapes);
+  useEffect(() => {
+    measurementShapesRef.current = measurementShapes;
+  }, [measurementShapes]);
+
+  const measurementToolRef = useRef(measurementTool);
+  useEffect(() => {
+    measurementToolRef.current = measurementTool;
+  }, [measurementTool]);
+
+  /** The single definition of "armed" for this canvas — read by both the
+   * per-frame broadcast (below) and the draw loop's aim highlight, so the
+   * two can never drift apart on what counts as armed. Mirrors
+   * `useViewportInteraction`'s own `isMeasurementToolActive`. */
+  const isMeasurementToolArmed = () =>
+    Boolean(measurementToolRef.current?.enabled);
+
+  const livePreviewShapeRef = useRef(livePreviewShape);
+  useEffect(() => {
+    livePreviewShapeRef.current = livePreviewShape;
+  }, [livePreviewShape]);
+
+  const gridSpecRef = useRef<GridSpec>({
+    cellSize: grid.cellSize,
+    originX: grid.originX,
+    originY: grid.originY,
+  });
+  useEffect(() => {
+    gridSpecRef.current = {
+      cellSize: grid.cellSize,
+      originX: grid.originX,
+      originY: grid.originY,
+    };
+  }, [grid.cellSize, grid.originX, grid.originY]);
+
+  /** Live preview for a shape being placed — this DM's own drag, updated
+   * synchronously by `useViewportInteraction` on every click/move. Same
+   * "ref not state" role as `lensPreviewRef`. */
+  const measurementPreviewRef = useRef<MeasurementShapeInput | null>(null);
+
+  const onMeasurementConfirmRef = useRef(onMeasurementConfirm);
+  useEffect(() => {
+    onMeasurementConfirmRef.current = onMeasurementConfirm;
+  }, [onMeasurementConfirm]);
+
+  const onMeasurementPreviewChangeRef = useRef(onMeasurementPreviewChange);
+  useEffect(() => {
+    onMeasurementPreviewChangeRef.current = onMeasurementPreviewChange;
+  }, [onMeasurementPreviewChange]);
+
+  /** Mirrors `lastNotifiedLensRef`, for the measurement preview. */
+  const lastNotifiedMeasurementRef = useRef<MeasurementShapeInput | null>(null);
+
+  const measurementCursorRef = useRef(measurementCursor);
+  useEffect(() => {
+    measurementCursorRef.current = measurementCursor;
+  }, [measurementCursor]);
+
+  const onMeasurementCursorChangeRef = useRef(onMeasurementCursorChange);
+  useEffect(() => {
+    onMeasurementCursorChangeRef.current = onMeasurementCursorChange;
+  }, [onMeasurementCursorChange]);
+
+  /** Mirrors `lastNotifiedMeasurementRef`, for the DM's own "aim" cursor
+   * broadcast while the tool is armed and nothing is being placed yet. */
+  const lastNotifiedCursorRef = useRef<(MapPoint & { color: string }) | null>(
+    null,
+  );
+
+  const selectedMeasurementShapeIdRef = useRef(selectedMeasurementShapeId);
+  useEffect(() => {
+    selectedMeasurementShapeIdRef.current = selectedMeasurementShapeId;
+  }, [selectedMeasurementShapeId]);
+
+  /** Owned here (rather than by `useViewportInteraction`) so `scheduleDraw`
+   * below can read it to broadcast the DM's "aim" cursor live — the same
+   * "caller owns it because the RAF loop needs it" reasoning as
+   * `measurementPreviewRef`/`lensPreviewRef`. */
+  const cursorMapPosRef = useRef<MapPoint | null>(null);
+
   const scheduleDraw = useMemo(
     () => () => {
       if (rafIdRef.current !== 0) return;
@@ -281,6 +469,56 @@ export const MapCanvasView = ({
           lastNotifiedTrackerRef.current = currentTracker;
           onTrackerRectChangeRef.current?.(currentTracker);
         }
+
+        // Same "at most once per frame, only if it moved" notify for a
+        // shape being placed — this is what lets the player screen track it
+        // live via `setLivePreviewShape` (issue #1).
+        const currentMeasurement = measurementPreviewRef.current;
+        const lastMeasurement = lastNotifiedMeasurementRef.current;
+        if (
+          currentMeasurement &&
+          (!lastMeasurement ||
+            currentMeasurement.originX !== lastMeasurement.originX ||
+            currentMeasurement.originY !== lastMeasurement.originY ||
+            currentMeasurement.extentFeet !== lastMeasurement.extentFeet ||
+            currentMeasurement.orientation !== lastMeasurement.orientation)
+        ) {
+          lastNotifiedMeasurementRef.current = currentMeasurement;
+          onMeasurementPreviewChangeRef.current?.(currentMeasurement);
+        } else if (!currentMeasurement && lastMeasurement) {
+          lastNotifiedMeasurementRef.current = null;
+          onMeasurementPreviewChangeRef.current?.(null);
+        }
+
+        // The DM's own "aim" cursor, broadcast only while the tool is armed
+        // and nothing is being placed yet (a shape preview takes over once
+        // there is one) — lets the player screen show where a placement is
+        // about to start, before the origin is even clicked. Snapped to the
+        // grid cell's center (not the raw pointer position): the value below
+        // only changes when the cursor crosses into a different cell, so a
+        // pointer sweeping across one square produces one write instead of
+        // one per animation frame.
+        const armed = isMeasurementToolArmed();
+        const rawCursor = cursorMapPosRef.current;
+        const currentCursor =
+          armed && !currentMeasurement && rawCursor
+            ? {
+                ...snapPointToGridCellCenter(rawCursor, gridSpecRef.current),
+                color: measurementToolRef.current?.color ?? '#6fa7ff',
+              }
+            : null;
+        const lastCursor = lastNotifiedCursorRef.current;
+        if (
+          (currentCursor &&
+            (!lastCursor ||
+              currentCursor.x !== lastCursor.x ||
+              currentCursor.y !== lastCursor.y ||
+              currentCursor.color !== lastCursor.color)) ||
+          (!currentCursor && lastCursor)
+        ) {
+          lastNotifiedCursorRef.current = currentCursor;
+          onMeasurementCursorChangeRef.current?.(currentCursor);
+        }
       });
     },
     [],
@@ -311,7 +549,19 @@ export const MapCanvasView = ({
 
   const drawGrid = useGridOverlay();
 
-  const { cursorMapPosRef, calibrationPreviewRef } = useViewportInteraction({
+  const { getVideo: getEffectVideo, pruneVideos: pruneEffectVideos } =
+    useSpellEffectVideoCache(scheduleDraw);
+
+  // Stops a removed shape's clip (looping or not) instead of leaving it
+  // decoding/playing off-screen forever — the video cache is keyed by shape
+  // id, so nothing else would ever notice it's gone.
+  useEffect(() => {
+    pruneEffectVideos(
+      new Set((measurementShapes ?? []).map(shape => shape.id)),
+    );
+  }, [measurementShapes, pruneEffectVideos]);
+
+  const { calibrationPreviewRef, movingShapeIdRef } = useViewportInteraction({
     canvasRef,
     interactive,
     viewportRef,
@@ -329,6 +579,15 @@ export const MapCanvasView = ({
     trackerRectRef,
     trackerPreviewRef,
     onTrackerRectChange,
+    measurementToolRef,
+    gridRef: gridSpecRef,
+    measurementPreviewRef,
+    onMeasurementConfirm,
+    measurementShapesRef,
+    selectedMeasurementShapeIdRef,
+    onSelectMeasurementShape,
+    onMeasurementShapeMoved,
+    cursorMapPosRef,
     onScheduleDraw: scheduleDraw,
   });
 
@@ -470,6 +729,317 @@ export const MapCanvasView = ({
         ctx.restore();
       }
 
+      const drawShapeFootprint = (
+        footprint: ReturnType<typeof computeShapeFootprint>,
+        color: string,
+        dashed: boolean,
+        highlighted: boolean,
+      ) => {
+        const zoom = currentViewport.zoom || 1;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = (highlighted ? 3.5 : 2) / zoom;
+        if (dashed) ctx.setLineDash([8 / zoom, 6 / zoom]);
+
+        if (footprint.kind === 'circle') {
+          ctx.beginPath();
+          ctx.arc(footprint.cx, footprint.cy, footprint.radius, 0, Math.PI * 2);
+          ctx.globalAlpha = 0.15;
+          ctx.fill();
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          footprint.points.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
+          });
+          if (footprint.points.length > 2) {
+            ctx.closePath();
+            ctx.globalAlpha = 0.15;
+            ctx.fill();
+          }
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+
+        if (highlighted) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 1 / zoom;
+          ctx.setLineDash([3 / zoom, 3 / zoom]);
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+      };
+
+      const drawShapeLabel = (anchor: MapPoint, text: string) => {
+        const zoom = currentViewport.zoom || 1;
+        const fontSize = (12 * measurementLabelScale) / zoom;
+
+        ctx.save();
+        ctx.font = `${fontSize}px system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+
+        // Padding/offset scale with the font so a larger label keeps the
+        // same proportions instead of the text crowding or overflowing a
+        // background box sized for the default 12px.
+        const paddingX = (4 * measurementLabelScale) / zoom;
+        const paddingY = (2 * measurementLabelScale) / zoom;
+        const offset = (6 * measurementLabelScale) / zoom;
+        const metrics = ctx.measureText(text);
+        const boxX = anchor.x + offset;
+        const boxY = anchor.y;
+
+        ctx.fillStyle = 'rgba(10, 10, 14, 0.75)';
+        ctx.fillRect(
+          boxX - paddingX,
+          boxY - fontSize / 2 - paddingY,
+          metrics.width + paddingX * 2,
+          fontSize + paddingY * 2,
+        );
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillText(text, boxX, boxY);
+        ctx.restore();
+      };
+
+      // The clip's raw frame is a square/rect with an opaque (non-alpha)
+      // background — confirmed against the real downloaded clips, not just
+      // assumed — so drawing it unclipped shows that background outside the
+      // spell's actual area (a fireball's video square instead of a
+      // circle). Clipping to the same footprint `drawShapeFootprint` already
+      // fills/strokes for the static shape keeps the animated and static
+      // silhouettes identical.
+      const clipToShapeFootprint = (
+        footprint: ReturnType<typeof computeShapeFootprint>,
+      ) => {
+        ctx.beginPath();
+        if (footprint.kind === 'circle') {
+          ctx.arc(footprint.cx, footprint.cy, footprint.radius, 0, Math.PI * 2);
+        } else {
+          footprint.points.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
+          });
+          ctx.closePath();
+        }
+        ctx.clip();
+      };
+
+      const drawEffectVideoFrame = (
+        video: HTMLVideoElement,
+        shape: MeasurementShapeInput,
+      ) => {
+        const grid = gridSpecRef.current;
+        const bounds = computeShapeVideoBounds(shape, grid);
+
+        ctx.save();
+        // In world space, before any translate/rotate below — a clip
+        // region is fixed in device space at the moment `clip()` runs, so
+        // it stays put regardless of the rect case's subsequent local-space
+        // transform.
+        clipToShapeFootprint(computeShapeFootprint(shape, grid));
+        // The downloaded clips have no real alpha channel (confirmed against
+        // the actual files) — they're authored, like the upstream Foundry
+        // module that plays them, for additive/screen compositing over a
+        // black background instead: black contributes nothing, only the
+        // bright flame/glow pixels show, so the map underneath still reads
+        // through without needing per-pixel transparency.
+        ctx.globalCompositeOperation = 'screen';
+        if (bounds.kind === 'circle') {
+          ctx.drawImage(
+            video,
+            bounds.cx - bounds.radius,
+            bounds.cy - bounds.radius,
+            bounds.radius * 2,
+            bounds.radius * 2,
+          );
+        } else {
+          ctx.translate(shape.originX, shape.originY);
+          ctx.rotate(bounds.rotation);
+          ctx.drawImage(
+            video,
+            bounds.offsetX,
+            bounds.offsetY,
+            bounds.width,
+            bounds.height,
+          );
+        }
+        ctx.restore();
+      };
+
+      // Every committed shape, always visible — none of them are secret.
+      // The one currently being dragged (if any) is skipped here; its live
+      // position is drawn from the preview below instead, so it isn't
+      // rendered twice. A shape placed from an instantaneous spell that
+      // matched an animated effect plays it once in place of the plain
+      // static footprint, for as long as `isEffectPlaying` says so; an
+      // ongoing-duration spell's (`effectLoops`) clip instead keeps playing
+      // for as long as the shape stays on the board at all, ignoring
+      // `isEffectPlaying`'s elapsed/ended gating entirely — the browser's own
+      // `video.loop` (set at creation, see `useSpellEffectVideoCache`) is
+      // what makes the clip repeat; this only decides whether to keep
+      // drawing it. Either case is also what keeps `hasActiveEffect` (and so
+      // the self-rescheduled redraw loop below) true while any clip is still
+      // running.
+      let hasActiveEffect = false;
+      const now = Date.now();
+
+      for (const shape of measurementShapesRef.current) {
+        if (shape.id === movingShapeIdRef.current) continue;
+
+        let drewEffectFrame = false;
+
+        if (shape.effectUrl && shape.effectStartedAtMs != null) {
+          const entry = getEffectVideo(
+            shape.id,
+            shape.effectUrl,
+            Boolean(shape.effectLoops),
+          );
+          const playing = shape.effectLoops
+            ? !entry.failed
+            : isEffectPlaying({
+                effectStartedAtMs: shape.effectStartedAtMs,
+                nowMs: now,
+                videoEnded: entry.video.ended,
+                failed: entry.failed,
+              });
+
+          if (playing) {
+            hasActiveEffect = true;
+            // HAVE_CURRENT_DATA — the same readiness canvas drawImage
+            // itself requires; still-loading and failed clips fall through
+            // to the plain static shape below instead of drawing nothing.
+            if (!entry.failed && entry.video.readyState >= 2) {
+              drawEffectVideoFrame(entry.video, shape);
+              drewEffectFrame = true;
+            }
+          }
+        }
+
+        if (!drewEffectFrame) {
+          drawShapeFootprint(
+            computeShapeFootprint(shape, gridSpecRef.current),
+            shape.color,
+            false,
+            shape.id === selectedMeasurementShapeIdRef.current,
+          );
+        }
+        drawShapeLabel(
+          computeShapeLabelAnchor(shape, gridSpecRef.current),
+          buildMeasurementLabelText(shape),
+        );
+      }
+
+      // The shape currently being aimed or dragged: this DM's own drag
+      // takes priority (updated synchronously), falling back to the live
+      // session field for a non-interactive canvas (the player screen)
+      // tracking it over SSE.
+      const previewShape = measurementPreviewRef.current;
+      const remotePreview = livePreviewShapeRef.current;
+      if (previewShape) {
+        const movingShapeId = movingShapeIdRef.current;
+        const movingOriginal = movingShapeId
+          ? measurementShapesRef.current.find(
+              candidate => candidate.id === movingShapeId,
+            )
+          : undefined;
+        const color =
+          movingOriginal?.color ??
+          measurementToolRef.current?.color ??
+          '#6fa7ff';
+        const label = movingOriginal
+          ? movingOriginal.label
+          : measurementToolRef.current?.label;
+
+        drawShapeFootprint(
+          computeShapeFootprint(previewShape, gridSpecRef.current),
+          color,
+          true,
+          Boolean(movingShapeId),
+        );
+        drawShapeLabel(
+          computeShapeLabelAnchor(previewShape, gridSpecRef.current),
+          buildMeasurementLabelText({
+            extentFeet: previewShape.extentFeet,
+            label,
+          }),
+        );
+      } else if (remotePreview) {
+        drawShapeFootprint(
+          computeShapeFootprint(remotePreview, gridSpecRef.current),
+          remotePreview.color,
+          true,
+          false,
+        );
+        drawShapeLabel(
+          computeShapeLabelAnchor(remotePreview, gridSpecRef.current),
+          buildMeasurementLabelText(remotePreview),
+        );
+      } else {
+        // Nothing is being aimed locally or remotely yet — highlight the
+        // grid cell a placement is about to start in, on both the DM's own
+        // canvas and the player screen. The DM's own canvas reads its live
+        // pointer straight from `cursorMapPosRef` (never networked, and
+        // always null on the player screen — a non-interactive canvas never
+        // attaches the pointer handler that would populate it); the player
+        // screen instead falls back to the broadcast `measurementCursor`
+        // (already cell-center-snapped by the DM's own scheduler).
+        const armed = isMeasurementToolArmed();
+        const remoteCursor = measurementCursorRef.current;
+        const localCursor = armed ? cursorMapPosRef.current : null;
+        const aimPoint = localCursor || remoteCursor;
+        const zoom = currentViewport.zoom || 1;
+        if (aimPoint) {
+          // The DM's own canvas reads the armed tool's color straight from
+          // local state; the player canvas never receives `measurementTool`
+          // (it's DM-local UI state), so it reads the color the DM already
+          // broadcast alongside the cursor position instead.
+          const color =
+            (localCursor
+              ? measurementToolRef.current?.color
+              : remoteCursor?.color) ?? '#6fa7ff';
+          const cell = computeGridCellRect(aimPoint, gridSpecRef.current);
+
+          ctx.save();
+          ctx.fillStyle = color;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2 / zoom;
+          ctx.globalAlpha = 0.25;
+          ctx.fillRect(cell.x, cell.y, cell.size, cell.size);
+          ctx.globalAlpha = 0.9;
+          ctx.strokeRect(cell.x, cell.y, cell.size, cell.size);
+          ctx.restore();
+        }
+
+        // The small reticle is an extra marker only the player screen
+        // needs — the DM already sees their own real cursor inside the
+        // highlighted tile above.
+        if (remoteCursor) {
+          const r = (8 * measurementCursorScale) / zoom;
+
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 1.5 / zoom;
+          ctx.beginPath();
+          ctx.moveTo(remoteCursor.x - r, remoteCursor.y);
+          ctx.lineTo(remoteCursor.x + r, remoteCursor.y);
+          ctx.moveTo(remoteCursor.x, remoteCursor.y - r);
+          ctx.lineTo(remoteCursor.x, remoteCursor.y + r);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(remoteCursor.x, remoteCursor.y, r * 0.6, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
       ctx.restore();
 
       if (media.isLoadingRef.current) {
@@ -498,6 +1068,13 @@ export const MapCanvasView = ({
           ctx.fillRect(barX, barY, barWidth * progress, barHeight);
         }
       }
+
+      // Self-rescheduling: unlike every other reason this canvas redraws
+      // (a pointer event, a prop change), an effect clip keeps playing on
+      // its own timeline with nothing else prompting a new frame. Keeps
+      // requesting the next one for exactly as long as `isEffectPlaying`
+      // says a clip still is, then goes idle again on its own.
+      if (hasActiveEffect) scheduleDraw();
     };
 
     drawRef.current = drawScene;
@@ -514,13 +1091,29 @@ export const MapCanvasView = ({
     fogMask.maskRef,
     fogOpacity,
     fogRef,
+    getEffectVideo,
     grid,
+    gridSpecRef,
     lensPreviewRef,
     lensRectRef,
+    livePreviewShape,
+    livePreviewShapeRef,
+    measurementCursor,
+    measurementCursorRef,
+    measurementCursorScale,
+    measurementLabelScale,
+    measurementPreviewRef,
+    measurementShapes,
+    measurementShapesRef,
+    measurementTool,
+    measurementToolRef,
     media.drawableRef,
     media.isLoadingRef,
     media.progressRef,
+    movingShapeIdRef,
     scheduleDraw,
+    selectedMeasurementShapeId,
+    selectedMeasurementShapeIdRef,
     trackerPreviewRef,
     trackerRectRef,
     // Read inside `drawScene` only via `viewportRef`, never directly — but a

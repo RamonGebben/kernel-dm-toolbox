@@ -1,18 +1,23 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
   CURRENT_MAP_SESSION_ID,
   mapFolders,
+  mapMeasurementShapes,
   mapSessions,
   maps,
+  spells,
 } from '~/server/db/schema';
 import {
   applyFogStrokesInputSchema,
   createFolderInputSchema,
+  createMeasurementShapeInputSchema,
   folderIdInputSchema,
   gridDisplayInputSchema,
+  listMeasurementShapesInputSchema,
   mapIdInputSchema,
+  measurementShapeIdInputSchema,
   moveMapInputSchema,
   playerScreenModeInputSchema,
   playerScreenOrientationInputSchema,
@@ -20,12 +25,16 @@ import {
   renameFolderInputSchema,
   renameMapInputSchema,
   reportDimensionsInputSchema,
+  scaleInputSchema,
   setActiveMapInputSchema,
   setFogOpacityInputSchema,
   setGridCalibrationInputSchema,
+  setLivePreviewShapeInputSchema,
+  setMeasurementCursorInputSchema,
   toggleFogInputSchema,
   toggleViewportLockInputSchema,
   trackerOverlayInputSchema,
+  updateMeasurementShapeInputSchema,
   viewportInputSchema,
 } from '~/server/trpc/schemas/maps';
 import { buildMapGallery } from '~/server/trpc/helpers/buildMapGallery';
@@ -37,6 +46,7 @@ import {
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { publishMapsChanged } from '~/server/maps/events';
 import { ensureMapSession } from '~/server/maps/session';
+import { shouldLoopSpellEffect } from '~/utils/mapMeasurement';
 import type { Database } from '~/server/db';
 
 const isLiveMap = isNull(maps.deletedAt);
@@ -70,6 +80,24 @@ const loadFolder = async (db: Database, id: string) => {
   }
 
   return folder;
+};
+
+const loadMeasurementShape = async (db: Database, id: string) => {
+  const shape = await db.query.mapMeasurementShapes.findFirst({
+    where: and(
+      eq(mapMeasurementShapes.id, id),
+      isNull(mapMeasurementShapes.deletedAt),
+    ),
+  });
+
+  if (!shape) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'That shape is already gone.',
+    });
+  }
+
+  return shape;
 };
 
 export const mapsRouter = createTRPCRouter({
@@ -552,6 +580,44 @@ export const mapsRouter = createTRPCRouter({
       return updated;
     }),
 
+  setMeasurementLabelScale: publicProcedure
+    .input(scaleInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          measurementLabelScale: input.scale,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  setMeasurementCursorScale: publicProcedure
+    .input(scaleInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          measurementCursorScale: input.scale,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
   setViewportLocked: publicProcedure
     .input(toggleViewportLockInputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -561,6 +627,151 @@ export const mapsRouter = createTRPCRouter({
         .update(mapSessions)
         .set({
           isViewportLocked: input.locked,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /** Every ruler/template placed on this map, oldest first — several can
+   * coexist, each cleared individually (DECISIONS: issue #1). */
+  listMeasurementShapes: publicProcedure
+    .input(listMeasurementShapesInputSchema)
+    .query(({ ctx, input }) =>
+      ctx.db.query.mapMeasurementShapes.findMany({
+        where: and(
+          eq(mapMeasurementShapes.mapId, input.mapId),
+          isNull(mapMeasurementShapes.deletedAt),
+        ),
+        orderBy: asc(mapMeasurementShapes.createdAt),
+      }),
+    ),
+
+  /** The DB write for a placed shape — the second, confirming click. The
+   * live-drag frames leading up to it are not individually persisted, only
+   * broadcast via `setLivePreviewShape`. */
+  createMeasurementShape: publicProcedure
+    .input(createMeasurementShapeInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const sourceSpellSlug = input.sourceSpellSlug || null;
+
+      // Looked up once, here, rather than carried from the client's already-
+      // fetched spell list — keeps "does this loop" server-authoritative,
+      // the same reasoning `effectPlaybackStartedAt` already follows. Runs
+      // alongside the map-exists check since neither depends on the other.
+      const [, sourceSpell] = await Promise.all([
+        loadMap(ctx.db, input.mapId),
+        sourceSpellSlug
+          ? ctx.db.query.spells.findFirst({
+              where: eq(spells.slug, sourceSpellSlug),
+              columns: { duration: true },
+            })
+          : Promise.resolve(null),
+      ]);
+
+      const [created] = await ctx.db
+        .insert(mapMeasurementShapes)
+        .values({
+          mapId: input.mapId,
+          shapeType: input.shapeType,
+          originX: input.originX,
+          originY: input.originY,
+          extentFeet: input.extentFeet,
+          orientation: input.orientation,
+          label: input.label || null,
+          color: input.color || undefined,
+          sourceSpellSlug,
+          // Set once, at creation, never on a later move — see the column's
+          // own comment. Harmless when the spell has no matched effect: the
+          // client's video element just 404s and falls back to the plain
+          // static shape.
+          effectPlaybackStartedAt: sourceSpellSlug ? new Date() : null,
+          effectLoops: shouldLoopSpellEffect(sourceSpell?.duration ?? null),
+        })
+        .returning();
+
+      publishMapsChanged();
+
+      return created;
+    }),
+
+  /** A drag-to-move of an already-placed shape — position only. Size,
+   * orientation, label and color are set once at creation. */
+  updateMeasurementShape: publicProcedure
+    .input(updateMeasurementShapeInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await loadMeasurementShape(ctx.db, input.id);
+
+      const [updated] = await ctx.db
+        .update(mapMeasurementShapes)
+        .set({
+          originX: input.originX,
+          originY: input.originY,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapMeasurementShapes.id, input.id))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  removeMeasurementShape: publicProcedure
+    .input(measurementShapeIdInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await loadMeasurementShape(ctx.db, input.id);
+
+      await ctx.db
+        .update(mapMeasurementShapes)
+        .set(tombstoneSyncMeta({ version: existing.version, now: new Date() }))
+        .where(eq(mapMeasurementShapes.id, input.id));
+
+      publishMapsChanged();
+
+      return { id: input.id };
+    }),
+
+  /** The shape the DM is currently dragging into place, written live at
+   * most once per animation frame (see `MapCanvasView`'s scheduler) — the
+   * same cadence `setPlayerViewport` uses for the lens, so the player
+   * screen tracks it while it's still being aimed. */
+  setLivePreviewShape: publicProcedure
+    .input(setLivePreviewShapeInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          livePreviewShape: input.preview,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /** Where the DM's cursor sits while the measurement tool is armed but no
+   * origin has been clicked yet — the "aim" reticle the player screen shows
+   * before there's a shape to preview. Same live, at-most-once-per-frame
+   * cadence as `setLivePreviewShape`. */
+  setMeasurementCursor: publicProcedure
+    .input(setMeasurementCursorInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ensureMapSession(ctx.db);
+
+      const [updated] = await ctx.db
+        .update(mapSessions)
+        .set({
+          measurementCursor: input.cursor,
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(mapSessions.id, CURRENT_MAP_SESSION_ID))

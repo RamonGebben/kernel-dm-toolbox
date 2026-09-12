@@ -259,6 +259,10 @@ export const importRuns = sqliteTable('import_runs', {
   conditionCount: integer('condition_count').notNull().default(0),
   spellCount: integer('spell_count').notNull().default(0),
   castingOptionCount: integer('casting_option_count').notNull().default(0),
+  /** How many spells matched an animated effect this run — see
+   * `spellEffects`. Not how many *files* were downloaded: several spells
+   * commonly share one deduplicated clip. */
+  effectCount: integer('effect_count').notNull().default(0),
   error: text('error'),
 });
 
@@ -367,6 +371,34 @@ export type Spell = typeof spells.$inferSelect;
 export type NewSpell = typeof spells.$inferInsert;
 export type SpellCastingOption = typeof spellCastingOptions.$inferSelect;
 export type NewSpellCastingOption = typeof spellCastingOptions.$inferInsert;
+
+/**
+ * An animated VFX clip auto-matched to a spell by damage type + area shape
+ * (see `~/server/library/effectCandidates`), fetched from
+ * `jackkerouac/animated-spell-effects` (GPL-3.0) at import time. One row per
+ * spell that got a match — most don't, since that repo is a general elemental
+ * VFX library with no per-spell mapping of its own, not a per-spell
+ * compendium. Like the library tables above, this is derived and rewritten
+ * wholesale on every import, so it is exempt from `syncMeta` too.
+ *
+ * `sourcePath` is the upstream repo-relative path (for provenance and to
+ * detect when a re-import's match changed); `storagePath` is content-
+ * addressed (a hash of `sourcePath`), so spells that match the same upstream
+ * clip share one file on disk instead of a copy each.
+ */
+export const spellEffects = sqliteTable('spell_effects', {
+  spellSlug: text('spell_slug')
+    .primaryKey()
+    .references(() => spells.slug, { onDelete: 'cascade' }),
+  sourcePath: text('source_path').notNull(),
+  storagePath: text('storage_path').notNull(),
+  mimeType: text('mime_type').notNull().default('video/webm'),
+  byteSize: integer('byte_size').notNull(),
+});
+
+export type SpellEffect = typeof spellEffects.$inferSelect;
+export type NewSpellEffect = typeof spellEffects.$inferInsert;
+
 export type ImportRun = typeof importRuns.$inferSelect;
 
 /* ---------------------------------------------------------------------------
@@ -639,6 +671,34 @@ export type NewMapAsset = typeof maps.$inferInsert;
  */
 export const CURRENT_MAP_SESSION_ID = 'current';
 
+/** The live-drag preview of a measurement shape — see `livePreviewShape`
+ * below and `~/utils/mapMeasurement`. `mapId` guards against a stale preview
+ * rendering against whatever map happens to be active after a switch. */
+export type MapMeasurementPreview = {
+  mapId: string;
+  shapeType: 'ruler' | 'circle' | 'cone' | 'line' | 'cube';
+  originX: number;
+  originY: number;
+  extentFeet: number;
+  orientation: number | null;
+  color: string;
+  label: string | null;
+};
+
+/** Where the DM's cursor sits on the map while the measurement tool is
+ * armed but no origin has been clicked yet — see `measurementCursor` below.
+ * `mapId` guards the same way `MapMeasurementPreview.mapId` does. */
+export type MapMeasurementCursor = {
+  mapId: string;
+  x: number;
+  y: number;
+  /** The armed tool's own color, broadcast alongside the position — the
+   * player screen has no other way to know what color to tint the aim-cell
+   * highlight, since `measurementTool` itself is DM-local UI state that
+   * never reaches the player canvas. */
+  color: string;
+};
+
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
 export type PlayerScreenOrientation = 'auto' | 'landscape' | 'portrait';
 
@@ -730,6 +790,44 @@ export const mapSessions = sqliteTable(
     })
       .notNull()
       .default(false),
+
+    /** A multiplier on the base 12px label font a placed shape's distance/
+     * spell text draws at (`drawShapeLabel`, `~/organisms/MapCanvas`) — the
+     * same "make the TV readable from across the room" purpose
+     * `trackerOverlayScale` already serves for the tracker overlay, though
+     * with a wider 0.5–3 range (tracker's own is 0.5–2). Applies on both
+     * the DM and player canvases, since
+     * both draw through the same `MapCanvasView`. */
+    measurementLabelScale: real('measurement_label_scale').notNull().default(1),
+
+    /** The measurement shape the DM is currently dragging into place, before
+     * the confirming second click commits it to `map_measurement_shapes`.
+     * Written live, at most once per animation frame, the same cadence as
+     * `playerViewport*` — so the player screen tracks the shape being aimed,
+     * not just the final result (DECISIONS: same live-diff pattern as the
+     * player-view lens, issue #1). Null once there is nothing in progress. */
+    livePreviewShape: text('live_preview_shape', {
+      mode: 'json',
+    }).$type<MapMeasurementPreview | null>(),
+
+    /** The DM's raw cursor position while the measurement tool is armed and
+     * no origin has been clicked yet — lets the player screen show an "aim"
+     * reticle before there's a shape to preview at all. Same live, at-most-
+     * once-per-frame cadence as `livePreviewShape`; null whenever the tool
+     * isn't armed, the pointer has left the canvas, or a shape is already
+     * being aimed (`livePreviewShape` takes over at that point). */
+    measurementCursor: text('measurement_cursor', {
+      mode: 'json',
+    }).$type<MapMeasurementCursor | null>(),
+
+    /** A multiplier on the base 8px radius the "aim" reticle draws at
+     * (`~/organisms/MapCanvas`'s `MapCanvasView`) — same TV-readability
+     * purpose and range as `measurementLabelScale` above, kept as a
+     * separate column since a DM may want a bigger reticle without also
+     * enlarging every placed shape's label, or vice versa. */
+    measurementCursorScale: real('measurement_cursor_scale')
+      .notNull()
+      .default(1),
   },
   table => [
     check(
@@ -744,3 +842,64 @@ export const mapSessions = sqliteTable(
 );
 
 export type MapSession = typeof mapSessions.$inferSelect;
+
+/**
+ * A ruler measurement or spell-area template the DM placed on a map's
+ * canvas — a distance line or a circle/cone/line/cube footprint, per issue
+ * #1. Scoped per-map, like grid calibration and fog: switching away and
+ * back to a map still shows what was left on it.
+ *
+ * `extentFeet` is grid-square-counted (5e's diagonal-costs-the-same
+ * convention), not pixel distance — see `~/utils/mapMeasurement`.
+ * `orientation` is a free angle in radians, null for `circle`, which has no
+ * direction.
+ */
+export type MapMeasurementShapeType =
+  'ruler' | 'circle' | 'cone' | 'line' | 'cube';
+
+export const mapMeasurementShapes = sqliteTable(
+  'map_measurement_shapes',
+  {
+    ...syncMeta,
+    mapId: text('map_id')
+      .notNull()
+      .references(() => maps.id, { onDelete: 'cascade' }),
+    shapeType: text('shape_type').$type<MapMeasurementShapeType>().notNull(),
+    originX: real('origin_x').notNull(),
+    originY: real('origin_y').notNull(),
+    extentFeet: real('extent_feet').notNull(),
+    orientation: real('orientation'),
+    label: text('label'),
+    color: text('color').notNull().default('#6fa7ff'),
+    /** Set when placed via the spell-lookup auto-fill, so a re-opened panel
+     * could show what it came from — and, if that spell matched an animated
+     * effect (`spellEffects`), which clip to play. */
+    sourceSpellSlug: text('source_spell_slug').references(() => spells.slug),
+    /** Set once, at creation, when `sourceSpellSlug` is present — never on a
+     * later move. The clip plays once, timed from this moment; moving an
+     * already-placed shape must not replay it. Harmless if the spell turned
+     * out to have no matched effect: the client's video element just 404s
+     * and falls back to the plain static shape. */
+    effectPlaybackStartedAt: integer('effect_playback_started_at', {
+      mode: 'timestamp_ms',
+    }),
+    /** Set once, at creation, from the source spell's `duration` (see
+     * `shouldLoopSpellEffect`) — an ongoing-area spell (Spirit Guardians,
+     * Wall of Fire, …) loops its clip for as long as the shape stays on the
+     * board, unlike an instantaneous one (Fireball), which plays once and
+     * settles into the plain static shape. False for a plain ruler/shape
+     * with no `sourceSpellSlug`. */
+    effectLoops: integer('effect_loops', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+  },
+  table => [
+    check(
+      'map_measurement_shapes_type_is_valid',
+      sql`${table.shapeType} in ('ruler', 'circle', 'cone', 'line', 'cube')`,
+    ),
+  ],
+);
+
+export type MapMeasurementShape = typeof mapMeasurementShapes.$inferSelect;
+export type NewMapMeasurementShape = typeof mapMeasurementShapes.$inferInsert;

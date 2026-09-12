@@ -82,6 +82,12 @@ export const gridDisplayInputSchema = z.object({
   backgroundColor: z.string().trim().min(1).max(20).optional(),
 });
 
+/** Shared by every "TV-readability" scale mutation (label size, aim-cursor
+ * size, …) — they all take the same 0.5–3 multiplier. */
+export const scaleInputSchema = z.object({
+  scale: z.number().min(0.5).max(3),
+});
+
 export const setActiveMapInputSchema = z.object({
   mapId: z.uuid().nullable(),
 });
@@ -107,4 +113,67 @@ export const trackerOverlayInputSchema = z.object({
 
 export const toggleViewportLockInputSchema = z.object({
   locked: z.boolean(),
+});
+
+export const measurementShapeTypeSchema = z.enum([
+  'ruler',
+  'circle',
+  'cone',
+  'line',
+  'cube',
+]);
+
+export const listMeasurementShapesInputSchema = z.object({ mapId: z.uuid() });
+
+export const createMeasurementShapeInputSchema = z.object({
+  mapId: z.uuid(),
+  shapeType: measurementShapeTypeSchema,
+  originX: z.number(),
+  originY: z.number(),
+  extentFeet: z.number().positive().max(2000),
+  orientation: z.number().nullable(),
+  label: z.string().trim().max(80).nullable().optional(),
+  color: z.string().trim().min(1).max(20).optional(),
+  sourceSpellSlug: z.string().min(1).max(200).nullable().optional(),
+});
+
+export const measurementShapeIdInputSchema = z.object({ id: z.uuid() });
+
+const measurementPreviewSchema = z.object({
+  mapId: z.uuid(),
+  shapeType: measurementShapeTypeSchema,
+  originX: z.number(),
+  originY: z.number(),
+  extentFeet: z.number().positive().max(2000),
+  orientation: z.number().nullable(),
+  color: z.string().trim().min(1).max(20),
+  label: z.string().trim().max(80).nullable(),
+});
+
+/** `preview: null` clears it — the DM confirmed, cancelled, or nothing is in
+ * progress. */
+export const setLivePreviewShapeInputSchema = z.object({
+  preview: measurementPreviewSchema.nullable(),
+});
+
+/** Repositioning an already-placed shape — a drag-to-move, not a resize.
+ * Shape/size/orientation/label/color are set once at creation and edited
+ * only by removing and re-placing. */
+export const updateMeasurementShapeInputSchema = z.object({
+  id: z.uuid(),
+  originX: z.number(),
+  originY: z.number(),
+});
+
+const measurementCursorSchema = z.object({
+  mapId: z.uuid(),
+  x: z.number(),
+  y: z.number(),
+  color: z.string().trim().min(1).max(20),
+});
+
+/** `cursor: null` clears it — the tool was disarmed or the pointer left the
+ * canvas. */
+export const setMeasurementCursorInputSchema = z.object({
+  cursor: measurementCursorSchema.nullable(),
 });

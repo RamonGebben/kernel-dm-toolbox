@@ -17,7 +17,12 @@ import {
 import type {
   CalibrationPoint,
   MapCanvasFogStroke,
+  MapCanvasMeasurementShape,
 } from '~/organisms/MapCanvas/components/MapCanvasView';
+import {
+  buildSpellEffectUrl,
+  type MeasurementShapeInput,
+} from '~/utils/mapMeasurement';
 
 /**
  * How long to wait after the DM's pan/zoom settles before persisting it.
@@ -58,6 +63,13 @@ export const useMapCanvas = () => {
   const trackerEditingActive = useMapToolStore(
     state => state.activePanel === 'session',
   );
+  const measurementTool = useMapToolStore(state => state.measurementTool);
+  const selectedMeasurementShapeId = useMapToolStore(
+    state => state.selectedMeasurementShapeId,
+  );
+  const setSelectedMeasurementShapeId = useMapToolStore(
+    state => state.setSelectedMeasurementShapeId,
+  );
 
   const session = useQuery(trpc.maps.getSession.queryOptions());
   const activeMapId = session.data?.activeMapId ?? null;
@@ -86,6 +98,10 @@ export const useMapCanvas = () => {
     queryClient.invalidateQueries({
       queryKey: trpc.maps.getSession.queryKey(),
     });
+  const invalidateMeasurementShapes = () =>
+    queryClient.invalidateQueries({
+      queryKey: trpc.maps.listMeasurementShapes.queryKey(),
+    });
 
   const reportDimensions = useMutation(
     trpc.maps.reportDimensions.mutationOptions({ onSuccess: invalidateMap }),
@@ -106,6 +122,35 @@ export const useMapCanvas = () => {
     trpc.maps.setTrackerOverlay.mutationOptions({
       onSuccess: invalidateSession,
     }),
+  );
+
+  const measurementShapesQuery = useQuery({
+    ...trpc.maps.listMeasurementShapes.queryOptions({ mapId: mapId ?? '' }),
+    enabled: mapId !== undefined,
+  });
+  const createMeasurementShape = useMutation(
+    trpc.maps.createMeasurementShape.mutationOptions({
+      onSuccess: invalidateMeasurementShapes,
+    }),
+  );
+  const removeMeasurementShape = useMutation(
+    trpc.maps.removeMeasurementShape.mutationOptions({
+      onSuccess: invalidateMeasurementShapes,
+    }),
+  );
+  const updateMeasurementShape = useMutation(
+    trpc.maps.updateMeasurementShape.mutationOptions({
+      onSuccess: invalidateMeasurementShapes,
+    }),
+  );
+  // No `onSuccess` invalidation: these are per-frame live broadcasts, not a
+  // change the DM's own screen needs to refetch anything over — only the
+  // player screen (over SSE) ever reads them.
+  const setLivePreviewShape = useMutation(
+    trpc.maps.setLivePreviewShape.mutationOptions(),
+  );
+  const setMeasurementCursor = useMutation(
+    trpc.maps.setMeasurementCursor.mutationOptions(),
   );
 
   // Stable prop identities: none of these need to be recreated on every
@@ -270,6 +315,129 @@ export const useMapCanvas = () => {
     [lensRect, setTrackerOverlay],
   );
 
+  const measurementShapes = useMemo<MapCanvasMeasurementShape[]>(
+    () =>
+      (measurementShapesQuery.data ?? []).map(shape => ({
+        id: shape.id,
+        shapeType: shape.shapeType,
+        originX: shape.originX,
+        originY: shape.originY,
+        extentFeet: shape.extentFeet,
+        orientation: shape.orientation,
+        color: shape.color,
+        label: shape.label,
+        effectUrl: shape.sourceSpellSlug
+          ? buildSpellEffectUrl(shape.sourceSpellSlug)
+          : null,
+        effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
+        effectLoops: shape.effectLoops,
+      })),
+    [measurementShapesQuery.data],
+  );
+
+  // The DB write for a placed shape is the confirming second click; the
+  // live-drag frames leading up to it are only ever broadcast, never
+  // individually persisted (see `onMeasurementPreviewChange`).
+  const handleMeasurementConfirm = useCallback(
+    (shape: MeasurementShapeInput) => {
+      if (!mapId) return;
+
+      createMeasurementShape.mutate({
+        mapId,
+        shapeType: shape.shapeType,
+        originX: shape.originX,
+        originY: shape.originY,
+        extentFeet: shape.extentFeet,
+        orientation: shape.orientation,
+        color: measurementTool.color,
+        label: measurementTool.label.trim() || null,
+        sourceSpellSlug: measurementTool.sourceSpellSlug,
+      });
+    },
+    [mapId, createMeasurementShape, measurementTool],
+  );
+
+  // Live while a shape is being aimed — the same cadence `onLensChange`
+  // uses — so the player screen tracks it before the confirming click.
+  const handleMeasurementPreviewChange = useCallback(
+    (shape: MeasurementShapeInput | null) => {
+      if (!mapId) return;
+
+      setLivePreviewShape.mutate({
+        preview: shape
+          ? {
+              mapId,
+              shapeType: shape.shapeType,
+              originX: shape.originX,
+              originY: shape.originY,
+              extentFeet: shape.extentFeet,
+              orientation: shape.orientation,
+              color: measurementTool.color,
+              label: measurementTool.label.trim() || null,
+            }
+          : null,
+      });
+    },
+    [mapId, setLivePreviewShape, measurementTool],
+  );
+
+  // Live while the tool is armed and the cursor is over the canvas, before
+  // there's a shape preview to take over — the same cadence as
+  // `handleMeasurementPreviewChange`.
+  const handleMeasurementCursorChange = useCallback(
+    (point: { x: number; y: number } | null) => {
+      if (!mapId) return;
+
+      setMeasurementCursor.mutate({
+        cursor: point
+          ? { mapId, x: point.x, y: point.y, color: measurementTool.color }
+          : null,
+      });
+    },
+    [mapId, measurementTool.color, setMeasurementCursor],
+  );
+
+  const handleSelectMeasurementShape = useCallback(
+    (id: string | null) => setSelectedMeasurementShapeId(id),
+    [setSelectedMeasurementShapeId],
+  );
+
+  // Fired once, on release, at the end of a drag-to-move.
+  const handleMeasurementShapeMoved = useCallback(
+    (id: string, origin: { x: number; y: number }) => {
+      updateMeasurementShape.mutate({
+        id,
+        originX: origin.x,
+        originY: origin.y,
+      });
+    },
+    [updateMeasurementShape],
+  );
+
+  const handleRemoveMeasurementShape = useCallback(
+    (id: string) => {
+      removeMeasurementShape.mutate({ id });
+      if (selectedMeasurementShapeId === id) {
+        setSelectedMeasurementShapeId(null);
+      }
+    },
+    [
+      removeMeasurementShape,
+      selectedMeasurementShapeId,
+      setSelectedMeasurementShapeId,
+    ],
+  );
+
+  // A shape selected on the previous map has nothing to highlight once the
+  // DM switches to a different one.
+  const previousMapIdRef = useRef(mapId);
+  useEffect(() => {
+    if (previousMapIdRef.current !== mapId) {
+      previousMapIdRef.current = mapId;
+      setSelectedMeasurementShapeId(null);
+    }
+  }, [mapId, setSelectedMeasurementShapeId]);
+
   return {
     map: map.data
       ? {
@@ -297,5 +465,24 @@ export const useMapCanvas = () => {
     onLensChange,
     trackerRect,
     onTrackerRectChange,
+    measurementShapes,
+    measurementLabelScale: session.data?.measurementLabelScale ?? 1,
+    measurementCursorScale: session.data?.measurementCursorScale ?? 1,
+    measurementTool: mapId
+      ? {
+          enabled: measurementTool.enabled,
+          shapeType: measurementTool.shapeType,
+          color: measurementTool.color,
+          presetExtentFeet: measurementTool.presetExtentFeet,
+          label: measurementTool.label.trim() || null,
+        }
+      : undefined,
+    onMeasurementConfirm: handleMeasurementConfirm,
+    onMeasurementPreviewChange: handleMeasurementPreviewChange,
+    onMeasurementCursorChange: handleMeasurementCursorChange,
+    selectedMeasurementShapeId,
+    onSelectMeasurementShape: handleSelectMeasurementShape,
+    onMeasurementShapeMoved: handleMeasurementShapeMoved,
+    onRemoveMeasurementShape: handleRemoveMeasurementShape,
   };
 };

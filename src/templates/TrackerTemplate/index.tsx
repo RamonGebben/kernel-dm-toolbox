@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import styled from 'styled-components';
 import { Panel } from '~/atoms/Panel';
+import { OpenPlayerScreenLink } from '~/molecules/OpenPlayerScreenLink';
 
 type TrackerTemplateProps = {
   /** The vertical tool rail, injected by the page. */
@@ -39,9 +40,7 @@ export const TrackerTemplate = ({
         <Panel title="Combatants by Initiative">
           {encounterSlot}
           <Footer>
-            <PlayerLink href="/player" target="_blank" rel="noreferrer">
-              Open the player screen ↗
-            </PlayerLink>
+            <OpenPlayerScreenLink />
           </Footer>
         </Panel>
         <Panel title="Selected Combatant">{statblockSlot}</Panel>
@@ -94,9 +93,4 @@ const Footer = styled.footer`
   gap: ${props => props.theme.space.md};
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textMuted};
-`;
-
-const PlayerLink = styled.a`
-  color: ${props => props.theme.color.accent};
-  font-weight: 600;
 `;

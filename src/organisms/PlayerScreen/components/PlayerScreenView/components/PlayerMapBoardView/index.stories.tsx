@@ -49,6 +49,9 @@ export const Loaded: Story = {
       backgroundColor: '#0c0d11',
       fog: { enabled: false, baseState: 'covered', strokes: [] },
       fogOpacity: 0.9,
+      measurementShapes: [],
+      measurementLabelScale: 1,
+      measurementCursorScale: 1,
     },
   },
   play: async ({ canvasElement }) => {

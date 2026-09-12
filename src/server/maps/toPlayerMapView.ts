@@ -1,11 +1,39 @@
 import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
+import { buildSpellEffectUrl } from '~/utils/mapMeasurement';
 import type {
   MapAsset,
   MapFogStroke,
+  MapMeasurementCursor,
+  MapMeasurementPreview,
+  MapMeasurementShape,
   MapSession,
   PlayerScreenMode,
   PlayerScreenOrientation,
 } from '~/server/db/schema';
+
+export type PlayerMapViewMeasurementShape = {
+  id: string;
+  shapeType: MapMeasurementShape['shapeType'];
+  originX: number;
+  originY: number;
+  extentFeet: number;
+  orientation: number | null;
+  label: string | null;
+  color: string;
+  /** Where to play the animated effect from, if this shape came from a
+   * spell — a plain 404 (and a client-side fallback to the static shape)
+   * when that spell had no matched effect. */
+  effectUrl: string | null;
+  /** Epoch ms, not a `Date` — this payload also travels as plain
+   * `JSON.stringify`'d SSE text (unlike the tRPC/superjson path), so the
+   * type stays consistent across both. Null unless `effectUrl` is also
+   * set. */
+  effectStartedAtMs: number | null;
+  /** Whether the clip should loop for as long as this shape stays on the
+   * board (an ongoing-duration spell) rather than play once — see
+   * `shouldLoopSpellEffect`. Always false without `effectUrl`. */
+  effectLoops: boolean;
+};
 
 export type PlayerMapViewMap = {
   fileUrl: string;
@@ -27,6 +55,15 @@ export type PlayerMapViewMap = {
     strokes: MapFogStroke[];
   };
   fogOpacity: number;
+  measurementShapes: PlayerMapViewMeasurementShape[];
+  /** Multiplier on a shape's label font size — see `mapSessions.
+   * measurementLabelScale`. Session-wide, so the DM and player canvases
+   * always agree on it (there is no separate player-only override). */
+  measurementLabelScale: number;
+  /** Multiplier on the "aim" reticle's radius — see `mapSessions.
+   * measurementCursorScale`. Same session-wide reasoning as
+   * `measurementLabelScale`. */
+  measurementCursorScale: number;
 };
 
 export type PlayerMapViewTrackerOverlay = {
@@ -49,6 +86,14 @@ export type PlayerMapView = {
   /** Only meaningful in `'both'` mode, but always present — a DM display
    * preference, not player-hidden data, so it needs no filtering here. */
   trackerOverlay: PlayerMapViewTrackerOverlay;
+  /** The shape the DM is currently dragging into place, or null when
+   * nothing is in progress. Guarded against a stale preview left over from
+   * a since-switched-away-from map. */
+  livePreviewShape: MapMeasurementPreview | null;
+  /** Where the DM's cursor sits while aiming, before there's a shape to
+   * preview yet — null once a shape preview exists (it takes over) or
+   * nothing is being aimed at all. Same stale-map guard as above. */
+  measurementCursor: MapMeasurementCursor | null;
 };
 
 /**
@@ -58,12 +103,16 @@ export type PlayerMapView = {
  * sent to the player screen, filtered here rather than in a component. The
  * DM's own viewport and fog darkness (`opacityDm`) never appear — only the
  * committed lens (`playerViewport*`) and the table-facing fog opacity do.
+ *
+ * `measurementShapes` needs no filtering beyond what already exists: every
+ * placed shape is meant to be seen, there is no "secret" measurement.
  */
 export const toPlayerMapView = (args: {
   session: MapSession;
   map: MapAsset | null;
+  measurementShapes: readonly MapMeasurementShape[];
 }): PlayerMapView => {
-  const { session, map } = args;
+  const { session, map, measurementShapes } = args;
 
   return {
     mode: session.playerScreenMode,
@@ -89,6 +138,23 @@ export const toPlayerMapView = (args: {
             strokes: map.fog.strokes,
           },
           fogOpacity: map.fog.opacityTable,
+          measurementShapes: measurementShapes.map(shape => ({
+            id: shape.id,
+            shapeType: shape.shapeType,
+            originX: shape.originX,
+            originY: shape.originY,
+            extentFeet: shape.extentFeet,
+            orientation: shape.orientation,
+            label: shape.label,
+            color: shape.color,
+            effectUrl: shape.sourceSpellSlug
+              ? buildSpellEffectUrl(shape.sourceSpellSlug)
+              : null,
+            effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
+            effectLoops: shape.effectLoops,
+          })),
+          measurementLabelScale: session.measurementLabelScale,
+          measurementCursorScale: session.measurementCursorScale,
         }
       : null,
     viewport: {
@@ -106,5 +172,13 @@ export const toPlayerMapView = (args: {
       showHealth: session.trackerOverlayShowHealth,
       showConditions: session.trackerOverlayShowConditions,
     },
+    livePreviewShape:
+      session.livePreviewShape && session.livePreviewShape.mapId === map?.id
+        ? session.livePreviewShape
+        : null,
+    measurementCursor:
+      session.measurementCursor && session.measurementCursor.mapId === map?.id
+        ? session.measurementCursor
+        : null,
   };
 };

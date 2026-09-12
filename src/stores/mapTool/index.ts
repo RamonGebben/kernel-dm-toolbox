@@ -14,7 +14,8 @@ import { create } from 'zustand';
 
 export type FogBrushShape = 'circle' | 'square';
 export type FogBrushMode = 'reveal' | 'cover';
-export type MapControlPanelId = 'gallery' | 'grid' | 'fog' | 'session';
+export type MapControlPanelId =
+  'gallery' | 'grid' | 'fog' | 'session' | 'measure';
 
 type CalibrationPoint = { x: number; y: number };
 
@@ -26,6 +27,24 @@ type FogBrushSettings = {
   size: number;
   /** 0 = hard edge, 1 = fully feathered. */
   softness: number;
+};
+
+export type MeasurementShapeType =
+  'ruler' | 'circle' | 'cone' | 'line' | 'cube';
+
+type MeasurementToolSettings = {
+  /** Armed like the fog brush, not one-shot like calibration — several
+   * shapes are placed in sequence without re-arming between each. */
+  enabled: boolean;
+  shapeType: MeasurementShapeType;
+  color: string;
+  label: string;
+  sourceSpellSlug: string | null;
+  /** A chosen 5e size preset: one click places a shape of exactly this
+   * size, facing a default orientation, instead of the two-click free-drag
+   * gesture. Null ("Custom") is the free-drag default; a `ruler` ignores
+   * this — it always needs two points, having no size of its own. */
+  presetExtentFeet: number | null;
 };
 
 type MapToolState = {
@@ -48,6 +67,15 @@ type MapToolState = {
 
   fogBrush: FogBrushSettings;
   setFogBrush: (patch: Partial<FogBrushSettings>) => void;
+
+  measurementTool: MeasurementToolSettings;
+  setMeasurementTool: (patch: Partial<MeasurementToolSettings>) => void;
+
+  /** The placed shape currently highlighted for drag-to-move — set by
+   * clicking it on the canvas or a row in the Measure panel's list, cleared
+   * by clicking empty canvas or removing the shape. */
+  selectedMeasurementShapeId: string | null;
+  setSelectedMeasurementShapeId: (id: string | null) => void;
 };
 
 export const useMapToolStore = create<MapToolState>(set => ({
@@ -71,4 +99,20 @@ export const useMapToolStore = create<MapToolState>(set => ({
   },
   setFogBrush: patch =>
     set(state => ({ fogBrush: { ...state.fogBrush, ...patch } })),
+
+  measurementTool: {
+    enabled: false,
+    shapeType: 'circle',
+    color: '#6fa7ff',
+    label: '',
+    sourceSpellSlug: null,
+    presetExtentFeet: null,
+  },
+  setMeasurementTool: patch =>
+    set(state => ({
+      measurementTool: { ...state.measurementTool, ...patch },
+    })),
+
+  selectedMeasurementShapeId: null,
+  setSelectedMeasurementShapeId: id => set({ selectedMeasurementShapeId: id }),
 }));

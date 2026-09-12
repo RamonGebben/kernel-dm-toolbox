@@ -631,3 +631,143 @@ continuous interaction should use depends on whether the _other_ screen needs
 to see it move live (frame-coalesced), only needs the end state (gesture-
 committed), or only needs to survive a restart (debounced). `FogControlsPanel`'s
 still-unbatched opacity/brush sliders remain a noted, unaddressed follow-up.
+
+## 27. The ruler and spell-area templates measure in grid squares, not pixels
+
+**Decision.** `~/utils/mapMeasurement` computes a placed shape's size as 5e's
+tabletop convention — grid-square counting, where a diagonal move costs the
+same as an orthogonal one (Chebyshev distance in grid cells, `computeGridDistanceFeet`)
+— rather than true Euclidean distance. This is a deliberate divergence from
+every other piece of geometry on this canvas: `~/utils/mapViewport` and
+`~/utils/mapLens` are pixel-accurate, because a viewport or a lens rectangle
+has no tabletop meaning to be faithful to. A ruler does — two DMs disagreeing
+by ~40% (a diagonal-heavy Euclidean line vs. the tabletop count) on whether a
+15-foot spell reaches a target is a worse bug than a viewport being a few
+pixels off ever could be. Only the _origin_ snaps outright (to the nearest
+grid intersection, `snapPointToGrid`); a cone/line/cube's _orientation_ stays
+a free angle — only its distance component is grid-counted — so a DM can aim
+a cone at 37° without the tool rounding it to the nearest axis.
+
+**Why a `presetExtentFeet` mode instead of only free-drag.** The placement
+gesture is a two-click drag (origin click, live-follow, confirm click) —
+necessary for a ruler, which has no size of its own to offer a shortcut for.
+But most of what actually gets placed is a spell's _known_ area (a 20-foot
+fireball, not "however big I eyeball it"), and eyeballing a precise 20-foot
+circle by dragging against an uncalibrated cursor is exactly the friction the
+5e-preset buttons and spell lookup exist to remove. Rather than a second,
+parallel placement mode, a size preset (from the panel's preset buttons, or
+auto-filled by picking a spell via `mapSpellShapeType`) changes what a single
+click _means_: it commits immediately, at that exact size and a default 0°
+orientation, instead of arming the two-click gesture. `presetExtentFeet: null`
+("Custom") is what re-arms free-drag. A `ruler` ignores a preset outright —
+see above, it always needs two points.
+
+**Why the live-drag preview is a `map_sessions` column, not a broadcast
+channel.** Issue #1 calls for the player screen to track a shape while the
+DM is still aiming it, the same as the lens (#26). The lens already proved
+the pattern for exactly this: a value written to the `map_sessions` singleton
+row, at most once per animation frame via `MapCanvasView`'s existing
+RAF-notify scheduler, and read back out through `toPlayerMapView`/SSE.
+`livePreviewShape` (nullable JSON) reuses that pattern outright rather than
+inventing a second live-update mechanism — cleared back to `null` once the
+confirming click lands (or the placement is abandoned with a right-click),
+which the RAF diff loop notices and broadcasts on its own, the same way a
+lens drag's every frame is diffed against the last one sent.
+
+## 28. A placed shape's hit test runs, and wins, ahead of the lens/tracker
+
+**Decision.** Selecting and dragging an already-placed measurement shape
+(#27) needed a click-to-grab hit test on the canvas — the same kind of
+"which thing under the cursor wins" problem the fog brush and grid
+calibration already solved by gating the lens/tracker's own hit tests with
+`!isFogToolActive()`/`!calibrationActiveRef.current`. `useViewportInteraction`
+now computes `findHitMeasurementShape(mapPoint)` once at the top of
+`handlePointerDown`, ahead of the tracker/lens checks, and adds `!hitShape`
+to both their guard conditions — a placed shape under the cursor wins the
+same way an active tool already did.
+
+**Why this needed a real dev-server session to catch, not just stories.**
+The first implementation added the shape hit test in its own branch,
+positioned _after_ the lens/tracker checks — reasonable on paper, wrong in
+practice. `map_sessions`' player-view lens defaults to an **uncalibrated,
+screen-sized rect** (`computeLensRect` off the session's own defaults:
+`playerViewportZoom` 1, `playerScreenWidth`/`Height` 1920×1080) whenever a
+DM hasn't yet deliberately positioned it — which is every fresh session, and
+every Storybook fixture that doesn't explicitly set a small `lensRect`. That
+default rect is enormous relative to a freshly uploaded, uncalibrated map, so
+it blankets almost any point a DM would actually click. Every interaction
+story for this feature passed regardless, because none of them exercised the
+combination of "a lens rect present" and "a shape under the click" at once —
+the existing `MeasurementToolTakesPriorityOverTheLens` story covers the
+_armed placement_ case, not the _disarmed select-and-drag_ case. The bug was
+only visible by actually driving a build against a live `pnpm start` session
+end to end: placing a shape, then dragging it, and watching nothing move.
+
+**The general lesson.** A synthetic-event story proves a specific
+interaction works in isolation; it does not prove the _priority order_
+between two interactions is correct unless a story explicitly stages both
+conditions at once — and a "the lens is drawn but tiny/off-screen in this
+fixture" default is an easy thing to never stage. `SelectingAndMovingAPlacedShapeWinsOverTheLens`
+now stages both deliberately (a `lensRect` fixture plus a shape positioned
+inside it) specifically so this regression can't silently return. For any
+future canvas interaction that adds a new hit-testable "thing" to this
+canvas, the checklist is: where does it sit in the existing priority chain
+(fog/calibration → measurement placement → shape select → lens → tracker →
+pan), and is there a story that stages a spatial overlap with each of the
+things ranked above and below it in that chain — not just a story proving
+the new interaction works when nothing else is present.
+
+## 29. Animated spell effects: a curated subset, fetched at runtime, never vendored
+
+**Decision.** A placed measurement shape sourced from a spell (issue #1's
+follow-up) can play a short animated video clip instead of its plain static
+footprint. The clips come from
+[`jackkerouac/animated-spell-effects`](https://github.com/jackkerouac/animated-spell-effects)
+(GPL-3.0, ~1.25GB, transparent WebM). Exactly like the Open5e library
+(DECISIONS #12), the clips are fetched at library-import time into the
+campaign volume — never vendored into this repo's git history and never
+baked into the Docker image. Unlike the Open5e library, only a small,
+hand-picked subset is ever fetched: `~/server/library/effectCandidates`
+matches at most one clip per (damage type, area shape) combination, not per
+spell, and most spells (anything with no damage type, or a shape this
+feature doesn't model) get none at all. In practice this means a few dozen
+clips total, not several hundred — a materially different footprint from
+"the whole repo," which is what makes fetching it automatically on first
+boot (mirroring `LIBRARY_AUTO_IMPORT`) a reasonable default rather than
+something that needed its own opt-in flag.
+
+**Why there's no per-spell mapping in the source repo to lean on.** It was
+checked before building anything: the repo is a general library of ~400
+elemental VFX clips grouped by theme (`fire/`, `ice/`, `lightning/`, …),
+tagged only with a shape suffix (`_CIRCLE_`/`_CONE_`/`_RAY_`/`_SQUARE_`), not
+a spell compendium — not even in its own Foundry VTT module manifest
+(`scripts/effects.js`), which carries only generic labels like "FIRE -
+Explosion 01". `EFFECT_CANDIDATES` is therefore hand-curated data, not a
+runtime folder/keyword matcher: reviewable as code, and immune to silently
+picking a different file if the upstream listing is ever reordered.
+Deliberately excluded: bludgeoning/piercing/slashing damage, which has no
+elemental theme to match — the same "no good match, so no guess" rule
+`mapDamageTypesToColor` already follows for a shape's colour.
+
+**Why content-addressed storage.** Many spells commonly match the exact same
+clip (every fire-damage circle spell, for instance), so `spell_effects` rows
+are deduplicated by hashing the clip's upstream path
+(`~/utils/effectStorage`) into its on-disk filename — one download and one
+file no matter how many spells reference it, rather than one copy per spell.
+
+**Why a licence stronger than the SRD's CC-BY-4.0 matters here.** GPL-3.0 is
+copyleft in a way CC-BY isn't. The non-vendoring pattern that already existed
+for the SRD library turns out to be exactly the right shape for this too:
+nothing GPL-licensed ships as part of this project's own distribution (the
+git repository or the Docker image) — a campaign's Docker volume fetches it
+for itself, the same as it fetches its own creature and spell data. Credited
+in the README per the licence's own requirement, the same way the SRD's
+CC-BY-4.0 credit already is.
+
+**Why a spell's effect never fails the library import.** `importSpellEffects`
+catches per-spell (a flaky fetch, a write error) and the outer
+`importLibrary` call wraps the whole step in its own `try`/`catch` — a
+network hiccup fetching video must never turn a `pnpm db:import` or a first
+boot's automatic import that would otherwise have succeeded into a failed
+one. An animated effect is a bonus layered onto a working text library,
+never a reason to leave one half-imported.

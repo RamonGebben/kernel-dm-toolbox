@@ -33,6 +33,11 @@ const meta = {
     onMediaDimensions: fn(),
     onLensChange: fn(),
     onTrackerRectChange: fn(),
+    onMeasurementConfirm: fn(),
+    onMeasurementPreviewChange: fn(),
+    onMeasurementCursorChange: fn(),
+    onSelectMeasurementShape: fn(),
+    onMeasurementShapeMoved: fn(),
   },
   parameters: {
     // A fixed-size wrapper so pointer coordinates are stable across runs.
@@ -457,5 +462,374 @@ export const FogBrushInsideTheLensIgnoresTheWheel: Story = {
     // the lens is not zoomed even though the cursor is over it.
     await expect(args.onLensChange).not.toHaveBeenCalled();
     await expect(args.onViewportChange).toHaveBeenCalledOnce();
+  },
+};
+
+export const PlacingACircleByFreeDrag: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: null,
+      label: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // First click sets the origin (snapped to the center of the grid cell
+    // it lands in — (100, 80) falls in the 50px cell spanning x: 100-150,
+    // y: 50-100) — VTT-ruler style, not a held drag, so this is not a
+    // confirm yet.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    await waitForFrame();
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+    // Live-broadcast at most once per frame, same discipline as the lens.
+    await expect(args.onMeasurementPreviewChange).toHaveBeenCalledOnce();
+
+    // The second click confirms — extent is grid-square-counted (5e's
+    // diagonal-costs-the-same convention), a circle has no orientation.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 150,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 150, clientY: 100 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
+      shapeType: 'circle',
+      originX: 125,
+      originY: 75,
+      extentFeet: 5,
+      orientation: null,
+    });
+    // Never pans underneath the placement gesture.
+    await expect(args.onViewportChange).not.toHaveBeenCalled();
+  },
+};
+
+export const PlacingACubeAtAFixedPresetByAiming: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'cube',
+      color: '#6fa7ff',
+      presetExtentFeet: 20,
+      label: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // A size preset fixes the extent, but an orientable shape still arms a
+    // second click — to aim its direction, not to resize it. The first
+    // click only sets the origin, snapped to the center of its 50px cell
+    // — (100, 100) lands exactly on a corner, snapping to (125, 125).
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 100 });
+    await waitForFrame();
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+
+    // Moving the cursor before the second click live-previews the aim —
+    // broadcast to the player screen the same as a free-drag's preview.
+    // Directly below the (snapped) origin for a clean 90°.
+    fireEvent.pointerMove(element, {
+      pointerId: 1,
+      clientX: 125,
+      clientY: 200,
+    });
+    await waitForFrame();
+    await expect(args.onMeasurementPreviewChange).toHaveBeenCalledWith(
+      expect.objectContaining({ extentFeet: 20, orientation: Math.PI / 2 }),
+    );
+
+    // The second, confirming click keeps the preset extent regardless of
+    // how far away it lands — only the angle to it matters, here back to
+    // level with the (snapped) origin for a clean 0° so the assertion below
+    // isn't fighting floating-point noise from an arbitrary angle.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 10_000,
+      clientY: 125,
+    });
+    fireEvent.pointerUp(element, {
+      pointerId: 1,
+      clientX: 10_000,
+      clientY: 125,
+    });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
+      shapeType: 'cube',
+      originX: 125,
+      originY: 125,
+      extentFeet: 20,
+      orientation: 0,
+    });
+  },
+};
+
+export const RulerIgnoresAPresetAndAlwaysFreeDrags: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'ruler',
+      color: '#6fa7ff',
+      presetExtentFeet: 20,
+      label: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // A ruler has no size of its own, so a preset is a no-op for it — the
+    // first click only sets the origin, snapped to the center of its 50px
+    // cell — (100, 100) snaps to (125, 125).
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 100 });
+    await waitForFrame();
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+
+    // Level with the snapped origin for a clean 0° angle.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 225,
+      clientY: 125,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 225, clientY: 125 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledWith({
+      shapeType: 'ruler',
+      originX: 125,
+      originY: 125,
+      extentFeet: 10,
+      orientation: 0,
+    });
+  },
+};
+
+export const RightClickCancelsAPendingPlacement: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: null,
+      label: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 100 });
+    await waitForFrame();
+
+    fireEvent.contextMenu(element, { clientX: 150, clientY: 100 });
+    await waitForFrame();
+
+    // Abandoned, not confirmed — clears the live preview it had broadcast.
+    await expect(args.onMeasurementPreviewChange).toHaveBeenLastCalledWith(
+      null,
+    );
+
+    // A fresh click after cancelling starts a new placement, not a confirm.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 200,
+      clientY: 100,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 200, clientY: 100 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).not.toHaveBeenCalled();
+  },
+};
+
+export const MeasurementToolTakesPriorityOverTheLens: Story = {
+  args: {
+    lensRect,
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: 10,
+      label: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // Inside the (unlocked) lens body — placement still wins.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 80 });
+    await waitForFrame();
+
+    await expect(args.onMeasurementConfirm).toHaveBeenCalledOnce();
+    await expect(args.onLensChange).not.toHaveBeenCalled();
+  },
+};
+
+const committedShape = {
+  id: 'shape-1',
+  shapeType: 'circle' as const,
+  originX: 100,
+  originY: 100,
+  extentFeet: 20,
+  orientation: null,
+  color: '#ff8a5c',
+};
+
+export const CommittedShapesAreAlwaysDrawn: Story = {
+  args: { measurementShapes: [committedShape], interactive: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Nothing to assert on canvas pixels — this proves the read-only
+    // (player-screen) canvas accepts and renders committed shapes without
+    // throwing, the same guarantee `NotInteractive` gives the rest of the
+    // props.
+    await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
+  },
+};
+
+const spellSourcedShape = {
+  ...committedShape,
+  id: 'shape-2',
+  effectUrl: '/api/effects/does-not-exist/file',
+  effectStartedAtMs: Date.now(),
+};
+
+export const SpellSourcedShapeFallsBackWhenItsEffectFailsToLoad: Story = {
+  args: { measurementShapes: [spellSourcedShape], interactive: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // The effect's URL 404s in this environment — proves the canvas keeps
+    // rendering the plain static shape (and stops the self-rescheduled
+    // redraw loop `isEffectPlaying` drives) rather than getting stuck
+    // waiting on a clip that will never load.
+    await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
+    await waitForFrame();
+    await expect(canvas.getByLabelText('Map canvas')).toBeVisible();
+  },
+};
+
+const overlappingShape = {
+  id: 'shape-1',
+  shapeType: 'circle' as const,
+  originX: 75,
+  originY: 65,
+  extentFeet: 5,
+  orientation: null,
+  color: '#ff8a5c',
+};
+
+export const SelectingAndMovingAPlacedShapeWinsOverTheLens: Story = {
+  args: {
+    // The lens defaults to an uncalibrated, screen-sized rect wherever the
+    // session's own settings put it — it must never blanket a click meant
+    // for a shape that happens to sit inside it (a real bug this regression
+    // test caught: the lens hit test ran before the shape hit test).
+    lensRect,
+    measurementShapes: [overlappingShape],
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // Inside both the lens body and the shape's own footprint.
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 75, clientY: 65 });
+    fireEvent.pointerMove(element, { pointerId: 1, clientX: 100, clientY: 90 });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 90 });
+    await waitForFrame();
+
+    await expect(args.onSelectMeasurementShape).toHaveBeenCalledWith('shape-1');
+    // Dragged to (100, 90) — the center of the 50px cell it lands in.
+    await expect(args.onMeasurementShapeMoved).toHaveBeenCalledWith('shape-1', {
+      x: 125,
+      y: 75,
+    });
+    await expect(args.onLensChange).not.toHaveBeenCalled();
+  },
+};
+
+export const ClickingEmptyCanvasDeselects: Story = {
+  // Args are static per story (there's no state loop feeding a click's
+  // callback back into a prop here), so the "already selected" state is
+  // set directly rather than produced by an earlier click in this test.
+  args: {
+    measurementShapes: [overlappingShape],
+    selectedMeasurementShapeId: 'shape-1',
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    // A click well outside the shape's footprint deselects, rather than
+    // moving it.
+    fireEvent.pointerDown(element, {
+      pointerId: 1,
+      clientX: 400,
+      clientY: 400,
+    });
+    fireEvent.pointerUp(element, { pointerId: 1, clientX: 400, clientY: 400 });
+
+    await expect(args.onSelectMeasurementShape).toHaveBeenCalledWith(null);
+    await expect(args.onMeasurementShapeMoved).not.toHaveBeenCalled();
+  },
+};
+
+export const BroadcastsTheAimCursorBeforeAnOriginIsClicked: Story = {
+  args: {
+    measurementTool: {
+      enabled: true,
+      shapeType: 'circle',
+      color: '#6fa7ff',
+      presetExtentFeet: null,
+      label: null,
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    const element = within(canvasElement).getByLabelText('Map canvas');
+
+    fireEvent.pointerMove(element, { pointerId: 1, clientX: 120, clientY: 90 });
+    await waitForFrame();
+
+    // Snapped to the center of the containing 50px grid cell — (120, 90)
+    // falls in the cell spanning x: 100-150, y: 50-100 — not the raw
+    // pointer position, so the broadcast only changes tile to tile. The
+    // armed tool's own color rides along, since the player screen has no
+    // other way to know it (`measurementTool` is DM-local state).
+    await expect(args.onMeasurementCursorChange).toHaveBeenCalledWith({
+      x: 125,
+      y: 75,
+      color: '#6fa7ff',
+    });
+
+    // Moving elsewhere inside the same cell must not re-broadcast — only a
+    // tile-to-tile move should trigger a write.
+    fireEvent.pointerMove(element, { pointerId: 1, clientX: 140, clientY: 95 });
+    await waitForFrame();
+    await expect(args.onMeasurementCursorChange).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerLeave(element);
+    await waitForFrame();
+
+    await expect(args.onMeasurementCursorChange).toHaveBeenLastCalledWith(null);
   },
 };

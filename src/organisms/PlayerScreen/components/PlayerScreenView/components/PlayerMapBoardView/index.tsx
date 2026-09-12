@@ -4,11 +4,16 @@ import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import { MapCanvasView } from '~/organisms/MapCanvas/components/MapCanvasView';
 import type { Viewport } from '~/utils/mapViewport';
-import type { PlayerMapViewMap } from '~/server/maps/toPlayerMapView';
+import type {
+  PlayerMapView,
+  PlayerMapViewMap,
+} from '~/server/maps/toPlayerMapView';
 
 export type PlayerMapBoardViewProps = {
   map: PlayerMapViewMap | null;
   viewport: Viewport;
+  livePreviewShape?: PlayerMapView['livePreviewShape'];
+  measurementCursor?: PlayerMapView['measurementCursor'];
 };
 
 /**
@@ -19,6 +24,8 @@ export type PlayerMapBoardViewProps = {
 export const PlayerMapBoardView = ({
   map,
   viewport,
+  livePreviewShape = null,
+  measurementCursor = null,
 }: PlayerMapBoardViewProps) => {
   if (!map) {
     return (
@@ -46,6 +53,24 @@ export const PlayerMapBoardView = ({
         fog={map.fog}
         fogOpacity={map.fogOpacity}
         backgroundColor={map.backgroundColor}
+        measurementShapes={map.measurementShapes}
+        measurementLabelScale={map.measurementLabelScale}
+        measurementCursorScale={map.measurementCursorScale}
+        livePreviewShape={
+          livePreviewShape
+            ? {
+                id: 'live-preview',
+                shapeType: livePreviewShape.shapeType,
+                originX: livePreviewShape.originX,
+                originY: livePreviewShape.originY,
+                extentFeet: livePreviewShape.extentFeet,
+                orientation: livePreviewShape.orientation,
+                color: livePreviewShape.color,
+                label: livePreviewShape.label,
+              }
+            : null
+        }
+        measurementCursor={measurementCursor}
       />
     </Wrapper>
   );

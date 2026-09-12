@@ -344,6 +344,20 @@ is a key in that map, not a dependency.
 There is **no campaign header**. The campaign name is in the browser tab title
 only (DECISIONS #25).
 
+**Opening `/player` goes through `window.open`, not a plain `target="_blank"`
+anchor — but it's still an anchor.** `~/molecules/OpenPlayerScreenLink` is an
+`<a href="/player" target="_blank" rel="noreferrer">` whose `onClick` only
+intercepts a plain left-click (no modifier key) to call `window.open('/player',
+'kernel-dm-toolbox-player-screen')` instead — a named window, so a second
+plain click refocuses the window already open (one the DM likely dragged out
+to a second monitor/TV already) rather than spawning a fresh tab every time.
+A ctrl/cmd/shift/alt-click returns early and lets the anchor's own `href`/
+`target` do the native thing; middle-click and the right-click context menu
+("open in new tab", "copy link") never fire `onClick` at all, so they were
+never at risk. Shared by the tracker's own panel footer (`TrackerTemplate`)
+and the Maps tool's Player Screen tab (`SessionControlsView`) — the same
+action, not two.
+
 ## The initiative tracker
 
 The first real feature. A replacement for Improved Initiative: a three-panel
@@ -377,6 +391,15 @@ import_runs              which git ref was imported, when, row counts
 one of the few Open5e models with no slug. `fixtures.ts` has a
 `numericPkFixtureRecord` for exactly this, so every library table still has a
 text primary key.
+
+One more library-adjacent table, `spell_effects`, is **not** from Open5e — it
+maps a spell to an animated effect clip from a different upstream
+(`jackkerouac/animated-spell-effects`, GPL-3.0), matched by damage type and
+area shape at import time (`~/server/library/effectCandidates`, DECISIONS
+#29). It's exempt from `syncMeta` for the same reason the tables above are:
+derived, not user data, rewritten wholesale on every import — it just has a
+different upstream to point at when asking "why does this row look like
+this".
 
 Library tables are **the one exception to `syncMeta`**. They are not user data:
 never edited, nothing to reconcile, no soft deletes. Everything else in the app
@@ -506,12 +529,16 @@ tracker, sharing its `/player` route and the SSE pattern (DECISIONS #18).
 ### Domain model
 
 ```
-map_folders    one level deep — a folder never nests inside another
-maps           an uploaded image/video; grid calibration and fog of war live
-               here, per map, not globally
-map_sessions   singleton (`CURRENT_MAP_SESSION_ID`), mirroring `encounters`:
-               the active map, the DM's own viewport, the player-view lens,
-               grid display prefs, and the player screen mode
+map_folders             one level deep — a folder never nests inside another
+maps                    an uploaded image/video; grid calibration and fog of
+                        war live here, per map, not globally
+map_sessions            singleton (`CURRENT_MAP_SESSION_ID`), mirroring
+                        `encounters`: the active map, the DM's own viewport,
+                        the player-view lens, grid display prefs, the player
+                        screen mode, the in-progress measurement preview, and
+                        the DM's live "aim" cursor before it
+map_measurement_shapes  a placed ruler or spell-area template, per map;
+                        several coexist, each cleared individually
 ```
 
 Maps tables spread `syncMeta` like every other session table — unlike the
@@ -572,9 +599,174 @@ Open5e library, none of this is read-only reference data.
   `window.devicePixelRatio` at draw time — on a 3x display this roughly
   halves the pixels rasterized every frame, and removes a drift risk between
   two independent reads of the same value.
+- **The ruler and spell-area templates measure in grid squares, not
+  pixels.** `~/utils/mapMeasurement` uses 5e's tabletop convention —
+  grid-square counting, a diagonal costs the same as an orthogonal move
+  (Chebyshev distance in grid cells) — never true Euclidean geometry. This is
+  a deliberate divergence from the pixel-accurate `mapViewport`/`mapLens`
+  math elsewhere on this canvas; do not "fix" it to match (DECISIONS #27).
+  Only the origin snaps — to the selected tile's **center**
+  (`snapPointToGridCellCenter`), not its nearest corner, so a shape always
+  originates from the middle of the square it's placed in, the same as
+  where a token/creature sits — a cone/line/cube's orientation stays a
+  free angle.
+- **A placement is two clicks, not a held drag** — origin click, then the
+  shape live-follows the cursor, then a confirm click — mirroring
+  `calibrationStart`/`calibrationPreviewRef`'s two-click flow, not the
+  fog brush's continuous stroke. The pending origin and live-follow shape
+  are local refs inside `useViewportInteraction`, never round-tripped
+  through React state or the zustand store — nothing outside the canvas
+  needs the in-progress point, the same reasoning `calibrationPreviewRef`
+  already documents.
+- **A size preset fixes the extent, not the gesture.** Picking a 5e preset
+  size (or a spell via `mapSpellShapeType`) sets
+  `measurementTool.presetExtentFeet`. For a `circle` — no facing to aim —
+  the next click commits immediately at that exact size, since a second
+  click would have nothing left to do. Every other shape still arms a
+  second click, but to aim its direction rather than to free-drag its size:
+  the origin click fixes both position and extent, and the cursor between
+  the two clicks only rotates it (`computeAimPreview`, distinct from
+  `computeMeasurementPreview`'s distance-derived extent for a custom/no-
+  preset placement), broadcast live to the player screen the same way a
+  free-drag's in-progress preview already is. A `ruler` has no size of its
+  own and always free-drags regardless (DECISIONS #27).
+- **Picking a spell also auto-assigns the shape's colour from its damage
+  type** — `mapDamageTypesToColor` (a fixed hex palette: acid green, fire
+  red, cold icy blue, radiant gold, …). Only overrides `measurementTool.color`
+  when a mapping exists; a spell with no damage type (a buff, a utility
+  effect) leaves whatever colour was already set untouched rather than
+  overwriting it with a guess. The first listed damage type wins for a spell
+  with more than one (`listSpells` now selects `damageTypes` for this).
+- **The live-drag preview reuses the lens's exact broadcast pattern.**
+  `map_sessions.livePreviewShape` (nullable JSON) is written from the same
+  RAF-notify scheduler as `onLensChange`, at most once per animation frame,
+  and read back out through `toPlayerMapView`/SSE — so `/player` tracks a
+  shape while the DM is still aiming it, not just once it's committed to
+  `map_measurement_shapes`. Committed shapes need no player-side filtering:
+  every placed shape is meant to be seen, there is no "secret" measurement.
+- **Every shape (committed, live-drag, or remote) draws its distance as a
+  label at its far end.** `computeShapeLabelAnchor` + `buildMeasurementLabelText`
+  are pure and shared by all three draw call sites in `MapCanvasView`, so a
+  DM reading their own drag, a spectator reading the player screen's live
+  preview, and a glance at an already-placed shape all read the same text in
+  the same spot.
+- **A shape's label font size is a session-wide multiplier, not a per-shape
+  or per-screen setting.** `map_sessions.measurementLabelScale` (default 1,
+  0.5–3 range, same TV-readability purpose as `trackerOverlayScale`'s own
+  0.5–2 range — a TV viewed from across the room needs bigger text than a
+  monospace label sized for a DM's own laptop) scales the base 12px font
+  `drawShapeLabel` draws at, plus its
+  background box's padding/offset so a larger label doesn't crowd or
+  overflow a box sized for the default. Set from the Measure panel's own
+  preset buttons (`LABEL_SCALE_PRESETS`), it applies retroactively to every
+  label already on the board — unlike `color`/`label`, which are baked into
+  a shape at creation — and identically on the DM and player canvases, since
+  both draw through the same `MapCanvasView` prop.
+- **Before an origin is even clicked, the player screen shows an "aim"
+  reticle at the DM's live cursor.** `map_sessions.measurementCursor`
+  (nullable JSON, same per-map-id guard as `livePreviewShape`) is written
+  from the same RAF scheduler, but only while the tool is armed _and_ no
+  shape preview exists yet — once a shape preview exists it takes over, so
+  the two never draw at once. Requires `useViewportInteraction`'s
+  `handlePointerMove` to call `onScheduleDraw()` on every move while armed
+  even with no drag in progress (mirroring the fog brush's hover-preview
+  cadence) — the RAF loop is what actually broadcasts it, so without this
+  the cursor updates the ref but nothing ever notices. The broadcast value
+  is `snapPointToGridCellCenter` of the raw pointer (`~/utils/
+mapMeasurement`), not the raw position — the diff check that gates
+  `onMeasurementCursorChange` (in `MapCanvasView`'s `scheduleDraw`) then
+  only fires a write when the cursor crosses into a different grid cell,
+  not on every pixel of movement, which is what keeps a sweeping gesture
+  from hammering `setMeasurementCursor`. The reticle's own radius is a
+  further `measurementCursorScale` multiplier on `map_sessions` (same
+  TV-readability shape as `measurementLabelScale`, its own preset row in
+  the Measure panel) — a DM watching a small monitor and a TV across the
+  room need different sizes for the same 8px base radius. The whole grid
+  cell under the aim point is also highlighted (fill + stroke, tinted the
+  armed tool's own color) — on _both_ canvases, not just the player's:
+  `MapCanvasView`'s draw code resolves the cell to highlight from
+  `cursorMapPosRef` (the DM's own live pointer, always null on a
+  non-interactive canvas since it has no pointer handler to populate it)
+  falling back to the broadcast `measurementCursor`, so the same branch
+  serves the DM's own canvas and the player screen without either passing
+  the other's data around. The small reticle stays player-only — the DM
+  already sees their real cursor inside the highlighted tile.
+- **A placed shape's hit test must run — and win — before the lens/tracker
+  hit test, not after.** `map_sessions`' lens defaults to an uncalibrated,
+  screen-sized rect (`computeLensRect` off the session's own defaults, e.g.
+  1920×1080) that in practice blankets almost any point on a freshly
+  uploaded map. `findHitMeasurementShape` in `useViewportInteraction` is
+  computed once per `pointerdown`, ahead of the tracker/lens checks, and
+  gates them (`!hitShape`) the same way `isFogToolActive()`/calibration
+  already do — otherwise a click meant to select/drag a shape silently
+  grabs the lens instead. Caught by
+  `SelectingAndMovingAPlacedShapeWinsOverTheLens` after showing up as a
+  real, reproducible bug against the dev server — storybook's synthetic
+  events didn't exercise the default (non-null) lens rect the way a real
+  session does, worth remembering when a canvas-interaction change looks
+  correct in stories but hasn't been driven against a live session.
+- **Selecting and dragging a placed shape is a single grab-and-drag
+  gesture, not select-then-drag.** `pointerdown` on a hit shape both selects
+  it (`onSelectMeasurementShape`) and starts the move in one step; a plain
+  click (no movement) still counts as a select since the resulting no-op
+  update is harmless. The moving shape is excluded from the committed-shapes
+  draw loop (via `movingShapeIdRef`) so it isn't rendered twice — once stale
+  at its old position, once live at the new one. Only available while the
+  placement tool is disarmed (`!isMeasurementToolActive()`); an armed click
+  always means "place a new shape," never "grab an existing one." Clicking
+  empty canvas (tool disarmed, nothing hit) clears the selection.
+- **A spell-sourced shape's animated effect plays once — or loops for the
+  spell's whole duration — from `effectPlaybackStartedAt`/`effectLoops`, both
+  set only at creation.** `map_measurement_shapes` carries `sourceSpellSlug`
+  (already existed, for the auto-fill), `effectPlaybackStartedAt`, and
+  `effectLoops`; `createMeasurementShape` looks up the source spell's own
+  `duration` column and sets both from it (`shouldLoopSpellEffect`,
+  `~/utils/mapMeasurement`: false for `'instantaneous'`, true for a real
+  duration like `'1 minute'` or `'until dispelled'`) iff `sourceSpellSlug` is
+  present. A later `updateMeasurementShape` (drag-to-move) never touches
+  either — moving an already-placed shape must not replay or re-arm its
+  clip. The URL itself (`buildSpellEffectUrl`, `~/utils/mapMeasurement`) is
+  derived purely from the slug, never stored: whether that spell actually
+  matched a clip at import time is irrelevant to the DM/player canvas code,
+  which only ever finds out by trying to load it — a missing `spell_effects`
+  row is a plain 404, and the canvas falls back to the static shape exactly
+  as it would for a load failure. For a one-shot (non-looping) shape,
+  `isEffectPlaying` (pure) decides whether it's still within its play window
+  from the clip's own local `ended` state (see below) — **not** from
+  comparing wall-clock elapsed time against the clip's real duration, which
+  an earlier version of this function did and which could read false before
+  a single frame was ever drawn: most clips are only ~2s, far shorter than
+  the network+render latency between placement and a client actually having
+  a decodable frame can be, especially over SSE to the player screen. A
+  looping shape (`effectLoops`) skips `isEffectPlaying`'s gating entirely in
+  `MapCanvasView` — the browser's own `video.loop` (set at the element's
+  creation, see below) is what makes it repeat; the draw loop just always
+  shows it for as long as the shape exists and its clip hasn't failed to
+  load, i.e. until the DM removes the shape ("the spell gets cleared").
+  Either way, `MapCanvasView` self-reschedules its own RAF loop for exactly
+  as long as any shape's effect is active, then goes idle again — nothing
+  else about this canvas runs a free-running timer, so this is the one
+  exception, contained entirely inside `drawScene`'s own `hasActiveEffect`
+  check.
+- **Several shapes can have effects playing at once**, unlike the map's own
+  media (`useMapMedia`, always exactly one active image/video) — so
+  `useSpellEffectVideoCache` is a pool of `<video>` elements keyed by
+  **shape id**, not clip URL. Two placements of the same spell (two
+  Fireballs) share a URL but must never share a video element — keying by
+  URL would make the second placement silently read the first one's
+  already-`ended` state instead of starting its own; the cache learned this
+  the hard way. Each element free-runs on its own clock from creation; the
+  DM's and the player's independently-created elements for the same clip are
+  never explicitly synced to each other. A cache entry is never evicted on
+  its own — `pruneVideos` must be (and is, from a `useEffect` keyed on the
+  shape list) called with the currently-live shape ids whenever the shape
+  list changes, pausing and discarding any element whose shape was removed.
+  Without this a looping effect's element would keep decoding/playing
+  forever off-screen once nothing on the board referenced its URL any more.
 
 Built: the gallery (folders, upload, rename/move/remove), the canvas (pan,
 zoom, grid calibration, fog of war with a reveal/cover brush), the live
 session (active map, DM viewport persistence, the draggable lens, the
-mode toggle), and the mode-aware player screen. Not started: the
+mode toggle), the mode-aware player screen, and the ruler/spell-area
+measurement tool with animated spell-effect playback. Not started: the
 Artwork/handout gallery the source app also had.
