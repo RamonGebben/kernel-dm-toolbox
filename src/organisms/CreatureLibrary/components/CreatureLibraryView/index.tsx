@@ -3,13 +3,24 @@
 import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
+import { Button } from '~/atoms/Button';
 import { CreatureListItem } from '~/molecules/CreatureListItem';
 
-export type CreatureSummary = {
-  slug: string;
-  name: string;
-  challengeRatingLabel: string;
-};
+export type CreatureSource = 'library' | 'custom' | 'all';
+
+export type CreatureSummary =
+  | {
+      source: 'library';
+      slug: string;
+      name: string;
+      challengeRatingLabel: string;
+    }
+  | {
+      source: 'custom';
+      id: string;
+      name: string;
+      challengeRatingLabel: string;
+    };
 
 export type CreatureLibraryViewProps = {
   isPending: boolean;
@@ -17,10 +28,14 @@ export type CreatureLibraryViewProps = {
   isLibraryImported: boolean;
   creatures: readonly CreatureSummary[];
   search: string;
+  source: CreatureSource;
   selectedSlug: string | null;
+  selectedCustomCreatureId: string | null;
   onSearchChange: (search: string) => void;
-  onSelect: (slug: string) => void;
-  onAdd: (slug: string) => void;
+  onSourceChange: (source: CreatureSource) => void;
+  onSelect: (creature: CreatureSummary) => void;
+  onAdd: (creature: CreatureSummary) => void;
+  onNewCreature: () => void;
 };
 
 /**
@@ -35,10 +50,14 @@ export const CreatureLibraryView = ({
   isLibraryImported,
   creatures,
   search,
+  source,
   selectedSlug,
+  selectedCustomCreatureId,
   onSearchChange,
+  onSourceChange,
   onSelect,
   onAdd,
+  onNewCreature,
 }: CreatureLibraryViewProps) => (
   <Wrapper>
     <Controls>
@@ -49,6 +68,18 @@ export const CreatureLibraryView = ({
         aria-label="Filter creatures"
         disabled={!isLibraryImported}
       />
+      <SourceSelect
+        value={source}
+        onChange={event => onSourceChange(event.target.value as CreatureSource)}
+        aria-label="Filter by source"
+      >
+        <option value="all">All creatures</option>
+        <option value="library">Library only</option>
+        <option value="custom">Custom only</option>
+      </SourceSelect>
+      <Button type="button" size="sm" onClick={onNewCreature}>
+        New Creature
+      </Button>
     </Controls>
     <Results>
       <ResultsBody
@@ -57,6 +88,7 @@ export const CreatureLibraryView = ({
         creatures={creatures}
         search={search}
         selectedSlug={selectedSlug}
+        selectedCustomCreatureId={selectedCustomCreatureId}
         onSelect={onSelect}
         onAdd={onAdd}
       />
@@ -64,7 +96,10 @@ export const CreatureLibraryView = ({
   </Wrapper>
 );
 
-type ResultsBodyProps = Omit<CreatureLibraryViewProps, 'onSearchChange'>;
+type ResultsBodyProps = Omit<
+  CreatureLibraryViewProps,
+  'onSearchChange' | 'source' | 'onSourceChange' | 'onNewCreature'
+>;
 
 /**
  * A real named subcomponent rather than a local JSX const, so the three
@@ -76,6 +111,7 @@ const ResultsBody = ({
   creatures,
   search,
   selectedSlug,
+  selectedCustomCreatureId,
   onSelect,
   onAdd,
 }: ResultsBodyProps) => {
@@ -103,23 +139,45 @@ const ResultsBody = ({
 
   return (
     <List>
-      {creatures.map(creature => (
-        <li key={creature.slug}>
-          <CreatureListItem
-            name={creature.name}
-            challengeRatingLabel={creature.challengeRatingLabel}
-            isSelected={creature.slug === selectedSlug}
-            onSelect={() => onSelect(creature.slug)}
-            onAdd={() => onAdd(creature.slug)}
-          />
-        </li>
-      ))}
+      {creatures.map(creature => {
+        const isSelected =
+          creature.source === 'library'
+            ? creature.slug === selectedSlug
+            : creature.id === selectedCustomCreatureId;
+
+        return (
+          <li
+            key={`${creature.source}-${creature.source === 'library' ? creature.slug : creature.id}`}
+          >
+            <CreatureListItem
+              name={creature.name}
+              challengeRatingLabel={creature.challengeRatingLabel}
+              isCustom={creature.source === 'custom'}
+              isSelected={isSelected}
+              onSelect={() => onSelect(creature)}
+              onAdd={() => onAdd(creature)}
+            />
+          </li>
+        );
+      })}
     </List>
   );
 };
 
 const Controls = styled.div`
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: ${props => props.theme.space.xs};
+`;
+
+const SourceSelect = styled.select`
+  padding: ${props => props.theme.space.sm};
+  background: ${props => props.theme.color.canvas};
+  border: 1px solid ${props => props.theme.color.border};
+  border-radius: ${props => props.theme.radius.sm};
+  color: ${props => props.theme.color.textPrimary};
+  font-family: inherit;
+  font-size: ${props => props.theme.fontSize.md};
 `;
 
 const Wrapper = styled.div`

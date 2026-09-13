@@ -1,10 +1,23 @@
-import { and, asc, gte, inArray, like, lte, or, eq, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  gte,
+  inArray,
+  isNull,
+  like,
+  lte,
+  or,
+  eq,
+  sql,
+} from 'drizzle-orm';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
   conditions,
+  creatureActionAttacks,
   creatureActions,
   creatureTraits,
   creatures,
+  customCreatures,
   importRuns,
   spellCastingOptions,
   spells,
@@ -59,10 +72,16 @@ export const libraryRouter = createTRPCRouter({
     };
   }),
 
+  /**
+   * Merges the read-only Open5e library with the DM's own custom creatures
+   * into one browsable list (issue #3). `category` has no custom-creature
+   * equivalent, so an active category filter excludes every custom row
+   * rather than silently ignoring the filter.
+   */
   listCreatures: publicProcedure
     .input(listCreaturesInputSchema)
     .query(async ({ ctx, input }) => {
-      const filters = [
+      const libraryFilters = [
         input.search
           ? like(creatures.name, `%${input.search.trim()}%`)
           : undefined,
@@ -76,24 +95,66 @@ export const libraryRouter = createTRPCRouter({
           : undefined,
       ].filter(filter => filter !== undefined);
 
-      const rows = await ctx.db
-        .select({
-          slug: creatures.slug,
-          name: creatures.name,
-          size: creatures.size,
-          type: creatures.type,
-          category: creatures.category,
-          challengeRating: creatures.challengeRating,
-          hitPoints: creatures.hitPoints,
-          armorClass: creatures.armorClass,
-          initiativeBonus: creatures.initiativeBonus,
-        })
-        .from(creatures)
-        .where(filters.length ? and(...filters) : undefined)
-        .orderBy(asc(creatures.name))
-        .limit(input.limit);
+      const customFilters = [
+        isNull(customCreatures.deletedAt),
+        input.search
+          ? like(customCreatures.name, `%${input.search.trim()}%`)
+          : undefined,
+        input.type ? eq(customCreatures.type, input.type) : undefined,
+        input.minChallengeRating != null
+          ? gte(customCreatures.challengeRating, input.minChallengeRating)
+          : undefined,
+        input.maxChallengeRating != null
+          ? lte(customCreatures.challengeRating, input.maxChallengeRating)
+          : undefined,
+      ].filter(filter => filter !== undefined);
 
-      return rows.map(row => ({
+      const [libraryRows, customRows] = await Promise.all([
+        input.source === 'custom'
+          ? []
+          : ctx.db
+              .select({
+                slug: creatures.slug,
+                name: creatures.name,
+                size: creatures.size,
+                type: creatures.type,
+                category: creatures.category,
+                challengeRating: creatures.challengeRating,
+                hitPoints: creatures.hitPoints,
+                armorClass: creatures.armorClass,
+                initiativeBonus: creatures.initiativeBonus,
+              })
+              .from(creatures)
+              .where(
+                libraryFilters.length ? and(...libraryFilters) : undefined,
+              ),
+        // A category filter has no custom-creature equivalent — treat it as
+        // "not a match" rather than ignoring it.
+        input.source === 'library' || input.category
+          ? []
+          : ctx.db
+              .select({
+                id: customCreatures.id,
+                name: customCreatures.name,
+                size: customCreatures.size,
+                type: customCreatures.type,
+                challengeRating: customCreatures.challengeRating,
+                hitPoints: customCreatures.hitPoints,
+                armorClass: customCreatures.armorClass,
+                initiativeBonus: customCreatures.initiativeBonus,
+              })
+              .from(customCreatures)
+              .where(and(...customFilters)),
+      ]);
+
+      const merged = [
+        ...libraryRows.map(row => ({ ...row, source: 'library' as const })),
+        ...customRows.map(row => ({ ...row, source: 'custom' as const })),
+      ]
+        .toSorted((left, right) => left.name.localeCompare(right.name))
+        .slice(0, input.limit);
+
+      return merged.map(row => ({
         ...row,
         challengeRatingLabel: formatChallengeRating(row.challengeRating),
       }));
@@ -123,6 +184,58 @@ export const libraryRouter = createTRPCRouter({
       ]);
 
       return buildStatblock({ creature, traits, actions });
+    }),
+
+  /**
+   * The raw row, traits, and actions+attacks for one library creature —
+   * unlike `getCreature`, nothing here is derived or formatted. Feeds the
+   * "New Creature" wizard's copy-from-library step, which needs real
+   * editable numbers (a raw ability score, not a signed modifier; a raw CR,
+   * not its label) rather than `Statblock`'s display-ready prose.
+   */
+  getCreatureRaw: publicProcedure
+    .input(creatureSlugInputSchema)
+    .query(async ({ ctx, input }) => {
+      const creature = await ctx.db.query.creatures.findFirst({
+        where: eq(creatures.slug, input.slug),
+      });
+
+      if (!creature) return null;
+
+      const [traits, actions] = await Promise.all([
+        ctx.db
+          .select()
+          .from(creatureTraits)
+          .where(eq(creatureTraits.creatureSlug, input.slug))
+          .orderBy(asc(creatureTraits.name)),
+        ctx.db
+          .select()
+          .from(creatureActions)
+          .where(eq(creatureActions.creatureSlug, input.slug))
+          .orderBy(asc(creatureActions.sortOrder)),
+      ]);
+
+      const attacks = actions.length
+        ? await ctx.db
+            .select()
+            .from(creatureActionAttacks)
+            .where(
+              inArray(
+                creatureActionAttacks.actionSlug,
+                actions.map(action => action.slug),
+              ),
+            )
+        : [];
+
+      return {
+        creature,
+        traits,
+        actions: actions.map(action => ({
+          ...action,
+          attack:
+            attacks.find(attack => attack.actionSlug === action.slug) ?? null,
+        })),
+      };
     }),
 
   /** The fifteen conditions, for the tag picker in a later milestone. */

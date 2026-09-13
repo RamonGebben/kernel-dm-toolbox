@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { StatblockView } from '~/organisms/StatblockPanel/components/StatblockView';
 import type { Statblock } from '~/server/trpc/helpers/buildStatblock';
 
@@ -75,7 +75,13 @@ const youngBlackDragon: Statblock = {
 const meta = {
   title: 'Organisms/StatblockPanel/StatblockView',
   component: StatblockView,
-  args: { isPending: false, statblock: youngBlackDragon },
+  args: {
+    isPending: false,
+    statblock: youngBlackDragon,
+    isCustom: false,
+    onEdit: fn(),
+    onDelete: fn(),
+  },
 } satisfies Meta<typeof StatblockView>;
 
 export default meta;
@@ -135,6 +141,26 @@ export const SparseCreature: Story = {
     await expect(canvas.queryByText(/^Saves/)).not.toBeInTheDocument();
     await expect(canvas.queryByText('Traits')).not.toBeInTheDocument();
     await expect(canvas.getByText(/1\/8 \(25 XP\)/)).toBeVisible();
+  },
+};
+
+export const CustomCreature: Story = {
+  args: {
+    isCustom: true,
+    statblock: { ...youngBlackDragon, name: 'Homebrew Wyrmling' },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Edit Homebrew Wyrmling' }),
+    );
+    await expect(args.onEdit).toHaveBeenCalledOnce();
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Delete Homebrew Wyrmling' }),
+    );
+    await expect(args.onDelete).toHaveBeenCalledOnce();
   },
 };
 

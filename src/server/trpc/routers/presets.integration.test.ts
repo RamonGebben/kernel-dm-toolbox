@@ -75,8 +75,15 @@ beforeEach(async () => {
 });
 
 const buildTheAmbush = async () => {
-  await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 4 });
-  await caller.encounter.addCreature({ slug: 'srd-2024_hobgoblin' });
+  await caller.encounter.addCreature({
+    source: 'library',
+    slug: 'srd-2024_goblin',
+    count: 4,
+  });
+  await caller.encounter.addCreature({
+    source: 'library',
+    slug: 'srd-2024_hobgoblin',
+  });
 };
 
 describe('presets.saveCurrent', () => {
@@ -105,7 +112,10 @@ describe('presets.saveCurrent', () => {
       playerCharacterId: character.id,
       initiative: 10,
     });
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
 
     await caller.presets.saveCurrent({ name: 'One goblin' });
 
@@ -140,7 +150,11 @@ describe('presets.addToEncounter', () => {
   });
 
   it('numbers around monsters already on the board', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
     await caller.presets.saveCurrent({ name: 'Two goblins' });
 
     const [preset] = await caller.presets.list();
@@ -152,7 +166,10 @@ describe('presets.addToEncounter', () => {
   });
 
   it('rolls fresh initiative rather than restoring a saved one', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     await caller.presets.saveCurrent({ name: 'One goblin' });
 
     const [preset] = await caller.presets.list();
@@ -163,6 +180,77 @@ describe('presets.addToEncounter', () => {
     expect(rows.every(row => row.initiative >= 3 && row.initiative <= 22)).toBe(
       true,
     );
+  });
+});
+
+describe('presets with a mix of library and custom creatures (issue #3)', () => {
+  const customGoblinBoss = {
+    name: 'Goblin Boss',
+    size: 'small',
+    type: 'humanoid',
+    alignment: 'neutral evil',
+    challengeRating: 1,
+    armorClass: 17,
+    hitPoints: 21,
+    hitDice: '6d6',
+    abilityScoreStrength: 10,
+    abilityScoreDexterity: 14,
+    abilityScoreConstitution: 10,
+    abilityScoreIntelligence: 10,
+    abilityScoreWisdom: 9,
+    abilityScoreCharisma: 10,
+    passivePerception: 10,
+  };
+
+  it('saves and re-applies a board with both sources on it', async () => {
+    const customCreature =
+      await caller.customCreatures.create(customGoblinBoss);
+
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
+    await caller.encounter.addCreature({
+      source: 'custom',
+      id: customCreature.id,
+    });
+
+    await caller.presets.saveCurrent({ name: 'Goblin war party' });
+    await caller.encounter.clearNonPlayerCombatants();
+
+    const [preset] = await caller.presets.list();
+    expect(preset.creatureCount).toBe(3);
+    expect(preset.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Goblin', count: 2 }),
+        expect.objectContaining({ name: 'Goblin Boss', count: 1 }),
+      ]),
+    );
+
+    const result = await caller.presets.addToEncounter({ id: preset.id });
+    expect(result.addedCount).toBe(3);
+
+    const { combatants: rows } = await caller.encounter.get();
+    expect(rows).toHaveLength(3);
+    expect(rows.some(row => row.displayName === 'Goblin Boss')).toBe(true);
+    expect(
+      rows.filter(row => /^Goblin \d+$/.test(row.displayName)),
+    ).toHaveLength(2);
+  });
+
+  it('drops the entry from the listing once its custom creature is removed', async () => {
+    const customCreature =
+      await caller.customCreatures.create(customGoblinBoss);
+    await caller.encounter.addCreature({
+      source: 'custom',
+      id: customCreature.id,
+    });
+    await caller.presets.saveCurrent({ name: 'Lone boss' });
+    await caller.customCreatures.remove({ id: customCreature.id });
+
+    const [preset] = await caller.presets.list();
+    expect(preset.entries).toEqual([]);
   });
 });
 

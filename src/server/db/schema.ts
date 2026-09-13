@@ -430,6 +430,163 @@ export type PlayerCharacter = typeof playerCharacters.$inferSelect;
 export type NewPlayerCharacter = typeof playerCharacters.$inferInsert;
 
 /**
+ * A DM-authored ("homebrew") creature, alongside the read-only Open5e
+ * library. Curated to the fields an actual statblock card renders —
+ * spellcasting, lair actions and regional effects are out of scope (issue
+ * #3).
+ *
+ * Column names deliberately mirror `creatures`' own field names so the same
+ * `buildStatblock` derivation can consume either shape — see
+ * `~/server/trpc/helpers/toCustomCreatureStatblockSource`.
+ */
+export const customCreatures = sqliteTable('custom_creatures', {
+  ...syncMeta,
+  name: text('name').notNull(),
+  size: text('size').notNull(),
+  type: text('type').notNull(),
+  alignment: text('alignment').notNull(),
+
+  challengeRating: real('challenge_rating').notNull(),
+
+  armorClass: integer('armor_class').notNull(),
+  armorDetail: text('armor_detail'),
+  hitPoints: integer('hit_points').notNull(),
+  hitDice: text('hit_dice').notNull(),
+  initiativeBonus: integer('initiative_bonus'),
+
+  abilityScoreStrength: integer('ability_score_strength').notNull().default(10),
+  abilityScoreDexterity: integer('ability_score_dexterity')
+    .notNull()
+    .default(10),
+  abilityScoreConstitution: integer('ability_score_constitution')
+    .notNull()
+    .default(10),
+  abilityScoreIntelligence: integer('ability_score_intelligence')
+    .notNull()
+    .default(10),
+  abilityScoreWisdom: integer('ability_score_wisdom').notNull().default(10),
+  abilityScoreCharisma: integer('ability_score_charisma').notNull().default(10),
+
+  savingThrowStrength: integer('saving_throw_strength'),
+  savingThrowDexterity: integer('saving_throw_dexterity'),
+  savingThrowConstitution: integer('saving_throw_constitution'),
+  savingThrowIntelligence: integer('saving_throw_intelligence'),
+  savingThrowWisdom: integer('saving_throw_wisdom'),
+  savingThrowCharisma: integer('saving_throw_charisma'),
+
+  skillBonusAcrobatics: integer('skill_bonus_acrobatics'),
+  skillBonusAnimalHandling: integer('skill_bonus_animal_handling'),
+  skillBonusArcana: integer('skill_bonus_arcana'),
+  skillBonusAthletics: integer('skill_bonus_athletics'),
+  skillBonusDeception: integer('skill_bonus_deception'),
+  skillBonusHistory: integer('skill_bonus_history'),
+  skillBonusInsight: integer('skill_bonus_insight'),
+  skillBonusIntimidation: integer('skill_bonus_intimidation'),
+  skillBonusInvestigation: integer('skill_bonus_investigation'),
+  skillBonusMedicine: integer('skill_bonus_medicine'),
+  skillBonusNature: integer('skill_bonus_nature'),
+  skillBonusPerception: integer('skill_bonus_perception'),
+  skillBonusPerformance: integer('skill_bonus_performance'),
+  skillBonusPersuasion: integer('skill_bonus_persuasion'),
+  skillBonusReligion: integer('skill_bonus_religion'),
+  skillBonusSleightOfHand: integer('skill_bonus_sleight_of_hand'),
+  skillBonusStealth: integer('skill_bonus_stealth'),
+  skillBonusSurvival: integer('skill_bonus_survival'),
+
+  walk: integer('walk'),
+  swim: integer('swim'),
+  fly: integer('fly'),
+  climb: integer('climb'),
+  burrow: integer('burrow'),
+  hover: integer('hover', { mode: 'boolean' }).notNull().default(false),
+
+  darkvisionRange: integer('darkvision_range'),
+  blindsightRange: integer('blindsight_range'),
+  tremorsenseRange: integer('tremorsense_range'),
+  truesightRange: integer('truesight_range'),
+  telepathyRange: integer('telepathy_range'),
+  passivePerception: integer('passive_perception').notNull().default(10),
+
+  /**
+   * Plain prose, unlike the library's paired slug-array + display columns —
+   * v1 has no need to filter custom creatures by resistance type.
+   */
+  damageImmunitiesDisplay: text('damage_immunities_display'),
+  damageResistancesDisplay: text('damage_resistances_display'),
+  damageVulnerabilitiesDisplay: text('damage_vulnerabilities_display'),
+  conditionImmunitiesDisplay: text('condition_immunities_display'),
+
+  languagesDesc: text('languages_desc'),
+});
+
+export type CustomCreature = typeof customCreatures.$inferSelect;
+export type NewCustomCreature = typeof customCreatures.$inferInsert;
+
+export const customCreatureTraits = sqliteTable('custom_creature_traits', {
+  ...syncMeta,
+  customCreatureId: text('custom_creature_id')
+    .notNull()
+    .references(() => customCreatures.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  desc: text('desc').notNull(),
+  type: text('type'),
+});
+
+export type CustomCreatureTrait = typeof customCreatureTraits.$inferSelect;
+export type NewCustomCreatureTrait = typeof customCreatureTraits.$inferInsert;
+
+/** ACTION | BONUS_ACTION | REACTION | LEGENDARY_ACTION, ordered for display. */
+export const customCreatureActions = sqliteTable('custom_creature_actions', {
+  ...syncMeta,
+  customCreatureId: text('custom_creature_id')
+    .notNull()
+    .references(() => customCreatures.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  desc: text('desc').notNull(),
+  actionType: text('action_type').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  legendaryActionCost: integer('legendary_action_cost'),
+  usesType: text('uses_type'),
+  usesParam: integer('uses_param'),
+});
+
+export type CustomCreatureAction = typeof customCreatureActions.$inferSelect;
+export type NewCustomCreatureAction = typeof customCreatureActions.$inferInsert;
+
+/** Structured attack rolls hanging off a custom creature's action. */
+export const customCreatureActionAttacks = sqliteTable(
+  'custom_creature_action_attacks',
+  {
+    ...syncMeta,
+    customCreatureActionId: text('custom_creature_action_id')
+      .notNull()
+      .references(() => customCreatureActions.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    attackType: text('attack_type'),
+    toHitMod: integer('to_hit_mod'),
+    reach: integer('reach'),
+    range: integer('range'),
+    longRange: integer('long_range'),
+    targetCreatureOnly: integer('target_creature_only', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    damageDieCount: integer('damage_die_count'),
+    damageDieType: text('damage_die_type'),
+    damageBonus: integer('damage_bonus'),
+    damageType: text('damage_type'),
+    extraDamageDieCount: integer('extra_damage_die_count'),
+    extraDamageDieType: text('extra_damage_die_type'),
+    extraDamageBonus: integer('extra_damage_bonus'),
+    extraDamageType: text('extra_damage_type'),
+  },
+);
+
+export type CustomCreatureActionAttack =
+  typeof customCreatureActionAttacks.$inferSelect;
+export type NewCustomCreatureActionAttack =
+  typeof customCreatureActionAttacks.$inferInsert;
+
+/**
  * The encounter. There is exactly one (DECISIONS #14), held as a single row
  * with a fixed id so there is never a "which encounter?" question to answer.
  */
@@ -445,10 +602,11 @@ export const encounters = sqliteTable('encounters', {
 /**
  * A row in the initiative order.
  *
- * References the library rather than copying a statblock (DECISIONS #15): it
- * carries only what changes during a fight. Exactly one of `creatureSlug` and
- * `playerCharacterId` is set — the check constraint below enforces it, because
- * a combatant that is both or neither has no statblock to show.
+ * References the library (or a custom creature) rather than copying a
+ * statblock (DECISIONS #15): it carries only what changes during a fight.
+ * Exactly one of `creatureSlug`, `playerCharacterId` and `customCreatureId`
+ * is set — the check constraint below enforces it, because a combatant that
+ * is more than one or none of these has no statblock to show.
  */
 export const combatants = sqliteTable(
   'combatants',
@@ -460,6 +618,9 @@ export const combatants = sqliteTable(
     creatureSlug: text('creature_slug').references(() => creatures.slug),
     playerCharacterId: text('player_character_id').references(
       () => playerCharacters.id,
+    ),
+    customCreatureId: text('custom_creature_id').references(
+      () => customCreatures.id,
     ),
 
     /** "Goblin 3", or "Meat" for a renamed dragon. */
@@ -484,7 +645,10 @@ export const combatants = sqliteTable(
   table => [
     check(
       'combatant_has_exactly_one_source',
-      sql`(${table.creatureSlug} is not null) <> (${table.playerCharacterId} is not null)`,
+      sql`(case when ${table.creatureSlug} is not null then 1 else 0 end)
+        + (case when ${table.playerCharacterId} is not null then 1 else 0 end)
+        + (case when ${table.customCreatureId} is not null then 1 else 0 end)
+        = 1`,
     ),
   ],
 );
@@ -536,20 +700,31 @@ export const encounterPresets = sqliteTable('encounter_presets', {
  *
  * A count rather than one row per monster, because that is how a preset is
  * read and edited — "4 goblins", not four goblins. The individual rows are
- * created when the preset is applied.
+ * created when the preset is applied. Exactly one of `creatureSlug` and
+ * `customCreatureId` is set, same XOR shape as `combatants`' own sources.
  */
-export const encounterPresetEntries = sqliteTable('encounter_preset_entries', {
-  ...syncMeta,
-  presetId: text('preset_id')
-    .notNull()
-    .references(() => encounterPresets.id, { onDelete: 'cascade' }),
-  creatureSlug: text('creature_slug')
-    .notNull()
-    .references(() => creatures.slug),
-  count: integer('count').notNull().default(1),
-  /** Display order within the preset. Never `order` — reserved word. */
-  sortOrder: integer('sort_order').notNull().default(0),
-});
+export const encounterPresetEntries = sqliteTable(
+  'encounter_preset_entries',
+  {
+    ...syncMeta,
+    presetId: text('preset_id')
+      .notNull()
+      .references(() => encounterPresets.id, { onDelete: 'cascade' }),
+    creatureSlug: text('creature_slug').references(() => creatures.slug),
+    customCreatureId: text('custom_creature_id').references(
+      () => customCreatures.id,
+    ),
+    count: integer('count').notNull().default(1),
+    /** Display order within the preset. Never `order` — reserved word. */
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  table => [
+    check(
+      'encounter_preset_entry_has_exactly_one_source',
+      sql`(${table.creatureSlug} is not null) <> (${table.customCreatureId} is not null)`,
+    ),
+  ],
+);
 
 export type EncounterPreset = typeof encounterPresets.$inferSelect;
 export type NewEncounterPreset = typeof encounterPresets.$inferInsert;

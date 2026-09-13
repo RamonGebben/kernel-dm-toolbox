@@ -14,6 +14,7 @@ const meta = {
   },
   argTypes: {
     isSelected: { control: 'boolean' },
+    isCustom: { control: 'boolean' },
     name: { control: 'text' },
     challengeRatingLabel: { control: 'text' },
   },
@@ -56,6 +57,10 @@ export const FractionalChallengeRating: Story = {
 
 export const LongName: Story = {
   args: { name: 'Ancient Brass Dragon of Considerable Renown' },
+};
+
+export const Custom: Story = {
+  args: { name: 'Goblin Boss (homebrew)', isCustom: true },
 };
 
 /** Adding is a distinct action from selecting; one must not trigger the other. */

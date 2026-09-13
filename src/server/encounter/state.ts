@@ -7,6 +7,7 @@ import {
   combatants,
   conditions,
   creatures,
+  customCreatures,
   encounters,
   playerCharacters,
 } from '~/server/db/schema';
@@ -63,8 +64,10 @@ export type EncounterCombatant = {
   isHidden: boolean;
   isDelayed: boolean;
   sortOrder: number;
-  /** Null for a player character. */
+  /** Null for a player character or a custom creature. */
   creatureSlug: string | null;
+  /** Null for a player character or a library creature. */
+  customCreatureId: string | null;
   /** The monster's precomputed initiative bonus, for a reroll. */
   initiativeBonus: number | null;
   playerCharacterId: string | null;
@@ -93,7 +96,7 @@ export const readEncounterState = async (
 ): Promise<EncounterState> => {
   const encounter = await ensureEncounter(db);
 
-  const rows = await db
+  const rawRows = await db
     .select({
       id: combatants.id,
       displayName: combatants.displayName,
@@ -106,13 +109,20 @@ export const readEncounterState = async (
       isDelayed: combatants.isDelayed,
       sortOrder: combatants.sortOrder,
       creatureSlug: combatants.creatureSlug,
+      customCreatureId: combatants.customCreatureId,
       playerCharacterId: combatants.playerCharacterId,
-      initiativeBonus: creatures.initiativeBonus,
-      challengeRating: creatures.challengeRating,
+      libraryInitiativeBonus: creatures.initiativeBonus,
+      libraryChallengeRating: creatures.challengeRating,
+      customInitiativeBonus: customCreatures.initiativeBonus,
+      customChallengeRating: customCreatures.challengeRating,
       partyLevel: playerCharacters.level,
     })
     .from(combatants)
     .leftJoin(creatures, eq(combatants.creatureSlug, creatures.slug))
+    .leftJoin(
+      customCreatures,
+      eq(combatants.customCreatureId, customCreatures.id),
+    )
     .leftJoin(
       playerCharacters,
       eq(combatants.playerCharacterId, playerCharacters.id),
@@ -124,6 +134,22 @@ export const readEncounterState = async (
       ),
     )
     .orderBy(asc(combatants.sortOrder));
+
+  // A combatant's monster stats come from whichever table it actually
+  // references — at most one of the two joins above matched a row.
+  const rows = rawRows.map(
+    ({
+      libraryInitiativeBonus,
+      libraryChallengeRating,
+      customInitiativeBonus,
+      customChallengeRating,
+      ...row
+    }) => ({
+      ...row,
+      initiativeBonus: libraryInitiativeBonus ?? customInitiativeBonus,
+      challengeRating: libraryChallengeRating ?? customChallengeRating,
+    }),
+  );
 
   const appliedConditions = await db
     .select({

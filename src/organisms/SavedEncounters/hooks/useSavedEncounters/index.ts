@@ -12,10 +12,18 @@ import type { SavedEncounterSummary } from '~/organisms/SavedEncounters/componen
  * An absent query result must read as "no", never crash a `.some`.
  */
 export const hasSaveableCreatures = (
-  encounter: { combatants: { creatureSlug: string | null }[] } | undefined,
+  encounter:
+    | {
+        combatants: {
+          creatureSlug: string | null;
+          customCreatureId: string | null;
+        }[];
+      }
+    | undefined,
 ): boolean =>
   (encounter?.combatants ?? []).some(
-    combatant => combatant.creatureSlug !== null,
+    combatant =>
+      combatant.creatureSlug !== null || combatant.customCreatureId !== null,
   );
 
 export const useSavedEncounters = () => {

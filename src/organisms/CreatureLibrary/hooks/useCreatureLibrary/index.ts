@@ -7,7 +7,10 @@ import {
   toLibraryImportState,
   type LibraryImportStatus,
 } from '~/utils/toLibraryImportState';
-import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
+import type {
+  CreatureSource,
+  CreatureSummary,
+} from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 
 export type CreatureLibraryState = {
   isPending: boolean;
@@ -15,6 +18,8 @@ export type CreatureLibraryState = {
   creatures: CreatureSummary[];
   search: string;
   setSearch: (search: string) => void;
+  source: CreatureSource;
+  setSource: (source: CreatureSource) => void;
 };
 
 type ToLibraryStateArgs = {
@@ -37,18 +42,34 @@ export const toLibraryState = ({
   isListPending,
   status,
   creatures,
-}: ToLibraryStateArgs): Omit<CreatureLibraryState, 'search' | 'setSearch'> => ({
+}: ToLibraryStateArgs): Omit<
+  CreatureLibraryState,
+  'search' | 'setSearch' | 'source' | 'setSource'
+> => ({
   ...toLibraryImportState({ isStatusPending, isListPending, status }),
   creatures: creatures ?? [],
 });
+
+/** Builds the union input `encounter.addCreature` expects from either source. */
+export const toAddCreatureInput = (
+  creature: CreatureSummary,
+):
+  | { source: 'library'; slug: string; count: number }
+  | { source: 'custom'; id: string; count: number } =>
+  creature.source === 'library'
+    ? { source: 'library', slug: creature.slug, count: 1 }
+    : { source: 'custom', id: creature.id, count: 1 };
 
 export const useCreatureLibrary = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [source, setSource] = useState<CreatureSource>('all');
 
   const status = useQuery(trpc.library.status.queryOptions());
-  const list = useQuery(trpc.library.listCreatures.queryOptions({ search }));
+  const list = useQuery(
+    trpc.library.listCreatures.queryOptions({ search, source }),
+  );
 
   const addCreature = useMutation(
     trpc.encounter.addCreature.mutationOptions({
@@ -68,6 +89,9 @@ export const useCreatureLibrary = () => {
     }),
     search,
     setSearch,
-    addCreature: (slug: string) => addCreature.mutate({ slug }),
+    source,
+    setSource,
+    addCreature: (creature: CreatureSummary) =>
+      addCreature.mutate(toAddCreatureInput(creature)),
   };
 };
