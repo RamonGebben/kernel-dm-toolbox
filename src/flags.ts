@@ -1,7 +1,5 @@
 import 'server-only';
 
-import { env } from '~/env';
-
 /**
  * Feature gates.
  *
@@ -13,8 +11,9 @@ import { env } from '~/env';
  * The `server-only` import above turns a client import into a build error.
  * Flipping a gate requires a restart of the container — accepted, given one
  * deployment per campaign.
+ *
+ * No gate is defined yet — the initiative tracker, the first one this file
+ * ever held, shipped and became the permanent flagship feature rather than a
+ * gated one (see `CLAUDE.md`'s Navigation section). The next tool that needs
+ * one goes here.
  */
-
-/** Gates the initiative tracker, the first planned feature. */
-export const isInitiativeTrackerEnabled = (): boolean =>
-  env.FEATURE_INITIATIVE_TRACKER === 'true';

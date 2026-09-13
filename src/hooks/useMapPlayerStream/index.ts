@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import type { PlayerMapView } from '~/server/maps/toPlayerMapView';
+import { useEventSourceView } from '~/hooks/useEventSourceView';
 
 /**
  * The player screen's map-session data feed — the maps-domain twin of
@@ -40,27 +40,8 @@ export const parsePlayerMapViewFrame = (data: string): PlayerMapView | null => {
   }
 };
 
-export const useMapPlayerStream = (): MapPlayerStreamState => {
-  const [view, setView] = useState<PlayerMapView | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    const source = new EventSource('/api/maps/stream');
-
-    const handleMessage = (event: MessageEvent<string>) => {
-      const parsed = parsePlayerMapViewFrame(event.data);
-      if (parsed) setView(parsed);
-    };
-
-    source.addEventListener('open', () => setIsConnected(true));
-    source.addEventListener('message', handleMessage);
-    // EventSource reconnects on its own; this only reflects the current state.
-    source.addEventListener('error', () => setIsConnected(false));
-
-    return () => {
-      source.close();
-    };
-  }, []);
-
-  return { isConnected, view };
-};
+export const useMapPlayerStream = (): MapPlayerStreamState =>
+  useEventSourceView<PlayerMapView>(
+    '/api/maps/stream',
+    parsePlayerMapViewFrame,
+  );

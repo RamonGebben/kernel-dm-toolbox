@@ -6,10 +6,12 @@ import { useTRPC } from '~/trpc/react';
 import { formatSpellLevel } from '~/utils/formatSpellLevel';
 import { slugToTitle } from '~/utils/slugToTitle';
 import { stripDocumentPrefix } from '~/utils/stripDocumentPrefix';
+import {
+  toLibraryImportState,
+  type LibraryImportStatus,
+} from '~/utils/toLibraryImportState';
 import type { MultiSelectFilterOption } from '~/atoms/MultiSelectFilter';
 import type { SpellSummary } from '~/organisms/SpellLibrary/components/SpellLibraryView';
-
-type LibraryStatus = { isImported: boolean } | undefined;
 
 type RawSpellSummary = {
   slug: string;
@@ -50,7 +52,7 @@ const schoolLabel = (school: string): string =>
 type ToSpellLibraryStateArgs = {
   isStatusPending: boolean;
   isListPending: boolean;
-  status: LibraryStatus;
+  status: LibraryImportStatus;
   spells: RawSpellSummary[] | undefined;
   classOptions: RawSpellClassOption[] | undefined;
 };
@@ -75,8 +77,7 @@ export const toSpellLibraryState = ({
   | 'selectedClassSlugs'
   | 'setSelectedClassSlugs'
 > => ({
-  isPending: isStatusPending || isListPending,
-  isLibraryImported: status?.isImported ?? false,
+  ...toLibraryImportState({ isStatusPending, isListPending, status }),
   spells: (spells ?? []).map(spell => ({
     slug: spell.slug,
     name: spell.name,

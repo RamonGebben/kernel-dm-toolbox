@@ -43,7 +43,6 @@ export default defineConfig({
       PORT: String(port),
       HOSTNAME: '127.0.0.1',
       CAMPAIGN_NAME: 'E2E Campaign',
-      FEATURE_INITIATIVE_TRACKER: 'true',
       DATABASE_URL: 'file:.data/e2e.db',
     },
   },

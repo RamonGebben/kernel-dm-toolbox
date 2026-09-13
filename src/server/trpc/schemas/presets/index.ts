@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idInputSchema } from '~/server/trpc/schemas/common';
 
 /**
  * Saving the monsters currently on the board under a name.
@@ -14,4 +15,4 @@ export const savePresetInputSchema = z.object({
 
 export type SavePresetInput = z.infer<typeof savePresetInputSchema>;
 
-export const presetIdInputSchema = z.object({ id: z.uuid() });
+export const presetIdInputSchema = idInputSchema;

@@ -159,8 +159,17 @@ export type MapCanvasViewProps = {
   onMeasurementConfirm?: (shape: MeasurementShapeInput) => void;
   /** Fires at most once per animation frame while a shape is being aimed —
    * the same cadence `onLensChange` uses — so the player screen can track
-   * it live via `setLivePreviewShape`. */
-  onMeasurementPreviewChange?: (shape: MeasurementShapeInput | null) => void;
+   * it live via `setLivePreviewShape`. `style` is null when placing a new
+   * shape (the caller should use the armed tool's own color/label), or the
+   * shape's own stored color/label when this preview is actually an
+   * in-progress drag of an already-placed shape — mirrors how `drawScene`
+   * itself resolves `movingOriginal` below, so the player screen shows the
+   * same color/label the DM's own canvas does while a shape is being moved,
+   * not whatever tool happens to be armed at the time. */
+  onMeasurementPreviewChange?: (
+    shape: MeasurementShapeInput | null,
+    style: { color: string; label: string | null } | null,
+  ) => void;
   /** The DM's raw cursor position (plus the armed tool's own color, since
    * `measurementTool` itself is DM-local state the player canvas never
    * receives) while the tool is armed but no origin has been clicked yet —
@@ -376,6 +385,15 @@ export const MapCanvasView = ({
    * "ref not state" role as `lensPreviewRef`. */
   const measurementPreviewRef = useRef<MeasurementShapeInput | null>(null);
 
+  /** The id of the placed shape currently being dragged to a new position, or
+   * null. Owned here rather than by `useViewportInteraction` — same "caller
+   * owns it because `scheduleDraw`'s `useMemo` (declared before that hook
+   * runs) needs to read it too" reasoning as `measurementPreviewRef` above.
+   * The draw loop skips this shape when drawing the committed list — its
+   * live position is drawn from `measurementPreviewRef` instead, so it isn't
+   * rendered twice (once stale, once live). */
+  const movingShapeIdRef = useRef<string | null>(null);
+
   const onMeasurementConfirmRef = useRef(onMeasurementConfirm);
   useEffect(() => {
     onMeasurementConfirmRef.current = onMeasurementConfirm;
@@ -484,10 +502,26 @@ export const MapCanvasView = ({
             currentMeasurement.orientation !== lastMeasurement.orientation)
         ) {
           lastNotifiedMeasurementRef.current = currentMeasurement;
-          onMeasurementPreviewChangeRef.current?.(currentMeasurement);
+          // Same `movingOriginal` resolution `drawScene` uses below, so a
+          // shape being dragged (rather than newly aimed) broadcasts its own
+          // stored color/label instead of whatever tool happens to be armed.
+          const movingOriginal = movingShapeIdRef.current
+            ? measurementShapesRef.current.find(
+                candidate => candidate.id === movingShapeIdRef.current,
+              )
+            : undefined;
+          onMeasurementPreviewChangeRef.current?.(
+            currentMeasurement,
+            movingOriginal
+              ? {
+                  color: movingOriginal.color,
+                  label: movingOriginal.label ?? null,
+                }
+              : null,
+          );
         } else if (!currentMeasurement && lastMeasurement) {
           lastNotifiedMeasurementRef.current = null;
-          onMeasurementPreviewChangeRef.current?.(null);
+          onMeasurementPreviewChangeRef.current?.(null, null);
         }
 
         // The DM's own "aim" cursor, broadcast only while the tool is armed
@@ -561,7 +595,7 @@ export const MapCanvasView = ({
     );
   }, [measurementShapes, pruneEffectVideos]);
 
-  const { calibrationPreviewRef, movingShapeIdRef } = useViewportInteraction({
+  const { calibrationPreviewRef } = useViewportInteraction({
     canvasRef,
     interactive,
     viewportRef,
@@ -589,6 +623,7 @@ export const MapCanvasView = ({
     onMeasurementShapeMoved,
     cursorMapPosRef,
     onScheduleDraw: scheduleDraw,
+    movingShapeIdRef,
   });
 
   useEffect(() => {

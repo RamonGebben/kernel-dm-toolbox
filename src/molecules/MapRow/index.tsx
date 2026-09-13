@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useState, type KeyboardEvent } from 'react';
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { Icon } from '~/atoms/Icon';
 import { TextInput } from '~/atoms/TextInput';
+import { useDismissableMenu } from '~/hooks/useDismissableMenu';
 
 export type MapRowFolderOption = {
   id: string;
@@ -116,26 +117,8 @@ const MapRowMenu = ({
   onRemove,
 }: MapRowMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!wrapperRef.current?.contains(event.target as Node)) setIsOpen(false);
-    };
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
+  const wrapperRef = useDismissableMenu(isOpen, () => setIsOpen(false));
 
   return (
     <MenuWrapper ref={wrapperRef}>

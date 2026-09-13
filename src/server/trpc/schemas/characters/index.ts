@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idInputSchema } from '~/server/trpc/schemas/common';
 
 /**
  * The bounds are deliberately generous rather than rules-accurate: a DM may
@@ -20,7 +21,7 @@ export const updateCharacterInputSchema = characterFieldsSchema.extend({
   id: z.uuid(),
 });
 
-export const characterIdInputSchema = z.object({ id: z.uuid() });
+export const characterIdInputSchema = idInputSchema;
 
 export type CreateCharacterInput = z.infer<typeof createCharacterInputSchema>;
 export type UpdateCharacterInput = z.infer<typeof updateCharacterInputSchema>;

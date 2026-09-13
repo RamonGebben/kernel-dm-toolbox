@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useMapToolStore } from '~/stores/mapTool';
+import { useActiveMap } from '~/hooks/useActiveMap';
 import {
   mapDamageTypesToColor,
   mapSpellShapeType,
@@ -22,8 +23,7 @@ export const useMeasurementControls = () => {
     state => state.setSelectedMeasurementShapeId,
   );
 
-  const session = useQuery(trpc.maps.getSession.queryOptions());
-  const activeMapId = session.data?.activeMapId ?? null;
+  const { session, activeMapId } = useActiveMap();
 
   const shapes = useQuery({
     ...trpc.maps.listMeasurementShapes.queryOptions({

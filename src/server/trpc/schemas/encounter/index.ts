@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idInputSchema } from '~/server/trpc/schemas/common';
 
 export const addCreatureInputSchema = z.object({
   slug: z.string().min(1).max(200),
@@ -12,7 +13,7 @@ export const addCharacterInputSchema = z.object({
   initiative: z.number().int().min(-20).max(50),
 });
 
-export const combatantIdInputSchema = z.object({ id: z.uuid() });
+export const combatantIdInputSchema = idInputSchema;
 
 /**
  * Starting a fight: every combatant's initiative in one write.
@@ -62,4 +63,4 @@ export const addConditionInputSchema = z.object({
   note: z.string().trim().max(200).optional(),
 });
 
-export const conditionIdInputSchema = z.object({ id: z.uuid() });
+export const conditionIdInputSchema = idInputSchema;

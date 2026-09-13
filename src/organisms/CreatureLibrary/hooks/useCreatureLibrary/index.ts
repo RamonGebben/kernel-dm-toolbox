@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
+import {
+  toLibraryImportState,
+  type LibraryImportStatus,
+} from '~/utils/toLibraryImportState';
 import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
-
-type LibraryStatus = { isImported: boolean } | undefined;
 
 export type CreatureLibraryState = {
   isPending: boolean;
@@ -18,7 +20,7 @@ export type CreatureLibraryState = {
 type ToLibraryStateArgs = {
   isStatusPending: boolean;
   isListPending: boolean;
-  status: LibraryStatus;
+  status: LibraryImportStatus;
   creatures: CreatureSummary[] | undefined;
 };
 
@@ -36,8 +38,7 @@ export const toLibraryState = ({
   status,
   creatures,
 }: ToLibraryStateArgs): Omit<CreatureLibraryState, 'search' | 'setSearch'> => ({
-  isPending: isStatusPending || isListPending,
-  isLibraryImported: status?.isImported ?? false,
+  ...toLibraryImportState({ isStatusPending, isListPending, status }),
   creatures: creatures ?? [],
 });
 

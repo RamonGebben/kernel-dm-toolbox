@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useMapToolStore } from '~/stores/mapTool';
+import { useActiveMap } from '~/hooks/useActiveMap';
 
 export const useGridControls = () => {
   const trpc = useTRPC();
@@ -11,8 +12,7 @@ export const useGridControls = () => {
   const startCalibration = useMapToolStore(state => state.startCalibration);
   const cancelCalibration = useMapToolStore(state => state.cancelCalibration);
 
-  const session = useQuery(trpc.maps.getSession.queryOptions());
-  const activeMapId = session.data?.activeMapId ?? null;
+  const { session, activeMapId } = useActiveMap();
 
   const map = useQuery({
     ...trpc.maps.get.queryOptions({ id: activeMapId ?? '' }),

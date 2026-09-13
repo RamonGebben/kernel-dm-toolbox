@@ -49,11 +49,6 @@ export type ViewportInteractionHandle = {
    * `pointermove` was the same render-storm bug `onViewportChange` had.
    */
   calibrationPreviewRef: RefObject<MapPoint | null>;
-  /** The id of the placed shape currently being dragged to a new position,
-   * or null. `MapCanvasView`'s draw loop skips this shape when drawing the
-   * committed list — its live position is drawn from `measurementPreviewRef`
-   * instead, so it isn't rendered twice (once stale, once live). */
-  movingShapeIdRef: RefObject<string | null>;
 };
 
 /**
@@ -92,6 +87,7 @@ export const useViewportInteraction = ({
   onMeasurementShapeMoved,
   cursorMapPosRef,
   onScheduleDraw,
+  movingShapeIdRef,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   interactive: boolean;
@@ -144,6 +140,13 @@ export const useViewportInteraction = ({
   /** Fired once, on release, at the end of a drag-to-move — not per frame;
    * the live position during the drag is only ever local (`measurementPreviewRef`). */
   onMeasurementShapeMoved?: (id: string, origin: MapPoint) => void;
+  /** The id of the placed shape currently being dragged to a new position, or
+   * null. Owned by the caller (`MapCanvasView`'s draw loop and its per-frame
+   * notify block both read it — the same "caller owns it because scheduleDraw
+   * needs it" reasoning as `measurementPreviewRef`/`lensPreviewRef` — rather
+   * than this hook returning it, which would put it out of scope for
+   * `scheduleDraw`'s `useMemo`, declared before this hook runs). */
+  movingShapeIdRef: RefObject<string | null>;
   /** Owned by the caller (`MapCanvasView` reads it, at most once per
    * animation frame, to notify `onMeasurementCursorChange` live while the
    * tool is armed) — the same ownership `measurementPreviewRef` has. */
@@ -152,7 +155,6 @@ export const useViewportInteraction = ({
 }): ViewportInteractionHandle => {
   const calibrationPreviewRef = useRef<MapPoint | null>(null);
   const measurementOriginRef = useRef<MapPoint | null>(null);
-  const movingShapeIdRef = useRef<string | null>(null);
   const movingShapeStartOriginRef = useRef<MapPoint | null>(null);
   const movingShapeStartPointRef = useRef<MapPoint>({ x: 0, y: 0 });
   const dragModeRef = useRef<
@@ -679,5 +681,5 @@ export const useViewportInteraction = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interactive, canvasRef]);
 
-  return { calibrationPreviewRef, movingShapeIdRef };
+  return { calibrationPreviewRef };
 };

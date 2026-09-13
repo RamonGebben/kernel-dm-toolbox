@@ -2,6 +2,7 @@
 
 import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
+import { CheckboxRow, FieldRow } from '~/atoms/FormControls';
 import { Tabs, type TabOption } from '~/atoms/Tabs';
 import { OpenPlayerScreenLink } from '~/molecules/OpenPlayerScreenLink';
 
@@ -200,26 +201,4 @@ const FieldGroup = styled.div`
 const Label = styled.span`
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textMuted};
-`;
-
-const FieldRow = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-
-  label {
-    font-size: ${props => props.theme.fontSize.sm};
-    color: ${props => props.theme.color.textMuted};
-  }
-`;
-
-const CheckboxRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-
-  label {
-    color: ${props => props.theme.color.textPrimary};
-    font-size: ${props => props.theme.fontSize.sm};
-  }
 `;

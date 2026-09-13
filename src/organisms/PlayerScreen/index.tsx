@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useMapPlayerStream } from '~/hooks/useMapPlayerStream';
+import { useDebouncedCallback } from '~/hooks/useDebouncedCallback';
 import { PlayerScreenView } from '~/organisms/PlayerScreen/components/PlayerScreenView';
 import { PlayerScreenStage } from '~/organisms/PlayerScreen/components/PlayerScreenStage';
 import { usePhysicalViewportSize } from '~/organisms/PlayerScreen/hooks/usePhysicalViewportSize';
@@ -43,10 +44,17 @@ export const PlayerScreen = () => {
   const lastReportedSizeRef = useRef<{ width: number; height: number } | null>(
     null,
   );
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setPlayerScreenSize = useMutation(
     trpc.maps.setPlayerScreenSize.mutationOptions(),
+  );
+
+  const [debouncedReportSize, cancelReportSize] = useDebouncedCallback(
+    (width: number, height: number) => {
+      lastReportedSizeRef.current = { width, height };
+      setPlayerScreenSize.mutate({ width, height });
+    },
+    RESIZE_DEBOUNCE_MS,
   );
 
   useEffect(() => {
@@ -66,21 +74,17 @@ export const PlayerScreen = () => {
         return;
       }
 
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        lastReportedSizeRef.current = { width, height };
-        setPlayerScreenSize.mutate({ width, height });
-      }, RESIZE_DEBOUNCE_MS);
+      debouncedReportSize(width, height);
     });
 
     observer.observe(node);
 
     return () => {
       observer.disconnect();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      cancelReportSize();
     };
     // Re-observes when the mode switches the map area in or out of the DOM.
-  }, [view?.mode, setPlayerScreenSize]);
+  }, [view?.mode, debouncedReportSize, cancelReportSize]);
 
   return (
     <PlayerScreenStage

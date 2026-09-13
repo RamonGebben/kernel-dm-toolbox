@@ -3,6 +3,7 @@
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
+import { FieldRow, Select } from '~/atoms/FormControls';
 import { TextInput } from '~/atoms/TextInput';
 import {
   SIZE_PRESETS_FEET,
@@ -329,27 +330,6 @@ const Instructions = styled.p`
   margin: 0;
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textPrimary};
-`;
-
-const FieldRow = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-
-  label {
-    font-size: ${props => props.theme.fontSize.sm};
-    color: ${props => props.theme.color.textMuted};
-  }
-`;
-
-const Select = styled.select`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
 `;
 
 const PresetRow = styled.div`

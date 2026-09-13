@@ -73,7 +73,8 @@ const Scrim = styled.div`
   align-items: center;
   justify-content: center;
   padding: ${props => props.theme.space.md};
-  background: rgb(0 0 0 / 0.6);
+  background: ${props =>
+    `color-mix(in srgb, ${props.theme.color.canvas} 60%, transparent)`};
 `;
 
 const Panel = styled.div`

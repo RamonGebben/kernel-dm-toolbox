@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import styled from 'styled-components';
+import { useDismissableMenu } from '~/hooks/useDismissableMenu';
 
 export type MultiSelectFilterOption = {
   value: string;
@@ -33,26 +34,8 @@ export const MultiSelectFilter = ({
   disabled = false,
 }: MultiSelectFilterProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const listId = useId();
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!wrapperRef.current?.contains(event.target as Node)) setIsOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
+  const wrapperRef = useDismissableMenu(isOpen, () => setIsOpen(false));
 
   const toggleValue = (value: string) => {
     onChange(

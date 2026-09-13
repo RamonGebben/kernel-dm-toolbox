@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { idInputSchema } from '~/server/trpc/schemas/common';
 
-export const mapIdInputSchema = z.object({ id: z.uuid() });
-export const folderIdInputSchema = z.object({ id: z.uuid() });
+export const mapIdInputSchema = idInputSchema;
+export const folderIdInputSchema = idInputSchema;
 
 export const createFolderInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -137,7 +138,7 @@ export const createMeasurementShapeInputSchema = z.object({
   sourceSpellSlug: z.string().min(1).max(200).nullable().optional(),
 });
 
-export const measurementShapeIdInputSchema = z.object({ id: z.uuid() });
+export const measurementShapeIdInputSchema = idInputSchema;
 
 const measurementPreviewSchema = z.object({
   mapId: z.uuid(),

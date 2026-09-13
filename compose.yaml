@@ -21,7 +21,6 @@ services:
       # available to someone whose only dependency is Docker — so the server
       # imports it the first time it boots. Set to "false" to opt out.
       LIBRARY_AUTO_IMPORT: ${LIBRARY_AUTO_IMPORT:-true}
-      FEATURE_INITIATIVE_TRACKER: ${FEATURE_INITIATIVE_TRACKER:-false}
     volumes:
       - campaign-data:/data
 

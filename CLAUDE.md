@@ -131,7 +131,7 @@ Reference implementations to copy:
 | Connected organism            | `src/organisms/ConnectionStatus/`                                 |
 | Presentational view + stories | `src/organisms/ConnectionStatus/components/ConnectionStatusView/` |
 | Modal / dialog                | `src/atoms/Modal/`                                                |
-| Template                      | `src/templates/DashboardTemplate/`                                |
+| Template                      | `src/templates/TrackerTemplate/`                                  |
 | Page wiring it together       | `src/app/page.tsx`                                                |
 
 ## Component folder shape
@@ -270,11 +270,14 @@ combination cannot be represented — see `ConnectionStatus` in
   library. Do not fold it into `src/flags.ts`.
 - **Feature gates are server-only env vars, not a flags SDK.** A gate is a
   `z.enum(['true','false']).optional()` server var plus a named helper in
-  `src/flags.ts` (e.g. `isInitiativeTrackerEnabled()`), evaluated **server-side**
+  `src/flags.ts` (e.g. `isSomeFeatureEnabled()`), evaluated **server-side**
   in a page or route handler and passed down as a plain boolean prop. Client
   components never read a gate. `src/flags.ts` imports `server-only`, so a
   client import is a build error. Compare against the literal `'true'`, so unset
-  means off. Flipping a gate needs a container restart — accepted.
+  means off. Flipping a gate needs a container restart — accepted. No gate is
+  defined right now — the initiative tracker's own gate (and the dashboard
+  template it gated) was removed once the tracker became the permanent
+  flagship feature; the next tool that needs one starts the pattern over.
 - Document every new variable in `.env.example`.
 
 ### Env-dependent routes must be dynamic

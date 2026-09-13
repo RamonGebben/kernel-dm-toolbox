@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import type { PlayerView } from '~/server/encounter/toPlayerView';
+import { useEventSourceView } from '~/hooks/useEventSourceView';
 
 /**
  * The player screen's data feed.
@@ -43,27 +43,5 @@ export const parsePlayerViewFrame = (data: string): PlayerView | null => {
   }
 };
 
-export const usePlayerStream = (): PlayerStreamState => {
-  const [view, setView] = useState<PlayerView | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    const source = new EventSource('/api/encounter/stream');
-
-    const handleMessage = (event: MessageEvent<string>) => {
-      const parsed = parsePlayerViewFrame(event.data);
-      if (parsed) setView(parsed);
-    };
-
-    source.addEventListener('open', () => setIsConnected(true));
-    source.addEventListener('message', handleMessage);
-    // EventSource reconnects on its own; this only reflects the current state.
-    source.addEventListener('error', () => setIsConnected(false));
-
-    return () => {
-      source.close();
-    };
-  }, []);
-
-  return { isConnected, view };
-};
+export const usePlayerStream = (): PlayerStreamState =>
+  useEventSourceView<PlayerView>('/api/encounter/stream', parsePlayerViewFrame);

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useMapToolStore } from '~/stores/mapTool';
+import { useActiveMap } from '~/hooks/useActiveMap';
+import { useDebouncedCallback } from '~/hooks/useDebouncedCallback';
 import type { Viewport } from '~/utils/mapViewport';
 import {
   computeLensRect,
@@ -71,8 +73,7 @@ export const useMapCanvas = () => {
     state => state.setSelectedMeasurementShapeId,
   );
 
-  const session = useQuery(trpc.maps.getSession.queryOptions());
-  const activeMapId = session.data?.activeMapId ?? null;
+  const { session, activeMapId } = useActiveMap();
 
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const hasInitializedViewportRef = useRef(false);
@@ -202,30 +203,17 @@ export const useMapCanvas = () => {
     [mapId, reportDimensions],
   );
 
-  const dmViewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  useEffect(
-    () => () => {
-      if (dmViewportDebounceRef.current) {
-        clearTimeout(dmViewportDebounceRef.current);
-      }
-    },
-    [],
+  const [debouncedSetDmViewport] = useDebouncedCallback(
+    (next: Viewport) => setDmViewport.mutate(next),
+    DM_VIEWPORT_PERSIST_DEBOUNCE_MS,
   );
 
   const handleViewportChange = useCallback(
     (next: Viewport) => {
       setViewport(next);
-
-      if (dmViewportDebounceRef.current) {
-        clearTimeout(dmViewportDebounceRef.current);
-      }
-      dmViewportDebounceRef.current = setTimeout(() => {
-        setDmViewport.mutate(next);
-      }, DM_VIEWPORT_PERSIST_DEBOUNCE_MS);
+      debouncedSetDmViewport(next);
     },
-    [setDmViewport],
+    [debouncedSetDmViewport],
   );
 
   const gridVisible = session.data?.gridVisible ?? true;
@@ -359,8 +347,15 @@ export const useMapCanvas = () => {
 
   // Live while a shape is being aimed — the same cadence `onLensChange`
   // uses — so the player screen tracks it before the confirming click.
+  // `style` is non-null when this preview is actually an in-progress drag of
+  // an already-placed shape (see `MapCanvasView`'s `onMeasurementPreviewChange`
+  // doc comment) — its own stored color/label, not the currently-armed
+  // tool's, must be what the player screen sees while it moves.
   const handleMeasurementPreviewChange = useCallback(
-    (shape: MeasurementShapeInput | null) => {
+    (
+      shape: MeasurementShapeInput | null,
+      style: { color: string; label: string | null } | null,
+    ) => {
       if (!mapId) return;
 
       setLivePreviewShape.mutate({
@@ -372,8 +367,8 @@ export const useMapCanvas = () => {
               originY: shape.originY,
               extentFeet: shape.extentFeet,
               orientation: shape.orientation,
-              color: measurementTool.color,
-              label: measurementTool.label.trim() || null,
+              color: style?.color ?? measurementTool.color,
+              label: style ? style.label : measurementTool.label.trim() || null,
             }
           : null,
       });

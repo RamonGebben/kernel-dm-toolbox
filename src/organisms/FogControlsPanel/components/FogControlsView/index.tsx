@@ -3,6 +3,7 @@
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
+import { CheckboxRow, FieldRow, Select } from '~/atoms/FormControls';
 import type { FogBrushMode, FogBrushShape } from '~/stores/mapTool';
 
 export type FogControlsBrush = {
@@ -178,38 +179,6 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.space.md};
-`;
-
-const CheckboxRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-
-  label {
-    color: ${props => props.theme.color.textPrimary};
-    font-size: ${props => props.theme.fontSize.sm};
-  }
-`;
-
-const FieldRow = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-
-  label {
-    font-size: ${props => props.theme.fontSize.sm};
-    color: ${props => props.theme.color.textMuted};
-  }
-`;
-
-const Select = styled.select`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
 `;
 
 const ButtonRow = styled.div`

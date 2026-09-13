@@ -548,6 +548,7 @@ export const PlacingACubeAtAFixedPresetByAiming: Story = {
     await waitForFrame();
     await expect(args.onMeasurementPreviewChange).toHaveBeenCalledWith(
       expect.objectContaining({ extentFeet: 20, orientation: Math.PI / 2 }),
+      null,
     );
 
     // The second, confirming click keeps the preset extent regardless of
@@ -646,6 +647,7 @@ export const RightClickCancelsAPendingPlacement: Story = {
 
     // Abandoned, not confirmed — clears the live preview it had broadcast.
     await expect(args.onMeasurementPreviewChange).toHaveBeenLastCalledWith(
+      null,
       null,
     );
 
@@ -756,6 +758,18 @@ export const SelectingAndMovingAPlacedShapeWinsOverTheLens: Story = {
     // Inside both the lens body and the shape's own footprint.
     fireEvent.pointerDown(element, { pointerId: 1, clientX: 75, clientY: 65 });
     fireEvent.pointerMove(element, { pointerId: 1, clientX: 100, clientY: 90 });
+    // A frame must land mid-drag (before release) for the live-preview
+    // broadcast to fire at all — release synchronously clears the preview
+    // ref, so a run with no frame in between never notifies it.
+    await waitForFrame();
+    // Regression: the live preview broadcast during the drag must carry
+    // this shape's own stored color, not whatever tool happens to be armed —
+    // dragging a placed shape must never repaint it in another tool's color.
+    await expect(args.onMeasurementPreviewChange).toHaveBeenCalledWith(
+      expect.anything(),
+      { color: overlappingShape.color, label: null },
+    );
+
     fireEvent.pointerUp(element, { pointerId: 1, clientX: 100, clientY: 90 });
     await waitForFrame();
 

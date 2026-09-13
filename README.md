@@ -97,16 +97,15 @@ toolbox-dragonheist:
 Everything is environment variables, all documented in `.env.example` and
 validated in `src/env.ts`. The ones you are likely to touch:
 
-| Variable                     | What it does                                         |
-| ---------------------------- | ---------------------------------------------------- |
-| `CAMPAIGN_NAME`              | Name shown in the browser tab                        |
-| `DATABASE_URL`               | libSQL/SQLite connection string                      |
-| `LIBRARY_AUTO_IMPORT`        | Import the library on first boot; `"false"` opts out |
-| `NEXT_PUBLIC_APP_URL`        | This instance's origin, used during server render    |
-| `FEATURE_INITIATIVE_TRACKER` | Feature gate; `"true"` to enable                     |
-| `MAPS_STORAGE_DIR`           | Where uploaded map images/videos are stored on disk  |
-| `MAPS_MAX_UPLOAD_BYTES`      | Upload size cap, in bytes                            |
-| `EFFECTS_STORAGE_DIR`        | Where animated spell-effect clips are stored on disk |
+| Variable                | What it does                                         |
+| ----------------------- | ---------------------------------------------------- |
+| `CAMPAIGN_NAME`         | Name shown in the browser tab                        |
+| `DATABASE_URL`          | libSQL/SQLite connection string                      |
+| `LIBRARY_AUTO_IMPORT`   | Import the library on first boot; `"false"` opts out |
+| `NEXT_PUBLIC_APP_URL`   | This instance's origin, used during server render    |
+| `MAPS_STORAGE_DIR`      | Where uploaded map images/videos are stored on disk  |
+| `MAPS_MAX_UPLOAD_BYTES` | Upload size cap, in bytes                            |
+| `EFFECTS_STORAGE_DIR`   | Where animated spell-effect clips are stored on disk |
 
 Feature gates are plain server-side environment variables. Changing one takes
 effect on the next container restart.
@@ -270,5 +269,5 @@ copy when adding a feature:
 | Client hook + test            | `src/organisms/ConnectionStatus/hooks/useConnectionStatus/`       |
 | Connected component           | `src/organisms/ConnectionStatus/index.tsx`                        |
 | Presentational view + stories | `src/organisms/ConnectionStatus/components/ConnectionStatusView/` |
-| Template                      | `src/templates/DashboardTemplate/index.tsx`                       |
+| Template                      | `src/templates/TrackerTemplate/index.tsx`                         |
 | Page                          | `src/app/page.tsx`                                                |

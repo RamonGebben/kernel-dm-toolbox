@@ -11,12 +11,6 @@ import { z } from 'zod';
  * Docker image builds, where the real values are not present.
  */
 
-/**
- * A feature gate is a server-only tri-state: unset, `'true'` or `'false'`.
- * Comparing against the literal `'true'` means "unset" always reads as off.
- */
-const featureGate = z.enum(['true', 'false']).optional();
-
 export const env = createEnv({
   server: {
     NODE_ENV: z
@@ -41,13 +35,6 @@ export const env = createEnv({
      * that must not reach the network at startup.
      */
     LIBRARY_AUTO_IMPORT: z.enum(['true', 'false']).default('true'),
-
-    /**
-     * Feature gate: the initiative tracker. Server-only on purpose — importing
-     * this module from a Client Component is a build error, which is what keeps
-     * gates from leaking into the browser bundle.
-     */
-    FEATURE_INITIATIVE_TRACKER: featureGate,
 
     /**
      * Where uploaded map images/videos live on disk. Same relative-path
