@@ -7,8 +7,6 @@ export type CreatureListItemProps = {
   name: string;
   challengeRatingLabel: string;
   isSelected: boolean;
-  /** A DM-authored creature rather than one from the Open5e library. */
-  isCustom?: boolean;
   onSelect: () => void;
   /** Adds this creature to the encounter without changing the selection. */
   onAdd: () => void;
@@ -18,7 +16,6 @@ export const CreatureListItem = ({
   name,
   challengeRatingLabel,
   isSelected,
-  isCustom = false,
   onSelect,
   onAdd,
 }: CreatureListItemProps) => (
@@ -30,7 +27,6 @@ export const CreatureListItem = ({
       aria-label={`Show the ${name} statblock`}
     >
       <Name>{name}</Name>
-      {isCustom && <CustomBadge>Custom</CustomBadge>}
       <ChallengeRating>CR {challengeRatingLabel}</ChallengeRating>
     </SelectButton>
     <AddSlot>
@@ -105,15 +101,4 @@ const ChallengeRating = styled.span`
   font-family: ${props => props.theme.font.mono};
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textMuted};
-`;
-
-const CustomBadge = styled.span`
-  flex-shrink: 0;
-  padding: 0 ${props => props.theme.space.xs};
-  border: 1px solid ${props => props.theme.color.accent};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.accent};
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 `;

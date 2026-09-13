@@ -32,6 +32,18 @@ const creatures: CreatureSummary[] = [
   },
 ];
 
+const sourceOptions = [
+  { value: 'library', label: 'Library' },
+  { value: 'custom', label: 'Custom' },
+];
+
+const typeOptions = [
+  { value: 'aberration', label: 'Aberration' },
+  { value: 'dragon', label: 'Dragon' },
+  { value: 'humanoid', label: 'Humanoid' },
+  { value: 'undead', label: 'Undead' },
+];
+
 const meta = {
   title: 'Organisms/CreatureLibrary/CreatureLibraryView',
   component: CreatureLibraryView,
@@ -40,11 +52,15 @@ const meta = {
     isLibraryImported: true,
     creatures,
     search: '',
-    source: 'all',
+    sourceOptions,
+    selectedSources: [],
+    typeOptions,
+    selectedTypes: [],
     selectedSlug: null,
     selectedCustomCreatureId: null,
     onSearchChange: fn(),
-    onSourceChange: fn(),
+    onSourcesChange: fn(),
+    onTypesChange: fn(),
     onSelect: fn(),
     onAdd: fn(),
     onNewCreature: fn(),
@@ -107,7 +123,24 @@ export const CustomCreatureSelected: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByText('Custom')).toBeVisible();
+    // A custom creature renders like any other row — no distinguishing
+    // label — it just carries the selected state like a library one would.
+    await expect(
+      canvas.getByRole('button', {
+        name: 'Show the Goblin Boss (homebrew) statblock',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  },
+};
+
+export const FilteringByType: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Type' }));
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Dragon' }));
+
+    await expect(args.onTypesChange).toHaveBeenCalledWith(['dragon']);
   },
 };
 

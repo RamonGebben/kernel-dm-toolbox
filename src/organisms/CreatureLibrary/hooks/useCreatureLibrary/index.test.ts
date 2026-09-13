@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   toAddCreatureInput,
+  toCreatureSourceInput,
   toLibraryState,
 } from '~/organisms/CreatureLibrary/hooks/useCreatureLibrary';
 
@@ -103,5 +104,17 @@ describe('toAddCreatureInput', () => {
         challengeRatingLabel: '1',
       }),
     ).toEqual({ source: 'custom', id: 'custom-goblin-boss', count: 1 });
+  });
+});
+
+describe('toCreatureSourceInput', () => {
+  it('treats no boxes checked as "any", same as checking both', () => {
+    expect(toCreatureSourceInput([])).toBe('all');
+    expect(toCreatureSourceInput(['library', 'custom'])).toBe('all');
+  });
+
+  it('narrows to the one checked source', () => {
+    expect(toCreatureSourceInput(['library'])).toBe('library');
+    expect(toCreatureSourceInput(['custom'])).toBe('custom');
   });
 });

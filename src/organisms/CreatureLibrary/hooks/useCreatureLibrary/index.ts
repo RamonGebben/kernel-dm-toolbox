@@ -7,6 +7,7 @@ import {
   toLibraryImportState,
   type LibraryImportStatus,
 } from '~/utils/toLibraryImportState';
+import type { MultiSelectFilterOption } from '~/atoms/MultiSelectFilter';
 import type {
   CreatureSource,
   CreatureSummary,
@@ -18,8 +19,39 @@ export type CreatureLibraryState = {
   creatures: CreatureSummary[];
   search: string;
   setSearch: (search: string) => void;
-  source: CreatureSource;
-  setSource: (source: CreatureSource) => void;
+  sourceOptions: MultiSelectFilterOption[];
+  selectedSources: string[];
+  setSelectedSources: (sources: string[]) => void;
+  typeOptions: MultiSelectFilterOption[];
+  selectedTypes: string[];
+  setSelectedTypes: (types: string[]) => void;
+};
+
+/**
+ * Fixed rather than derived: unlike creature type, "where did this row come
+ * from" is exactly two values by construction, not something the data can
+ * grow a third option for.
+ */
+export const SOURCE_FILTER_OPTIONS: MultiSelectFilterOption[] = [
+  { value: 'library', label: 'Library' },
+  { value: 'custom', label: 'Custom' },
+];
+
+/**
+ * The multi-select's selection as a pure function of the source filter, so
+ * the browser-free unit project can test it. Mirrors the level/class filters'
+ * convention: no boxes checked means "any" — checking neither and checking
+ * both are the same query.
+ */
+export const toCreatureSourceInput = (
+  selectedSources: readonly string[],
+): CreatureSource => {
+  const hasLibrary = selectedSources.includes('library');
+  const hasCustom = selectedSources.includes('custom');
+
+  if (hasLibrary && !hasCustom) return 'library';
+  if (hasCustom && !hasLibrary) return 'custom';
+  return 'all';
 };
 
 type ToLibraryStateArgs = {
@@ -44,7 +76,14 @@ export const toLibraryState = ({
   creatures,
 }: ToLibraryStateArgs): Omit<
   CreatureLibraryState,
-  'search' | 'setSearch' | 'source' | 'setSource'
+  | 'search'
+  | 'setSearch'
+  | 'sourceOptions'
+  | 'selectedSources'
+  | 'setSelectedSources'
+  | 'typeOptions'
+  | 'selectedTypes'
+  | 'setSelectedTypes'
 > => ({
   ...toLibraryImportState({ isStatusPending, isListPending, status }),
   creatures: creatures ?? [],
@@ -64,11 +103,17 @@ export const useCreatureLibrary = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [source, setSource] = useState<CreatureSource>('all');
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   const status = useQuery(trpc.library.status.queryOptions());
+  const types = useQuery(trpc.library.listCreatureTypes.queryOptions());
   const list = useQuery(
-    trpc.library.listCreatures.queryOptions({ search, source }),
+    trpc.library.listCreatures.queryOptions({
+      search,
+      source: toCreatureSourceInput(selectedSources),
+      types: selectedTypes,
+    }),
   );
 
   const addCreature = useMutation(
@@ -89,8 +134,12 @@ export const useCreatureLibrary = () => {
     }),
     search,
     setSearch,
-    source,
-    setSource,
+    sourceOptions: SOURCE_FILTER_OPTIONS,
+    selectedSources,
+    setSelectedSources,
+    typeOptions: types.data ?? [],
+    selectedTypes,
+    setSelectedTypes,
     addCreature: (creature: CreatureSummary) =>
       addCreature.mutate(toAddCreatureInput(creature)),
   };

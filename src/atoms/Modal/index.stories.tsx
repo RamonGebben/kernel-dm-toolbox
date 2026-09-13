@@ -15,6 +15,7 @@ const meta = {
   argTypes: {
     isOpen: { control: 'boolean' },
     title: { control: 'text' },
+    size: { control: 'select', options: ['default', 'wide'] },
   },
 } satisfies Meta<typeof Modal>;
 
@@ -38,5 +39,14 @@ export const Closed: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.queryByRole('dialog')).not.toBeInTheDocument();
+  },
+};
+
+export const Wide: Story = {
+  args: { size: 'wide' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByRole('dialog')).toBeVisible();
   },
 };

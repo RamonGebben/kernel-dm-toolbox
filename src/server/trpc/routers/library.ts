@@ -31,6 +31,7 @@ import {
 import { buildStatblock } from '~/server/trpc/helpers/buildStatblock';
 import { buildSpellDetail } from '~/server/trpc/helpers/buildSpellDetail';
 import { buildSpellClassOptions } from '~/server/trpc/helpers/buildSpellClassOptions';
+import { buildCreatureTypeOptions } from '~/server/trpc/helpers/buildCreatureTypeOptions';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
 import { LIBRARY_ATTRIBUTION } from '~/server/library/source';
 
@@ -86,7 +87,9 @@ export const libraryRouter = createTRPCRouter({
           ? like(creatures.name, `%${input.search.trim()}%`)
           : undefined,
         input.category ? eq(creatures.category, input.category) : undefined,
-        input.type ? eq(creatures.type, input.type) : undefined,
+        input.types.length
+          ? inArray(sql`lower(${creatures.type})`, input.types)
+          : undefined,
         input.minChallengeRating != null
           ? gte(creatures.challengeRating, input.minChallengeRating)
           : undefined,
@@ -100,7 +103,9 @@ export const libraryRouter = createTRPCRouter({
         input.search
           ? like(customCreatures.name, `%${input.search.trim()}%`)
           : undefined,
-        input.type ? eq(customCreatures.type, input.type) : undefined,
+        input.types.length
+          ? inArray(sql`lower(${customCreatures.type})`, input.types)
+          : undefined,
         input.minChallengeRating != null
           ? gte(customCreatures.challengeRating, input.minChallengeRating)
           : undefined,
@@ -242,6 +247,28 @@ export const libraryRouter = createTRPCRouter({
   listConditions: publicProcedure.query(({ ctx }) =>
     ctx.db.select().from(conditions).orderBy(asc(conditions.name)),
   ),
+
+  /**
+   * The distinct creature types across the library and the DM's own custom
+   * creatures, for the type filter's checkbox list — derived from the data
+   * rather than a hardcoded roster, mirroring `listSpellClasses`, since a
+   * custom creature's type is freeform text rather than one of Open5e's
+   * fixed values.
+   */
+  listCreatureTypes: publicProcedure.query(async ({ ctx }) => {
+    const [libraryTypes, customTypes] = await Promise.all([
+      ctx.db.select({ type: creatures.type }).from(creatures),
+      ctx.db
+        .select({ type: customCreatures.type })
+        .from(customCreatures)
+        .where(isNull(customCreatures.deletedAt)),
+    ]);
+
+    return buildCreatureTypeOptions([
+      ...libraryTypes.map(row => row.type),
+      ...customTypes.map(row => row.type),
+    ]);
+  }),
 
   /**
    * The classes that actually appear on an imported spell, for the class

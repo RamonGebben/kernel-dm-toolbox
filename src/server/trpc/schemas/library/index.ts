@@ -6,7 +6,8 @@ export const listCreaturesInputSchema = z.object({
   /** `Monsters` / `Animals`; empty means all. Custom creatures have no
    * category, so an active filter here excludes them from the merge. */
   category: z.string().max(60).optional(),
-  type: z.string().max(60).optional(),
+  /** Lowercased creature-type values (`dragon`, `undead`, …); empty means any. */
+  types: z.array(z.string().max(60)).default([]),
   minChallengeRating: z.number().min(0).max(30).optional(),
   maxChallengeRating: z.number().min(0).max(30).optional(),
   /** Which table(s) to browse — the library, the DM's own creatures, or both. */

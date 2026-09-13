@@ -50,7 +50,12 @@ export const NewCreatureWizardView = ({
   onSubmit,
   onClose,
 }: NewCreatureWizardViewProps) => (
-  <Modal title="New Creature" isOpen={isOpen} onClose={onClose}>
+  <Modal
+    title="New Creature"
+    isOpen={isOpen}
+    onClose={onClose}
+    size={step === 'form' ? 'wide' : 'default'}
+  >
     {step === 'pick-base' && (
       <BasePicker
         search={search}

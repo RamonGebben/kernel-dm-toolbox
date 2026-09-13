@@ -4,6 +4,10 @@ import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
 import { Button } from '~/atoms/Button';
+import {
+  MultiSelectFilter,
+  type MultiSelectFilterOption,
+} from '~/atoms/MultiSelectFilter';
 import { CreatureListItem } from '~/molecules/CreatureListItem';
 
 export type CreatureSource = 'library' | 'custom' | 'all';
@@ -28,11 +32,15 @@ export type CreatureLibraryViewProps = {
   isLibraryImported: boolean;
   creatures: readonly CreatureSummary[];
   search: string;
-  source: CreatureSource;
+  sourceOptions: readonly MultiSelectFilterOption[];
+  selectedSources: readonly string[];
+  typeOptions: readonly MultiSelectFilterOption[];
+  selectedTypes: readonly string[];
   selectedSlug: string | null;
   selectedCustomCreatureId: string | null;
   onSearchChange: (search: string) => void;
-  onSourceChange: (source: CreatureSource) => void;
+  onSourcesChange: (sources: string[]) => void;
+  onTypesChange: (types: string[]) => void;
   onSelect: (creature: CreatureSummary) => void;
   onAdd: (creature: CreatureSummary) => void;
   onNewCreature: () => void;
@@ -50,37 +58,43 @@ export const CreatureLibraryView = ({
   isLibraryImported,
   creatures,
   search,
-  source,
+  sourceOptions,
+  selectedSources,
+  typeOptions,
+  selectedTypes,
   selectedSlug,
   selectedCustomCreatureId,
   onSearchChange,
-  onSourceChange,
+  onSourcesChange,
+  onTypesChange,
   onSelect,
   onAdd,
   onNewCreature,
 }: CreatureLibraryViewProps) => (
   <Wrapper>
-    <Controls>
-      <TextInput
-        value={search}
-        onChange={event => onSearchChange(event.target.value)}
-        placeholder="Filter…"
-        aria-label="Filter creatures"
+    <TextInput
+      value={search}
+      onChange={event => onSearchChange(event.target.value)}
+      placeholder="Filter…"
+      aria-label="Filter creatures"
+      disabled={!isLibraryImported}
+    />
+    <Filters>
+      <MultiSelectFilter
+        label="Source"
+        options={sourceOptions}
+        selectedValues={selectedSources}
+        onChange={onSourcesChange}
         disabled={!isLibraryImported}
       />
-      <SourceSelect
-        value={source}
-        onChange={event => onSourceChange(event.target.value as CreatureSource)}
-        aria-label="Filter by source"
-      >
-        <option value="all">All creatures</option>
-        <option value="library">Library only</option>
-        <option value="custom">Custom only</option>
-      </SourceSelect>
-      <Button type="button" size="sm" onClick={onNewCreature}>
-        New Creature
-      </Button>
-    </Controls>
+      <MultiSelectFilter
+        label="Type"
+        options={typeOptions}
+        selectedValues={selectedTypes}
+        onChange={onTypesChange}
+        disabled={!isLibraryImported}
+      />
+    </Filters>
     <Results>
       <ResultsBody
         isPending={isPending}
@@ -93,12 +107,24 @@ export const CreatureLibraryView = ({
         onAdd={onAdd}
       />
     </Results>
+    <Footer>
+      <Button type="button" size="sm" isFullWidth onClick={onNewCreature}>
+        New Creature
+      </Button>
+    </Footer>
   </Wrapper>
 );
 
 type ResultsBodyProps = Omit<
   CreatureLibraryViewProps,
-  'onSearchChange' | 'source' | 'onSourceChange' | 'onNewCreature'
+  | 'onSearchChange'
+  | 'sourceOptions'
+  | 'selectedSources'
+  | 'onSourcesChange'
+  | 'typeOptions'
+  | 'selectedTypes'
+  | 'onTypesChange'
+  | 'onNewCreature'
 >;
 
 /**
@@ -152,7 +178,6 @@ const ResultsBody = ({
             <CreatureListItem
               name={creature.name}
               challengeRatingLabel={creature.challengeRatingLabel}
-              isCustom={creature.source === 'custom'}
               isSelected={isSelected}
               onSelect={() => onSelect(creature)}
               onAdd={() => onAdd(creature)}
@@ -164,20 +189,15 @@ const ResultsBody = ({
   );
 };
 
-const Controls = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: ${props => props.theme.space.xs};
+const Filters = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${props => props.theme.space.sm};
 `;
 
-const SourceSelect = styled.select`
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
+const Footer = styled.div`
+  padding-top: ${props => props.theme.space.sm};
+  border-top: 1px solid ${props => props.theme.color.border};
 `;
 
 const Wrapper = styled.div`

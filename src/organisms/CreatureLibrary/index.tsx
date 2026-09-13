@@ -37,11 +37,15 @@ export const CreatureLibrary = () => {
         isLibraryImported={library.isLibraryImported}
         creatures={library.creatures}
         search={library.search}
-        source={library.source}
+        sourceOptions={library.sourceOptions}
+        selectedSources={library.selectedSources}
+        typeOptions={library.typeOptions}
+        selectedTypes={library.selectedTypes}
         selectedSlug={selectedCreatureSlug}
         selectedCustomCreatureId={selectedCustomCreatureId}
         onSearchChange={library.setSearch}
-        onSourceChange={library.setSource}
+        onSourcesChange={library.setSelectedSources}
+        onTypesChange={library.setSelectedTypes}
         onSelect={handleSelect}
         onAdd={library.addCreature}
         onNewCreature={() => setIsWizardOpen(true)}
