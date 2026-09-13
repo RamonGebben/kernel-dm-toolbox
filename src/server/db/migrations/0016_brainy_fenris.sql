@@ -1,0 +1,180 @@
+CREATE TABLE `custom_creature_action_attacks` (
+	`id` text PRIMARY KEY NOT NULL,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`deleted_at` integer,
+	`version` integer DEFAULT 1 NOT NULL,
+	`updated_by` text DEFAULT 'local' NOT NULL,
+	`custom_creature_action_id` text NOT NULL,
+	`name` text NOT NULL,
+	`attack_type` text,
+	`to_hit_mod` integer,
+	`reach` integer,
+	`range` integer,
+	`long_range` integer,
+	`target_creature_only` integer DEFAULT false NOT NULL,
+	`damage_die_count` integer,
+	`damage_die_type` text,
+	`damage_bonus` integer,
+	`damage_type` text,
+	`extra_damage_die_count` integer,
+	`extra_damage_die_type` text,
+	`extra_damage_bonus` integer,
+	`extra_damage_type` text,
+	FOREIGN KEY (`custom_creature_action_id`) REFERENCES `custom_creature_actions`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `custom_creature_actions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`deleted_at` integer,
+	`version` integer DEFAULT 1 NOT NULL,
+	`updated_by` text DEFAULT 'local' NOT NULL,
+	`custom_creature_id` text NOT NULL,
+	`name` text NOT NULL,
+	`desc` text NOT NULL,
+	`action_type` text NOT NULL,
+	`sort_order` integer DEFAULT 0 NOT NULL,
+	`legendary_action_cost` integer,
+	`uses_type` text,
+	`uses_param` integer,
+	FOREIGN KEY (`custom_creature_id`) REFERENCES `custom_creatures`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `custom_creature_traits` (
+	`id` text PRIMARY KEY NOT NULL,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`deleted_at` integer,
+	`version` integer DEFAULT 1 NOT NULL,
+	`updated_by` text DEFAULT 'local' NOT NULL,
+	`custom_creature_id` text NOT NULL,
+	`name` text NOT NULL,
+	`desc` text NOT NULL,
+	`type` text,
+	FOREIGN KEY (`custom_creature_id`) REFERENCES `custom_creatures`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `custom_creatures` (
+	`id` text PRIMARY KEY NOT NULL,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`deleted_at` integer,
+	`version` integer DEFAULT 1 NOT NULL,
+	`updated_by` text DEFAULT 'local' NOT NULL,
+	`name` text NOT NULL,
+	`size` text NOT NULL,
+	`type` text NOT NULL,
+	`alignment` text NOT NULL,
+	`challenge_rating` real NOT NULL,
+	`armor_class` integer NOT NULL,
+	`armor_detail` text,
+	`hit_points` integer NOT NULL,
+	`hit_dice` text NOT NULL,
+	`initiative_bonus` integer,
+	`ability_score_strength` integer DEFAULT 10 NOT NULL,
+	`ability_score_dexterity` integer DEFAULT 10 NOT NULL,
+	`ability_score_constitution` integer DEFAULT 10 NOT NULL,
+	`ability_score_intelligence` integer DEFAULT 10 NOT NULL,
+	`ability_score_wisdom` integer DEFAULT 10 NOT NULL,
+	`ability_score_charisma` integer DEFAULT 10 NOT NULL,
+	`saving_throw_strength` integer,
+	`saving_throw_dexterity` integer,
+	`saving_throw_constitution` integer,
+	`saving_throw_intelligence` integer,
+	`saving_throw_wisdom` integer,
+	`saving_throw_charisma` integer,
+	`skill_bonus_acrobatics` integer,
+	`skill_bonus_animal_handling` integer,
+	`skill_bonus_arcana` integer,
+	`skill_bonus_athletics` integer,
+	`skill_bonus_deception` integer,
+	`skill_bonus_history` integer,
+	`skill_bonus_insight` integer,
+	`skill_bonus_intimidation` integer,
+	`skill_bonus_investigation` integer,
+	`skill_bonus_medicine` integer,
+	`skill_bonus_nature` integer,
+	`skill_bonus_perception` integer,
+	`skill_bonus_performance` integer,
+	`skill_bonus_persuasion` integer,
+	`skill_bonus_religion` integer,
+	`skill_bonus_sleight_of_hand` integer,
+	`skill_bonus_stealth` integer,
+	`skill_bonus_survival` integer,
+	`walk` integer,
+	`swim` integer,
+	`fly` integer,
+	`climb` integer,
+	`burrow` integer,
+	`hover` integer DEFAULT false NOT NULL,
+	`darkvision_range` integer,
+	`blindsight_range` integer,
+	`tremorsense_range` integer,
+	`truesight_range` integer,
+	`telepathy_range` integer,
+	`passive_perception` integer DEFAULT 10 NOT NULL,
+	`damage_immunities_display` text,
+	`damage_resistances_display` text,
+	`damage_vulnerabilities_display` text,
+	`condition_immunities_display` text,
+	`languages_desc` text
+);
+--> statement-breakpoint
+PRAGMA foreign_keys=OFF;--> statement-breakpoint
+CREATE TABLE `__new_combatants` (
+	`id` text PRIMARY KEY NOT NULL,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`deleted_at` integer,
+	`version` integer DEFAULT 1 NOT NULL,
+	`updated_by` text DEFAULT 'local' NOT NULL,
+	`encounter_id` text NOT NULL,
+	`creature_slug` text,
+	`player_character_id` text,
+	`custom_creature_id` text,
+	`display_name` text NOT NULL,
+	`initiative` integer DEFAULT 0 NOT NULL,
+	`current_hit_points` integer NOT NULL,
+	`max_hit_points` integer NOT NULL,
+	`temporary_hit_points` integer DEFAULT 0 NOT NULL,
+	`armor_class` integer NOT NULL,
+	`is_hidden` integer DEFAULT false NOT NULL,
+	`is_delayed` integer DEFAULT false NOT NULL,
+	`sort_order` integer DEFAULT 0 NOT NULL,
+	FOREIGN KEY (`encounter_id`) REFERENCES `encounters`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`creature_slug`) REFERENCES `creatures`(`slug`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`player_character_id`) REFERENCES `player_characters`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`custom_creature_id`) REFERENCES `custom_creatures`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "combatant_has_exactly_one_source" CHECK((case when "__new_combatants"."creature_slug" is not null then 1 else 0 end)
+        + (case when "__new_combatants"."player_character_id" is not null then 1 else 0 end)
+        + (case when "__new_combatants"."custom_creature_id" is not null then 1 else 0 end)
+        = 1)
+);
+--> statement-breakpoint
+INSERT INTO `__new_combatants`("id", "created_at", "updated_at", "deleted_at", "version", "updated_by", "encounter_id", "creature_slug", "player_character_id", "custom_creature_id", "display_name", "initiative", "current_hit_points", "max_hit_points", "temporary_hit_points", "armor_class", "is_hidden", "is_delayed", "sort_order") SELECT "id", "created_at", "updated_at", "deleted_at", "version", "updated_by", "encounter_id", "creature_slug", "player_character_id", NULL, "display_name", "initiative", "current_hit_points", "max_hit_points", "temporary_hit_points", "armor_class", "is_hidden", "is_delayed", "sort_order" FROM `combatants`;--> statement-breakpoint
+DROP TABLE `combatants`;--> statement-breakpoint
+ALTER TABLE `__new_combatants` RENAME TO `combatants`;--> statement-breakpoint
+PRAGMA foreign_keys=ON;--> statement-breakpoint
+CREATE TABLE `__new_encounter_preset_entries` (
+	`id` text PRIMARY KEY NOT NULL,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`deleted_at` integer,
+	`version` integer DEFAULT 1 NOT NULL,
+	`updated_by` text DEFAULT 'local' NOT NULL,
+	`preset_id` text NOT NULL,
+	`creature_slug` text,
+	`custom_creature_id` text,
+	`count` integer DEFAULT 1 NOT NULL,
+	`sort_order` integer DEFAULT 0 NOT NULL,
+	FOREIGN KEY (`preset_id`) REFERENCES `encounter_presets`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`creature_slug`) REFERENCES `creatures`(`slug`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`custom_creature_id`) REFERENCES `custom_creatures`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "encounter_preset_entry_has_exactly_one_source" CHECK(("__new_encounter_preset_entries"."creature_slug" is not null) <> ("__new_encounter_preset_entries"."custom_creature_id" is not null))
+);
+--> statement-breakpoint
+INSERT INTO `__new_encounter_preset_entries`("id", "created_at", "updated_at", "deleted_at", "version", "updated_by", "preset_id", "creature_slug", "custom_creature_id", "count", "sort_order") SELECT "id", "created_at", "updated_at", "deleted_at", "version", "updated_by", "preset_id", "creature_slug", NULL, "count", "sort_order" FROM `encounter_preset_entries`;--> statement-breakpoint
+DROP TABLE `encounter_preset_entries`;--> statement-breakpoint
+ALTER TABLE `__new_encounter_preset_entries` RENAME TO `encounter_preset_entries`;

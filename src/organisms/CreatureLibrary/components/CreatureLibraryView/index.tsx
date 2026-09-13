@@ -3,13 +3,28 @@
 import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
+import { Button } from '~/atoms/Button';
+import {
+  MultiSelectFilter,
+  type MultiSelectFilterOption,
+} from '~/atoms/MultiSelectFilter';
 import { CreatureListItem } from '~/molecules/CreatureListItem';
 
-export type CreatureSummary = {
-  slug: string;
-  name: string;
-  challengeRatingLabel: string;
-};
+export type CreatureSource = 'library' | 'custom' | 'all';
+
+export type CreatureSummary =
+  | {
+      source: 'library';
+      slug: string;
+      name: string;
+      challengeRatingLabel: string;
+    }
+  | {
+      source: 'custom';
+      id: string;
+      name: string;
+      challengeRatingLabel: string;
+    };
 
 export type CreatureLibraryViewProps = {
   isPending: boolean;
@@ -17,10 +32,18 @@ export type CreatureLibraryViewProps = {
   isLibraryImported: boolean;
   creatures: readonly CreatureSummary[];
   search: string;
+  sourceOptions: readonly MultiSelectFilterOption[];
+  selectedSources: readonly string[];
+  typeOptions: readonly MultiSelectFilterOption[];
+  selectedTypes: readonly string[];
   selectedSlug: string | null;
+  selectedCustomCreatureId: string | null;
   onSearchChange: (search: string) => void;
-  onSelect: (slug: string) => void;
-  onAdd: (slug: string) => void;
+  onSourcesChange: (sources: string[]) => void;
+  onTypesChange: (types: string[]) => void;
+  onSelect: (creature: CreatureSummary) => void;
+  onAdd: (creature: CreatureSummary) => void;
+  onNewCreature: () => void;
 };
 
 /**
@@ -35,21 +58,43 @@ export const CreatureLibraryView = ({
   isLibraryImported,
   creatures,
   search,
+  sourceOptions,
+  selectedSources,
+  typeOptions,
+  selectedTypes,
   selectedSlug,
+  selectedCustomCreatureId,
   onSearchChange,
+  onSourcesChange,
+  onTypesChange,
   onSelect,
   onAdd,
+  onNewCreature,
 }: CreatureLibraryViewProps) => (
   <Wrapper>
-    <Controls>
-      <TextInput
-        value={search}
-        onChange={event => onSearchChange(event.target.value)}
-        placeholder="Filter…"
-        aria-label="Filter creatures"
+    <TextInput
+      value={search}
+      onChange={event => onSearchChange(event.target.value)}
+      placeholder="Filter…"
+      aria-label="Filter creatures"
+      disabled={!isLibraryImported}
+    />
+    <Filters>
+      <MultiSelectFilter
+        label="Source"
+        options={sourceOptions}
+        selectedValues={selectedSources}
+        onChange={onSourcesChange}
         disabled={!isLibraryImported}
       />
-    </Controls>
+      <MultiSelectFilter
+        label="Type"
+        options={typeOptions}
+        selectedValues={selectedTypes}
+        onChange={onTypesChange}
+        disabled={!isLibraryImported}
+      />
+    </Filters>
     <Results>
       <ResultsBody
         isPending={isPending}
@@ -57,14 +102,30 @@ export const CreatureLibraryView = ({
         creatures={creatures}
         search={search}
         selectedSlug={selectedSlug}
+        selectedCustomCreatureId={selectedCustomCreatureId}
         onSelect={onSelect}
         onAdd={onAdd}
       />
     </Results>
+    <Footer>
+      <Button type="button" size="sm" isFullWidth onClick={onNewCreature}>
+        New Creature
+      </Button>
+    </Footer>
   </Wrapper>
 );
 
-type ResultsBodyProps = Omit<CreatureLibraryViewProps, 'onSearchChange'>;
+type ResultsBodyProps = Omit<
+  CreatureLibraryViewProps,
+  | 'onSearchChange'
+  | 'sourceOptions'
+  | 'selectedSources'
+  | 'onSourcesChange'
+  | 'typeOptions'
+  | 'selectedTypes'
+  | 'onTypesChange'
+  | 'onNewCreature'
+>;
 
 /**
  * A real named subcomponent rather than a local JSX const, so the three
@@ -76,6 +137,7 @@ const ResultsBody = ({
   creatures,
   search,
   selectedSlug,
+  selectedCustomCreatureId,
   onSelect,
   onAdd,
 }: ResultsBodyProps) => {
@@ -103,23 +165,39 @@ const ResultsBody = ({
 
   return (
     <List>
-      {creatures.map(creature => (
-        <li key={creature.slug}>
-          <CreatureListItem
-            name={creature.name}
-            challengeRatingLabel={creature.challengeRatingLabel}
-            isSelected={creature.slug === selectedSlug}
-            onSelect={() => onSelect(creature.slug)}
-            onAdd={() => onAdd(creature.slug)}
-          />
-        </li>
-      ))}
+      {creatures.map(creature => {
+        const isSelected =
+          creature.source === 'library'
+            ? creature.slug === selectedSlug
+            : creature.id === selectedCustomCreatureId;
+
+        return (
+          <li
+            key={`${creature.source}-${creature.source === 'library' ? creature.slug : creature.id}`}
+          >
+            <CreatureListItem
+              name={creature.name}
+              challengeRatingLabel={creature.challengeRatingLabel}
+              isSelected={isSelected}
+              onSelect={() => onSelect(creature)}
+              onAdd={() => onAdd(creature)}
+            />
+          </li>
+        );
+      })}
     </List>
   );
 };
 
-const Controls = styled.div`
-  display: grid;
+const Filters = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${props => props.theme.space.sm};
+`;
+
+const Footer = styled.div`
+  padding-top: ${props => props.theme.space.sm};
+  border-top: 1px solid ${props => props.theme.color.border};
 `;
 
 const Wrapper = styled.div`

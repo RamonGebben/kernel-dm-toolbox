@@ -3,10 +3,19 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import styled from 'styled-components';
 
+export type ModalSize = 'default' | 'wide';
+
 export type ModalProps = {
   title: string;
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * `wide` roughly doubles the panel's max width. The panel transitions
+   * between the two on its own `width`, so a single open modal can widen
+   * itself mid-flow (a wizard's later step) instead of needing a second
+   * modal instance.
+   */
+  size?: ModalSize;
   children: ReactNode;
 };
 
@@ -22,16 +31,27 @@ export type ModalProps = {
  * that would have to be kept in sync with the `isOpen` prop, and the two
  * drifting apart is a whole class of bug this does not need.
  */
-export const Modal = ({ title, isOpen, onClose, children }: ModalProps) => {
+export const Modal = ({
+  title,
+  isOpen,
+  onClose,
+  size = 'default',
+  children,
+}: ModalProps) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Deliberately its own effect, keyed only on `isOpen`: focus should move
+  // into the dialog once, on open, not every time `onClose` is re-created by
+  // the caller's render — that used to steal focus back from any input
+  // inside the dialog on every keystroke.
   useEffect(() => {
     if (!isOpen) return;
-
-    // Focus moves into the dialog so the keyboard is not left behind on the
-    // button that opened it.
     panelRef.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -51,6 +71,7 @@ export const Modal = ({ title, isOpen, onClose, children }: ModalProps) => {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        $isWide={size === 'wide'}
         onClick={event => event.stopPropagation()}
       >
         <Header>
@@ -77,16 +98,17 @@ const Scrim = styled.div`
     `color-mix(in srgb, ${props.theme.color.canvas} 60%, transparent)`};
 `;
 
-const Panel = styled.div`
+const Panel = styled.div<{ $isWide: boolean }>`
   display: flex;
   flex-direction: column;
-  width: min(32rem, 100%);
+  width: ${props => (props.$isWide ? 'min(64rem, 100%)' : 'min(32rem, 100%)')};
   max-height: min(40rem, 90dvh);
   background: ${props => props.theme.color.surface};
   border: 1px solid ${props => props.theme.color.border};
   border-top: 2px solid ${props => props.theme.color.accent};
   border-radius: ${props => props.theme.radius.md};
   box-shadow: ${props => props.theme.shadow.raised};
+  transition: width 0.25s ease;
 
   &:focus {
     outline: none;

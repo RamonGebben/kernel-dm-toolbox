@@ -3,11 +3,15 @@ import { z } from 'zod';
 /** Free-text filter plus the facets the browser exposes. */
 export const listCreaturesInputSchema = z.object({
   search: z.string().max(120).default(''),
-  /** `Monsters` / `Animals`; empty means all. */
+  /** `Monsters` / `Animals`; empty means all. Custom creatures have no
+   * category, so an active filter here excludes them from the merge. */
   category: z.string().max(60).optional(),
-  type: z.string().max(60).optional(),
+  /** Lowercased creature-type values (`dragon`, `undead`, …); empty means any. */
+  types: z.array(z.string().max(60)).default([]),
   minChallengeRating: z.number().min(0).max(30).optional(),
   maxChallengeRating: z.number().min(0).max(30).optional(),
+  /** Which table(s) to browse — the library, the DM's own creatures, or both. */
+  source: z.enum(['library', 'custom', 'all']).default('all'),
   limit: z.number().int().min(1).max(500).default(500),
 });
 

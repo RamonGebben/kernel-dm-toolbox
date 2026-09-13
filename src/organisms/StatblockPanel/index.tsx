@@ -4,9 +4,12 @@ import { StatblockView } from '~/organisms/StatblockPanel/components/StatblockVi
 import { CharacterCard } from '~/organisms/StatblockPanel/components/CharacterCard';
 import { CombatantControls } from '~/organisms/StatblockPanel/components/CombatantControls';
 import { useStatblockTarget } from '~/organisms/StatblockPanel/hooks/useStatblockTarget';
+import { useCustomCreatureEditor } from '~/organisms/StatblockPanel/hooks/useCustomCreatureEditor';
 import { useEncounter } from '~/organisms/EncounterPanel/hooks/useEncounter';
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
+import { Modal } from '~/atoms/Modal';
+import { CustomCreatureForm } from '~/molecules/CustomCreatureForm';
 
 /**
  * Connected boundary for the right-hand panel.
@@ -19,6 +22,8 @@ export const StatblockPanel = () => {
   const { target, isPending, statblock } = useStatblockTarget();
   const encounter = useEncounter();
   const conditionOptions = useQuery(trpc.library.listConditions.queryOptions());
+  const customCreatureId = target.kind === 'customCreature' ? target.id : null;
+  const editor = useCustomCreatureEditor(customCreatureId);
 
   const combatant = target.kind === 'none' ? null : target.combatant;
 
@@ -62,7 +67,30 @@ export const StatblockPanel = () => {
   return (
     <>
       {controls}
-      <StatblockView isPending={isPending} statblock={statblock} />
+      <StatblockView
+        isPending={isPending}
+        statblock={statblock}
+        isCustom={target.kind === 'customCreature'}
+        onEdit={editor.startEdit}
+        onDelete={editor.remove}
+      />
+      {target.kind === 'customCreature' && (
+        <Modal
+          title={`Edit ${statblock?.name ?? 'Creature'}`}
+          isOpen={editor.isEditing}
+          onClose={editor.cancelEdit}
+        >
+          {editor.isLoadingEdit || !editor.initialValues ? null : (
+            <CustomCreatureForm
+              initialValues={editor.initialValues}
+              isSaving={editor.isSaving}
+              submitLabel="Save Changes"
+              onSubmit={editor.submit}
+              onCancel={editor.cancelEdit}
+            />
+          )}
+        </Modal>
+      )}
     </>
   );
 };

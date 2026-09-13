@@ -1,10 +1,11 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
   CURRENT_ENCOUNTER_ID,
   combatants,
   creatures,
+  customCreatures,
   encounterPresetEntries,
   encounterPresets,
 } from '~/server/db/schema';
@@ -13,7 +14,10 @@ import {
   savePresetInputSchema,
 } from '~/server/trpc/schemas/presets';
 import { ensureEncounter } from '~/server/encounter/state';
-import { addCreaturesToEncounter } from '~/server/encounter/addCreatures';
+import {
+  addCreaturesToEncounter,
+  type AddCreaturesInput,
+} from '~/server/encounter/addCreatures';
 import { publishEncounterChanged } from '~/server/encounter/events';
 import { tombstoneSyncMeta } from '~/server/trpc/helpers/touchSyncMeta';
 import { groupCreatureCounts } from '~/utils/groupCreatureCounts';
@@ -38,6 +42,26 @@ const loadPreset = async (db: Database, id: string) => {
   return preset;
 };
 
+/** The DB check constraint guarantees exactly one of these is set. */
+const toAddCreaturesInput = (entry: {
+  creatureSlug: string | null;
+  customCreatureId: string | null;
+  count: number;
+}): AddCreaturesInput => {
+  if (entry.creatureSlug !== null) {
+    return { source: 'library', slug: entry.creatureSlug, count: entry.count };
+  }
+
+  if (entry.customCreatureId !== null) {
+    return { source: 'custom', id: entry.customCreatureId, count: entry.count };
+  }
+
+  throw new TRPCError({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: 'A preset entry has no creature reference.',
+  });
+};
+
 /**
  * Saved encounters: named sets of monsters, ready to drop onto the board.
  *
@@ -46,6 +70,12 @@ const loadPreset = async (db: Database, id: string) => {
  * fresh fight rather than restoring a half-finished one (DECISIONS #21).
  */
 export const presetsRouter = createTRPCRouter({
+  /**
+   * Every entry references either a library slug or a custom creature id
+   * (issue #3) — the old single `innerJoin` against `creatures` would
+   * silently drop any entry referencing a custom creature, so `name`/
+   * `challengeRating` are resolved from whichever table matches instead.
+   */
   list: publicProcedure.query(async ({ ctx }) => {
     const presets = await ctx.db
       .select()
@@ -53,22 +83,74 @@ export const presetsRouter = createTRPCRouter({
       .where(isLivePreset)
       .orderBy(asc(encounterPresets.name));
 
-    const entries = await ctx.db
-      .select({
-        presetId: encounterPresetEntries.presetId,
-        creatureSlug: encounterPresetEntries.creatureSlug,
-        count: encounterPresetEntries.count,
-        sortOrder: encounterPresetEntries.sortOrder,
-        name: creatures.name,
-        challengeRating: creatures.challengeRating,
-      })
+    const rawEntries = await ctx.db
+      .select()
       .from(encounterPresetEntries)
-      .innerJoin(
-        creatures,
-        eq(encounterPresetEntries.creatureSlug, creatures.slug),
-      )
       .where(isLiveEntry)
       .orderBy(asc(encounterPresetEntries.sortOrder));
+
+    const librarySlugs = rawEntries
+      .map(entry => entry.creatureSlug)
+      .filter((slug): slug is string => slug !== null);
+    const customCreatureIds = rawEntries
+      .map(entry => entry.customCreatureId)
+      .filter((id): id is string => id !== null);
+
+    const [libraryRows, customRows] = await Promise.all([
+      librarySlugs.length
+        ? ctx.db
+            .select({
+              slug: creatures.slug,
+              name: creatures.name,
+              challengeRating: creatures.challengeRating,
+            })
+            .from(creatures)
+            .where(inArray(creatures.slug, librarySlugs))
+        : [],
+      customCreatureIds.length
+        ? ctx.db
+            .select({
+              id: customCreatures.id,
+              name: customCreatures.name,
+              challengeRating: customCreatures.challengeRating,
+            })
+            .from(customCreatures)
+            .where(
+              and(
+                inArray(customCreatures.id, customCreatureIds),
+                isNull(customCreatures.deletedAt),
+              ),
+            )
+        : [],
+    ]);
+
+    const libraryBySlug = new Map(libraryRows.map(row => [row.slug, row]));
+    const customById = new Map(customRows.map(row => [row.id, row]));
+
+    const entries = rawEntries
+      .map(entry => {
+        const source =
+          entry.creatureSlug !== null
+            ? libraryBySlug.get(entry.creatureSlug)
+            : entry.customCreatureId !== null
+              ? customById.get(entry.customCreatureId)
+              : undefined;
+
+        // The referenced creature/custom creature was removed since this
+        // preset was saved — drop the entry rather than show a blank line.
+        if (!source) return null;
+
+        return {
+          presetId: entry.presetId,
+          creatureSlug: entry.creatureSlug,
+          customCreatureId: entry.customCreatureId,
+          count: entry.count,
+          sortOrder: entry.sortOrder,
+          name: source.name,
+          challengeRatingLabel: formatChallengeRating(source.challengeRating),
+        };
+      })
+      .filter(entry => entry !== null);
 
     return presets.map(preset => {
       const own = entries.filter(entry => entry.presetId === preset.id);
@@ -79,10 +161,7 @@ export const presetsRouter = createTRPCRouter({
         note: preset.note,
         createdAt: preset.createdAt,
         creatureCount: own.reduce((total, entry) => total + entry.count, 0),
-        entries: own.map(({ presetId: _presetId, ...entry }) => ({
-          ...entry,
-          challengeRatingLabel: formatChallengeRating(entry.challengeRating),
-        })),
+        entries: own.map(({ presetId: _presetId, ...entry }) => entry),
       };
     });
   }),
@@ -91,8 +170,8 @@ export const presetsRouter = createTRPCRouter({
    * Saves the monsters currently on the board.
    *
    * Player characters are excluded, not by filtering the input but because
-   * `groupCreatureCounts` only counts rows that reference the library. The
-   * party is a roster that outlives every fight.
+   * `groupCreatureCounts` only counts rows that reference the library or a
+   * custom creature. The party is a roster that outlives every fight.
    */
   saveCurrent: publicProcedure
     .input(savePresetInputSchema)
@@ -100,7 +179,10 @@ export const presetsRouter = createTRPCRouter({
       await ensureEncounter(ctx.db);
 
       const present = await ctx.db
-        .select({ creatureSlug: combatants.creatureSlug })
+        .select({
+          creatureSlug: combatants.creatureSlug,
+          customCreatureId: combatants.customCreatureId,
+        })
         .from(combatants)
         .where(
           and(
@@ -128,6 +210,7 @@ export const presetsRouter = createTRPCRouter({
         counts.map(entry => ({
           presetId: preset.id,
           creatureSlug: entry.creatureSlug,
+          customCreatureId: entry.customCreatureId,
           count: entry.count,
           sortOrder: entry.sortOrder,
         })),
@@ -154,10 +237,10 @@ export const presetsRouter = createTRPCRouter({
       // "Goblin 3" and produce duplicates.
       let addedCount = 0;
       for (const entry of entries) {
-        const created = await addCreaturesToEncounter(ctx.db, {
-          slug: entry.creatureSlug,
-          count: entry.count,
-        });
+        const created = await addCreaturesToEncounter(
+          ctx.db,
+          toAddCreaturesInput(entry),
+        );
         addedCount += created.length;
       }
 

@@ -15,6 +15,7 @@ const combatant = (
   isDelayed: false,
   sortOrder: 0,
   creatureSlug: 'srd-2024_goblin',
+  customCreatureId: null,
   initiativeBonus: 2,
   playerCharacterId: null,
   isPlayerCharacter: false,

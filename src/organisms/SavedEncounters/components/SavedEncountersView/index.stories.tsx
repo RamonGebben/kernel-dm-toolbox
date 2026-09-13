@@ -14,12 +14,14 @@ const presets: SavedEncounterSummary[] = [
     entries: [
       {
         creatureSlug: 'srd-2024_goblin-warrior',
+        customCreatureId: null,
         name: 'Goblin Warrior',
         count: 4,
         challengeRatingLabel: '1/4',
       },
       {
         creatureSlug: 'srd-2024_hobgoblin-warrior',
+        customCreatureId: null,
         name: 'Hobgoblin Warrior',
         count: 1,
         challengeRatingLabel: '1/2',
@@ -34,6 +36,7 @@ const presets: SavedEncounterSummary[] = [
     entries: [
       {
         creatureSlug: 'srd-2024_young-black-dragon',
+        customCreatureId: null,
         name: 'Young Black Dragon',
         count: 1,
         challengeRatingLabel: '7',

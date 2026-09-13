@@ -7,7 +7,8 @@ import { EmptyState } from '~/atoms/EmptyState';
 import { TextInput } from '~/atoms/TextInput';
 
 export type SavedEncounterEntry = {
-  creatureSlug: string;
+  creatureSlug: string | null;
+  customCreatureId: string | null;
   name: string;
   count: number;
   challengeRatingLabel: string;
@@ -127,7 +128,7 @@ const PresetsBody = ({
 
             <Composition>
               {preset.entries.map(entry => (
-                <Line key={entry.creatureSlug}>
+                <Line key={entry.creatureSlug ?? entry.customCreatureId}>
                   {entry.count} × {entry.name}{' '}
                   <Cr>CR {entry.challengeRatingLabel}</Cr>
                 </Line>

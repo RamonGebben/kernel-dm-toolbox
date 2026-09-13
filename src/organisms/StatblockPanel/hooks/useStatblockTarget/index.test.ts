@@ -5,6 +5,7 @@ const dragon = {
   id: 'dragon',
   displayName: 'Meat',
   creatureSlug: 'srd-2024_young-black-dragon',
+  customCreatureId: null,
   currentHitPoints: 35,
   maxHitPoints: 52,
   temporaryHitPoints: 0,
@@ -17,6 +18,7 @@ const sigrid = {
   id: 'sigrid',
   displayName: 'Sigrid',
   creatureSlug: null,
+  customCreatureId: null,
   currentHitPoints: 45,
   maxHitPoints: 45,
   temporaryHitPoints: 0,
@@ -25,13 +27,27 @@ const sigrid = {
   conditions: [],
 };
 
-const combatants = [dragon, sigrid];
+const goblinBoss = {
+  id: 'goblin-boss',
+  displayName: 'Goblin Boss',
+  creatureSlug: null,
+  customCreatureId: 'custom-goblin-boss',
+  currentHitPoints: 21,
+  maxHitPoints: 21,
+  temporaryHitPoints: 0,
+  armorClass: 17,
+  isHidden: false,
+  conditions: [],
+};
+
+const combatants = [dragon, sigrid, goblinBoss];
 
 describe('toStatblockTarget', () => {
   it('shows nothing when nothing is selected', () => {
     expect(
       toStatblockTarget({
         selectedCreatureSlug: null,
+        selectedCustomCreatureId: null,
         selectedCombatantId: null,
         combatants,
       }),
@@ -42,6 +58,7 @@ describe('toStatblockTarget', () => {
     expect(
       toStatblockTarget({
         selectedCreatureSlug: 'srd-2024_aboleth',
+        selectedCustomCreatureId: null,
         selectedCombatantId: null,
         combatants,
       }),
@@ -52,10 +69,26 @@ describe('toStatblockTarget', () => {
     });
   });
 
+  it('shows a browsed custom creature', () => {
+    expect(
+      toStatblockTarget({
+        selectedCreatureSlug: null,
+        selectedCustomCreatureId: 'custom-goblin-boss',
+        selectedCombatantId: null,
+        combatants,
+      }),
+    ).toEqual({
+      kind: 'customCreature',
+      id: 'custom-goblin-boss',
+      combatant: null,
+    });
+  });
+
   it('resolves a selected monster combatant to its library statblock', () => {
     expect(
       toStatblockTarget({
         selectedCreatureSlug: null,
+        selectedCustomCreatureId: null,
         selectedCombatantId: 'dragon',
         combatants,
       }),
@@ -66,10 +99,26 @@ describe('toStatblockTarget', () => {
     });
   });
 
+  it('resolves a selected custom-creature combatant to its own statblock', () => {
+    expect(
+      toStatblockTarget({
+        selectedCreatureSlug: null,
+        selectedCustomCreatureId: null,
+        selectedCombatantId: 'goblin-boss',
+        combatants,
+      }),
+    ).toEqual({
+      kind: 'customCreature',
+      id: 'custom-goblin-boss',
+      combatant: goblinBoss,
+    });
+  });
+
   it('reports a player character, which has no statblock to fetch', () => {
     expect(
       toStatblockTarget({
         selectedCreatureSlug: null,
+        selectedCustomCreatureId: null,
         selectedCombatantId: 'sigrid',
         combatants,
       }),
@@ -79,6 +128,7 @@ describe('toStatblockTarget', () => {
   it('prefers the combatant selection over a stale creature selection', () => {
     const target = toStatblockTarget({
       selectedCreatureSlug: 'srd-2024_aboleth',
+      selectedCustomCreatureId: null,
       selectedCombatantId: 'dragon',
       combatants,
     });
@@ -90,6 +140,7 @@ describe('toStatblockTarget', () => {
     expect(
       toStatblockTarget({
         selectedCreatureSlug: null,
+        selectedCustomCreatureId: null,
         selectedCombatantId: 'already-removed',
         combatants,
       }),
@@ -100,6 +151,7 @@ describe('toStatblockTarget', () => {
     expect(
       toStatblockTarget({
         selectedCreatureSlug: null,
+        selectedCustomCreatureId: null,
         selectedCombatantId: 'dragon',
         combatants: [],
       }),
