@@ -1,5 +1,5 @@
 import { ScenarioList } from '~/organisms/ScenarioList';
-import { ScenarioBuilder } from '~/organisms/ScenarioBuilder';
+import { ScenarioWorkspace } from '~/organisms/ScenarioWorkspace';
 import { SimulatorTemplate } from '~/templates/SimulatorTemplate';
 import { NavigationRail } from '~/molecules/NavigationRail';
 import { tools } from '~/content/tools';
@@ -12,7 +12,7 @@ const SimulatorPage = () => (
   <SimulatorTemplate
     navigationSlot={<NavigationRail tools={tools} activeToolId="simulator" />}
     scenariosSlot={<ScenarioList />}
-    builderSlot={<ScenarioBuilder />}
+    builderSlot={<ScenarioWorkspace />}
   />
 );
 
