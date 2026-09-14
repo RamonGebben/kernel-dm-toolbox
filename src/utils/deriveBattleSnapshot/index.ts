@@ -83,12 +83,36 @@ export const deriveBattleSnapshot = (
         break;
       }
 
+      // A death-save-eligible combatant going down (`down`), rolling
+      // (`death-save`), stabilizing, or waking back up (`revived`) is all
+      // real detail for milestone 13's UI pass to draw — this snapshot
+      // reducer just needs `revived` to restore the 1 HP `rollDeathSave`
+      // grants so a later `attack`/`save-effect` entry's damage clamp has
+      // the right starting point to subtract from; the others need no
+      // numeric change here (HP is already 0 from the hit that caused
+      // `down`, and `isDefeated` deliberately stays false for all of
+      // `down`/`death-save`/`stabilized` — a down-but-not-dead combatant
+      // is not the same terminal state `defeated` represents).
+      case 'revived': {
+        const current = byId.get(entry.combatantId);
+        if (current) {
+          byId.set(entry.combatantId, {
+            ...current,
+            currentHitPoints: entry.hitPoints,
+          });
+        }
+        break;
+      }
+
       case 'round-start':
       case 'initiative':
       case 'no-action':
       case 'condition-applied':
       case 'condition-removed':
       case 'concentration-check':
+      case 'down':
+      case 'death-save':
+      case 'stabilized':
         break;
 
       default: {

@@ -240,6 +240,31 @@ export type EngineCombatant = {
    * name lookup on every turn.
    */
   multiattackSequence: { actionId: string; count: number }[] | null;
+  /**
+   * Death-save eligibility (issue #5, milestone 12) — true only for PC
+   * combatants. A monster keeps the pre-milestone-12 rule (0 HP = instant
+   * `defeated`) rather than making individual death-save rolls, both to
+   * avoid a multi-monster fight ballooning into dozens of individually
+   * dying stat blocks for no balance-relevant signal, and to match "0 HP =
+   * defeat" as the monster-side rule while a PC gets the fuller treatment —
+   * see `runEncounter.ts`'s own doc comment.
+   */
+  tracksDeathSaves: boolean;
+  /**
+   * Where a death-save-eligible combatant is in the dying process
+   * (`~/server/simulator/engine/deathSaves`). `'none'` for anyone with HP
+   * above 0, and always `'none'` for a combatant with `tracksDeathSaves`
+   * false. `'dying'` = at 0 HP, rolling a death save at the start of each of
+   * its own turns. `'stable'` = 3 successes reached, stopped rolling, still
+   * unconscious at 0 HP for the rest of the encounter (no in-combat healing
+   * is modeled, so a stable combatant simply stays down). `'dead'` = 3
+   * failures or an instant-death hit — permanently removed, the same
+   * terminal state the `defeated` log entry already represents for a
+   * monster's own 0-HP drop.
+   */
+  downState: 'none' | 'dying' | 'stable' | 'dead';
+  deathSaveSuccesses: number;
+  deathSaveFailures: number;
 };
 
 export type EngineScenarioInput = {
@@ -322,6 +347,50 @@ export type TurnLogEntry =
       dc: number;
       roll: number;
       succeeded: boolean;
+    }
+  | {
+      /** A death-save-eligible combatant just dropped to 0 HP and became
+       * unconscious — not terminal, see `EngineCombatant.downState`'s own
+       * doc comment for why this is distinct from `defeated`. */
+      kind: 'down';
+      combatantId: string;
+      name: string;
+    }
+  | {
+      /** One death-save event — either the roll a `dying` combatant makes
+       * at the start of its own turn, or an automatic failure from taking
+       * damage while already at 0 HP (issue #5, milestone 12,
+       * `~/server/simulator/engine/deathSaves`). */
+      kind: 'death-save';
+      combatantId: string;
+      /** Null for an automatic failure from taking damage at 0 HP — 5e
+       * doesn't roll anything for that case, it just applies the
+       * failure(s) directly. Non-null for a roll made at the start of a
+       * dying combatant's own turn. */
+      roll: number | null;
+      /** How many failures this single event added: 2 for a natural 1 on a
+       * rolled save, or for a critical hit taken while already at 0 HP; 1
+       * for every other failure; 0 for a success or a natural 20. */
+      failuresAdded: 0 | 1 | 2;
+      /** True only for a natural 20 on a rolled save — the combatant also
+       * regains 1 HP and stops dying, see the `revived` entry pushed
+       * immediately after this one. */
+      isNatural20: boolean;
+      /** Running totals after this event. */
+      successes: number;
+      failures: number;
+    }
+  | {
+      /** 3 accumulated death-save successes — stops rolling, stays
+       * unconscious at 0 HP for the rest of the encounter. */
+      kind: 'stabilized';
+      combatantId: string;
+    }
+  | {
+      /** A natural 20 on a death save — regains 1 HP and consciousness. */
+      kind: 'revived';
+      combatantId: string;
+      hitPoints: number;
     };
 
 export type EngineFinalCombatantState = {
@@ -331,6 +400,15 @@ export type EngineFinalCombatantState = {
   side: EngineSide;
   maxHitPoints: number;
   finalHitPoints: number;
+  /** For a death-save-eligible combatant (a PC), "didn't die" — a
+   * stabilized or still-`dying` PC at the end of the encounter counts as
+   * survived even at 0 HP, which is the balance-relevant signal for Monte
+   * Carlo's `survivalRate` (issue #5, milestone 12). For anyone else, the
+   * original "ended the fight above 0 HP" meaning, unchanged. See
+   * `runEncounter.ts`'s own return-statement comment for why this is a
+   * deliberate divergence from the encounter-end/`winner` check, which
+   * still (correctly, unaffected) means "ended the fight above 0 HP" for
+   * every combatant regardless of death-save eligibility. */
   survived: boolean;
 };
 

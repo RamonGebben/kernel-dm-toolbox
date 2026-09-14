@@ -260,6 +260,13 @@ const loadPartyCombatants = async (
       // creature_actions` only). A PC's Extra Attack already goes through
       // `attacksPerTurn` instead.
       multiattackSequence: null,
+      // Only a PC gets the full death-save process at 0 HP (issue #5,
+      // milestone 12) — see `EngineCombatant.tracksDeathSaves`'s own doc
+      // comment for why monsters keep the simpler instant-defeat rule.
+      tracksDeathSaves: true,
+      downState: 'none',
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
     });
   }
 
@@ -448,6 +455,13 @@ const loadMonsterCombatants = async (
           // effect with a fixed DC, like any other monster action), not
           // through a slot economy.
           spellSlotsRemaining: {},
+          // A monster keeps the pre-milestone-12 instant-defeat-at-0-HP
+          // rule rather than making death saves — see
+          // `EngineCombatant.tracksDeathSaves`'s own doc comment.
+          tracksDeathSaves: false,
+          downState: 'none',
+          deathSaveSuccesses: 0,
+          deathSaveFailures: 0,
         });
       }
       continue;
@@ -526,6 +540,12 @@ const loadMonsterCombatants = async (
           // Same as a library creature — no custom-creature spellcasting
           // goes through a slot economy either.
           spellSlotsRemaining: {},
+          // Same as a library creature — no death saves, see
+          // `EngineCombatant.tracksDeathSaves`'s own doc comment.
+          tracksDeathSaves: false,
+          downState: 'none',
+          deathSaveSuccesses: 0,
+          deathSaveFailures: 0,
         });
       }
     }

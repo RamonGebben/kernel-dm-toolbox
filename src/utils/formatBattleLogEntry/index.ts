@@ -97,6 +97,29 @@ export const formatBattleLogEntry = (
         : `${name} loses concentration (rolled ${entry.roll} vs DC ${entry.dc}).`;
     }
 
+    case 'down':
+      return `${entry.name} drops to 0 HP and is dying!`;
+
+    case 'death-save': {
+      const name = nameOf(namesById, entry.combatantId);
+      if (entry.roll === null) {
+        const plural = entry.failuresAdded > 1 ? 's' : '';
+        return `${name} takes damage at 0 HP: ${entry.failuresAdded} automatic death save failure${plural} (${entry.successes} successes, ${entry.failures} failures).`;
+      }
+      if (entry.isNatural20) {
+        return `${name} rolls a natural 20 on their death save and returns to consciousness!`;
+      }
+      const outcome = entry.failuresAdded > 0 ? 'fails' : 'succeeds on';
+      const natSuffix = entry.roll === 1 ? ' (natural 1, counts as two)' : '';
+      return `${name} ${outcome} a death save (rolled ${entry.roll}${natSuffix}): ${entry.successes} successes, ${entry.failures} failures.`;
+    }
+
+    case 'stabilized':
+      return `${nameOf(namesById, entry.combatantId)} stabilizes.`;
+
+    case 'revived':
+      return `${nameOf(namesById, entry.combatantId)} regains consciousness with ${entry.hitPoints} HP!`;
+
     default: {
       const exhaustive: never = entry;
       return exhaustive;

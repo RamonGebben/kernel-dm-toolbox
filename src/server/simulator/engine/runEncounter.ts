@@ -25,6 +25,10 @@ import {
   consumeLowestSlot,
   hasAvailableSlot,
 } from '~/server/simulator/engine/spellSlots';
+import {
+  applyDamageForDeathSaves,
+  rollDeathSave,
+} from '~/server/simulator/engine/deathSaves';
 import type {
   EngineAction,
   EngineCombatant,
@@ -126,6 +130,25 @@ const availableActionIds = (
  * spells aren't converted to `EngineAction`s yet — see
  * `EngineAction.requiresConcentration`'s own doc comment. Milestone 11 (PC
  * spellcasting) is what will actually set it to true for real data.
+ *
+ * Also modeled, milestone 12: death saving throws, PC-only
+ * (`EngineCombatant.tracksDeathSaves` — see `deathSaves.ts`). A monster
+ * still dies outright at 0 HP, unchanged. A PC instead becomes unconscious
+ * and enters a `dying` state: a flat, unmodified d20 rolled at the start of
+ * each of its own turns (10+ succeeds, a natural 1 counts as two failures,
+ * a natural 20 restores 1 HP and consciousness), 3 successes stabilizes it
+ * (stops rolling, stays down at 0 HP for the rest of the encounter — no
+ * in-combat healing is modeled), 3 failures kills it. Taking damage while
+ * already down adds one automatic failure (two on a critical hit) on top of
+ * that same roll-each-turn process; a hit whose damage, past what was
+ * needed to reach 0 HP, equals or exceeds the PC's own max HP kills it
+ * instantly by 5e's massive-damage rule, no saves rolled at all. The
+ * encounter-end/`winner` check needed no change for this: it already asks
+ * "does either side have anyone above 0 HP," which a dying or stable PC
+ * (always at exactly 0) correctly fails without knowing anything about
+ * `downState` — see `EngineFinalCombatantState.survived`'s own doc comment
+ * for the one place this milestone *did* need a deliberate, separate
+ * definition of "made it through the fight."
  */
 export const runEncounter = (
   input: EngineScenarioInput,
@@ -214,20 +237,58 @@ export const runEncounter = (
     if (!succeeded) breakConcentration(combatantId);
   };
 
-  const applyUpdate = (updated: EngineCombatant, damageDealt = 0) => {
+  /**
+   * The single funnel every damage-dealing resolution routes through to
+   * commit its updated target, run the death-save state machine (issue #5,
+   * milestone 12, `deathSaves.ts`) for a death-save-eligible combatant, run
+   * a concentration check, and push whichever terminal/transition log
+   * entries the result calls for. `isCriticalHit` only matters for an
+   * already-down combatant taking more damage (5e: a critical hit while at
+   * 0 HP counts as two automatic death-save failures instead of one) — a
+   * save-effect's damage never crits, so its call site simply omits it.
+   */
+  const applyUpdate = (
+    updated: EngineCombatant,
+    damageDealt = 0,
+    isCriticalHit = false,
+  ) => {
     const previous = byId.get(updated.id)!;
     const wasLiving = isLiving(previous);
-    byId.set(updated.id, updated);
 
-    maybeCheckConcentration(updated.id, damageDealt);
+    const { combatant: next, events: deathSaveEvents } =
+      applyDamageForDeathSaves(previous, updated, damageDealt, isCriticalHit);
+    byId.set(next.id, next);
+    deathSaveEvents.forEach(event => log.push(event));
 
-    if (wasLiving && !isLiving(byId.get(updated.id)!)) {
-      log.push({
-        kind: 'defeated',
-        combatantId: updated.id,
-        name: updated.name,
-      });
-      breakConcentration(updated.id);
+    // A concentration check is only meaningful when concentration might
+    // actually continue — a combatant that just dropped to 0 HP or below
+    // loses it unconditionally (incapacitation, or death) regardless of any
+    // roll, so skip the check entirely rather than logging a "maintains
+    // concentration" that's immediately contradicted by the down/defeated
+    // entry right after it.
+    if (isLiving(next)) maybeCheckConcentration(next.id, damageDealt);
+
+    const justWentDown = wasLiving && !isLiving(next);
+    const justDied = previous.downState !== 'dead' && next.downState === 'dead';
+
+    // Entered the dying state this hit (not terminal) — concentration still
+    // breaks (dropping to 0 HP/becoming incapacitated always ends it), but
+    // no `defeated` entry: the `down` event already pushed above is the
+    // right signal for this transition.
+    if (justWentDown && next.tracksDeathSaves && next.downState !== 'dead') {
+      breakConcentration(next.id);
+      return;
+    }
+
+    // Either a death-save-ineligible combatant dropped to 0 (the pre-
+    // milestone-12 instant-defeat rule, unchanged), or a death-save-
+    // eligible one died outright this same event (massive damage, or the
+    // 3rd automatic failure from being hit while already down) — both are
+    // the single terminal `defeated` signal, matching every consumer that
+    // already reads it (kill attribution, the battle-viewer canvas).
+    if (justWentDown || justDied) {
+      log.push({ kind: 'defeated', combatantId: next.id, name: next.name });
+      breakConcentration(next.id);
     }
   };
 
@@ -265,6 +326,7 @@ export const runEncounter = (
       applyUpdate(
         updatedTarget,
         logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
+        logEntry.kind === 'attack' && logEntry.critical,
       );
       return;
     }
@@ -361,6 +423,7 @@ export const runEncounter = (
       applyUpdate(
         updatedTarget,
         logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
+        logEntry.kind === 'attack' && logEntry.critical,
       );
     }
   };
@@ -462,6 +525,25 @@ export const runEncounter = (
 
   const takeTurn = (combatantId: string) => {
     const self = byId.get(combatantId)!;
+
+    // A `dying` combatant's "turn" is just the death save it rolls at the
+    // start of it (issue #5, milestone 12) — no action, no movement, no
+    // legendary-point refill. `breakConcentration` isn't needed here even
+    // on a death here: concentration already broke the moment this
+    // combatant first dropped to 0 HP (`applyUpdate`'s `justWentDown`
+    // branch), so it's already null by the time this can run.
+    if (self.downState === 'dying') {
+      const { combatant: rolled, events } = rollDeathSave(rng, self);
+      byId.set(combatantId, rolled);
+      events.forEach(event => log.push(event));
+      if (rolled.downState === 'dead') {
+        log.push({ kind: 'defeated', combatantId, name: rolled.name });
+      }
+      return;
+    }
+
+    // `stable`/`dead` (already-out) or a plain non-eligible defeat all fall
+    // through to the pre-existing "nothing to do" skip.
     if (!isLiving(self)) return;
 
     if (self.actions.some(action => action.actionType === 'LEGENDARY_ACTION')) {
@@ -750,7 +832,19 @@ export const runEncounter = (
         side: final.side,
         maxHitPoints: final.maxHitPoints,
         finalHitPoints: final.currentHitPoints,
-        survived: isLiving(final),
+        // For a death-save-eligible combatant, "survived" means "didn't
+        // die" rather than "ended the fight above 0 HP" — a stabilized or
+        // still-dying PC lived to tell the tale even though they didn't end
+        // the encounter on their feet, which is the balance-relevant signal
+        // for Monte Carlo's `survivalRate` (issue #5, milestone 12). This
+        // is a deliberate divergence from `winner`/the encounter-end loop
+        // above, both of which correctly keep using HP > 0 (`isLiving`) as
+        // "can this side still fight" — unaffected by this change, since
+        // `downState` never influences those. A non-eligible combatant
+        // (a monster) keeps the original HP-based meaning unchanged.
+        survived: final.tracksDeathSaves
+          ? final.downState !== 'dead'
+          : isLiving(final),
       };
     }),
   };

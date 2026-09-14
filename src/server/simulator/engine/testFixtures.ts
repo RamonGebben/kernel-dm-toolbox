@@ -39,4 +39,8 @@ export const buildCombatant = (
   concentratingOn: overrides.concentratingOn ?? null,
   spellSlotsRemaining: overrides.spellSlotsRemaining ?? {},
   multiattackSequence: overrides.multiattackSequence ?? null,
+  tracksDeathSaves: overrides.tracksDeathSaves ?? false,
+  downState: overrides.downState ?? 'none',
+  deathSaveSuccesses: overrides.deathSaveSuccesses ?? 0,
+  deathSaveFailures: overrides.deathSaveFailures ?? 0,
 });
