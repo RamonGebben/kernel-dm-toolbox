@@ -18,6 +18,9 @@ const baseAction: EngineActionSourceFields = {
   damageOnFailRoll: null,
   damageOnFailType: null,
   halfDamageOnSave: true,
+  appliesConditionSlug: null,
+  conditionDurationRounds: null,
+  conditionSaveEndsEachTurn: false,
 };
 
 const baseAttack: EngineAttackSourceFields = {
@@ -126,5 +129,42 @@ describe('toEngineAction', () => {
 
   it('has no attack when none is provided', () => {
     expect(toEngineAction('a', baseAction, null).attack).toBeNull();
+  });
+
+  it('normalizes a versioned condition slug down to its short key', () => {
+    const result = toEngineAction(
+      'action-3',
+      {
+        ...baseAction,
+        saveAbility: 'constitution',
+        saveDc: 13,
+        appliesConditionSlug: 'srd-2024_paralyzed',
+        conditionDurationRounds: 10,
+        conditionSaveEndsEachTurn: true,
+      },
+      null,
+    );
+
+    expect(result.save).toMatchObject({
+      appliesConditionKey: 'paralyzed',
+      conditionDurationRounds: 10,
+      conditionSaveEndsEachTurn: true,
+    });
+  });
+
+  it('leaves appliesConditionKey null when no condition slug is set', () => {
+    const result = toEngineAction(
+      'action-4',
+      { ...baseAction, saveAbility: 'dexterity', saveDc: 12 },
+      null,
+    );
+
+    expect(result.save?.appliesConditionKey).toBeNull();
+  });
+
+  it('never sets requiresConcentration, since no source table has one yet', () => {
+    expect(toEngineAction('a', baseAction, null).requiresConcentration).toBe(
+      false,
+    );
   });
 });

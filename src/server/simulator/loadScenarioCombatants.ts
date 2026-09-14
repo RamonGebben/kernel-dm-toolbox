@@ -164,6 +164,8 @@ const loadPartyCombatants = async (
       damageResistances: [],
       damageImmunities: [],
       damageVulnerabilities: [],
+      activeConditions: [],
+      concentratingOn: null,
     });
   }
 
@@ -337,6 +339,8 @@ const loadMonsterCombatants = async (
           damageResistances: source.damageResistances,
           damageImmunities: source.damageImmunities,
           damageVulnerabilities: source.damageVulnerabilities,
+          activeConditions: [],
+          concentratingOn: null,
         });
       }
       continue;
@@ -402,6 +406,8 @@ const loadMonsterCombatants = async (
           damageResistances: [],
           damageImmunities: [],
           damageVulnerabilities: [],
+          activeConditions: [],
+          concentratingOn: null,
         });
       }
     }

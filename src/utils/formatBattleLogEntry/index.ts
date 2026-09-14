@@ -67,12 +67,35 @@ export const formatBattleLogEntry = (
     case 'defeated':
       return `${entry.name} is defeated!`;
 
-    case 'no-action':
-      return `${nameOf(namesById, entry.combatantId)} has nothing to do (${
+    case 'no-action': {
+      const reason =
         entry.reason === 'no-living-enemies'
           ? 'no living enemies'
-          : 'no eligible action'
-      }).`;
+          : entry.reason === 'incapacitated'
+            ? 'incapacitated'
+            : 'no eligible action';
+      return `${nameOf(namesById, entry.combatantId)} has nothing to do (${reason}).`;
+    }
+
+    case 'condition-applied':
+      return `${nameOf(namesById, entry.combatantId)} is now ${entry.conditionKey}.`;
+
+    case 'condition-removed': {
+      const reason =
+        entry.reason === 'expired'
+          ? 'wears off'
+          : entry.reason === 'save-succeeded'
+            ? 'is shaken off'
+            : 'ends (concentration broken)';
+      return `${nameOf(namesById, entry.combatantId)}'s ${entry.conditionKey} ${reason}.`;
+    }
+
+    case 'concentration-check': {
+      const name = nameOf(namesById, entry.combatantId);
+      return entry.succeeded
+        ? `${name} maintains concentration (rolled ${entry.roll} vs DC ${entry.dc}).`
+        : `${name} loses concentration (rolled ${entry.roll} vs DC ${entry.dc}).`;
+    }
 
     default: {
       const exhaustive: never = entry;

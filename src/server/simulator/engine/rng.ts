@@ -23,3 +23,16 @@ export const rollDie = (rng: Rng, sides: number): number =>
   Math.floor(rng() * sides) + 1;
 
 export const rollD20 = (rng: Rng): number => rollDie(rng, 20);
+
+/** Advantage/disadvantage per 5e's condition rules (issue #5, milestone 10)
+ * — roll twice, keep the higher (advantage) or lower (disadvantage). Always
+ * consumes two rolls from `rng` when not `'normal'`, so a seeded run stays
+ * deterministic regardless of which mode a given roll ends up needing. */
+export type RollMode = 'normal' | 'advantage' | 'disadvantage';
+
+export const rollD20WithMode = (rng: Rng, mode: RollMode): number => {
+  const first = rollD20(rng);
+  if (mode === 'normal') return first;
+  const second = rollD20(rng);
+  return mode === 'advantage' ? Math.max(first, second) : Math.min(first, second);
+};

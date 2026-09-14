@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { createRng, rollD20, rollDie } from '~/server/simulator/engine/rng';
+import type { Rng } from '~/server/simulator/engine/rng';
+import {
+  createRng,
+  rollD20,
+  rollD20WithMode,
+  rollDie,
+} from '~/server/simulator/engine/rng';
+
+/** Replays a fixed sequence of pre-chosen `rollD20` results instead of a
+ * real seeded stream, so a `rollD20WithMode` test can assert exactly which
+ * of the two rolls it kept. */
+const fakeRng = (values: number[]): Rng => {
+  let index = 0;
+  return () => {
+    const value = values[index] ?? 0;
+    index += 1;
+    return value;
+  };
+};
+const valueForD20 = (roll: number): number => (roll - 1) / 20;
 
 describe('createRng', () => {
   it('is deterministic for a given seed', () => {
@@ -48,5 +67,31 @@ describe('rollD20', () => {
       expect(roll).toBeGreaterThanOrEqual(1);
       expect(roll).toBeLessThanOrEqual(20);
     }
+  });
+});
+
+describe('rollD20WithMode', () => {
+  it('rolls once and returns it unchanged in normal mode', () => {
+    const rng = fakeRng([valueForD20(11)]);
+    expect(rollD20WithMode(rng, 'normal')).toBe(11);
+  });
+
+  it('rolls twice and keeps the higher result with advantage', () => {
+    const rng = fakeRng([valueForD20(5), valueForD20(17)]);
+    expect(rollD20WithMode(rng, 'advantage')).toBe(17);
+  });
+
+  it('rolls twice and keeps the lower result with disadvantage', () => {
+    const rng = fakeRng([valueForD20(5), valueForD20(17)]);
+    expect(rollD20WithMode(rng, 'disadvantage')).toBe(5);
+  });
+
+  it('always consumes two rolls when not normal, for deterministic replay', () => {
+    const values = [valueForD20(10), valueForD20(10)];
+    const rng = fakeRng(values);
+    rollD20WithMode(rng, 'advantage');
+    // a third call would return the fallback 0-value fakeRng uses past the
+    // end of its sequence — proving exactly two rolls were consumed above
+    expect(rollDie(rng, 20)).toBe(1);
   });
 });

@@ -1,5 +1,5 @@
 import { rollInitiative } from '~/utils/rollDice';
-import { createRng, rollDie } from '~/server/simulator/engine/rng';
+import { createRng, rollDie, rollD20 } from '~/server/simulator/engine/rng';
 import {
   DEFAULT_GRID_COLS,
   DEFAULT_GRID_ROWS,
@@ -15,9 +15,11 @@ import {
 import {
   resolveAttack,
   resolveSaveAction,
+  saveModifierFor,
 } from '~/server/simulator/engine/resolveAction';
 import { spendLegendaryAction } from '~/server/simulator/engine/legendaryActions';
 import { shouldRetreat } from '~/server/simulator/engine/retreat';
+import { combineConditionEffects } from '~/server/simulator/engine/conditionEffects';
 import type {
   EngineAction,
   EngineCombatant,
@@ -94,18 +96,22 @@ const availableActionIds = (
  * recharge dice (see `EngineAction.maxUsesPerEncounter`'s doc comment), and
  * opportunity attacks on any move that leaves a threatening enemy's reach.
  *
- * Explicitly NOT modeled, left for a future milestone rather than half-built
- * here: conditions (no action data anywhere yet declares "this inflicts
- * Frightened for N rounds" — `creature_actions`/`custom_creature_actions`'
- * save/area columns cover damage, not status effects, so there is nothing
- * for a condition-tracking system to attach to; building the tracking
- * machinery with no producer would be dead code, not a feature) and
- * concentration (same gap — a PC's known spells aren't yet resolved into
- * `EngineAction`s a caster can actually cast in this engine). Per the
- * issue's own framing, this milestone is acknowledged as "the bulk of the
- * work" and something that "deserves its own follow-up design pass" — these
- * two are exactly that follow-up's likely first items, once the data model
- * grows a way to express them.
+ * Also modeled, added in the issue's second-wave milestone 10 once
+ * `appliesConditionSlug`/`conditionDurationRounds`/`conditionSaveEndsEachTurn`
+ * gave a save effect somewhere to attach a status to (milestone 9):
+ * conditions — all fifteen 2024 SRD conditions, hand-authored mechanical
+ * rules in `conditionEffects.ts` (incapacitation, speed 0, advantage/
+ * disadvantage on attacks and saves, auto-failed STR/DEX saves, forced
+ * critical hits, resistance to all damage), applied on a failed save,
+ * ticked once per round for a fixed duration and/or re-saved at the end of
+ * the affected creature's own turn — and concentration — one effect per
+ * caster, broken by starting a new one, failing a CON save on taking damage
+ * (`DC = max(10, floor(damage / 2))`), becoming incapacitated, or dying.
+ * The concentration mechanic is fully wired but not yet exercised by any
+ * real action: only `spells.concentration` carries this flag upstream, and
+ * spells aren't converted to `EngineAction`s yet — see
+ * `EngineAction.requiresConcentration`'s own doc comment. Milestone 11 (PC
+ * spellcasting) is what will actually set it to true for real data.
  */
 export const runEncounter = (
   input: EngineScenarioInput,
@@ -133,15 +139,80 @@ export const runEncounter = (
   const livingOnSide = (side: EngineSide) =>
     [...byId.values()].filter(c => c.side === side && isLiving(c));
 
-  const applyUpdate = (updated: EngineCombatant) => {
-    const wasLiving = isLiving(byId.get(updated.id)!);
+  /**
+   * Removes `combatantId`'s current concentration (if any) and every active
+   * condition tied to it — on any other combatant, since a maintained
+   * control effect almost always lives on an enemy, not the caster. Called
+   * before starting a new concentration action (5e: casting one always ends
+   * the last, success or not), on a failed concentration check, on the
+   * caster becoming incapacitated, and on the caster's own defeat.
+   */
+  const breakConcentration = (combatantId: string) => {
+    const caster = byId.get(combatantId);
+    if (!caster?.concentratingOn) return;
+
+    for (const [id, combatant] of byId) {
+      const tied = combatant.activeConditions.filter(
+        condition => condition.concentrationSourceId === combatantId,
+      );
+      if (!tied.length) continue;
+
+      byId.set(id, {
+        ...combatant,
+        activeConditions: combatant.activeConditions.filter(
+          condition => condition.concentrationSourceId !== combatantId,
+        ),
+      });
+      tied.forEach(condition =>
+        log.push({
+          kind: 'condition-removed',
+          combatantId: id,
+          conditionKey: condition.conditionKey,
+          reason: 'concentration-broken',
+        }),
+      );
+    }
+
+    byId.set(combatantId, { ...byId.get(combatantId)!, concentratingOn: null });
+  };
+
+  /** A concentrating combatant that takes damage rolls a CON save (DC =
+   * `max(10, floor(damage / 2))`, 5e's own formula) or loses concentration —
+   * called after every damage application, a no-op for anyone not
+   * concentrating or who took no damage. */
+  const maybeCheckConcentration = (combatantId: string, damage: number) => {
+    if (damage <= 0) return;
+    const target = byId.get(combatantId);
+    if (!target?.concentratingOn) return;
+
+    const dc = Math.max(10, Math.floor(damage / 2));
+    const roll = rollD20(rng) + saveModifierFor(target.saveModifiers, 'constitution');
+    const succeeded = roll >= dc;
+    log.push({
+      kind: 'concentration-check',
+      combatantId,
+      damage,
+      dc,
+      roll,
+      succeeded,
+    });
+    if (!succeeded) breakConcentration(combatantId);
+  };
+
+  const applyUpdate = (updated: EngineCombatant, damageDealt = 0) => {
+    const previous = byId.get(updated.id)!;
+    const wasLiving = isLiving(previous);
     byId.set(updated.id, updated);
-    if (wasLiving && !isLiving(updated)) {
+
+    maybeCheckConcentration(updated.id, damageDealt);
+
+    if (wasLiving && !isLiving(byId.get(updated.id)!)) {
       log.push({
         kind: 'defeated',
         combatantId: updated.id,
         name: updated.name,
       });
+      breakConcentration(updated.id);
     }
   };
 
@@ -155,27 +226,64 @@ export const runEncounter = (
     if (choice.action.attack) {
       const { updatedTarget, logEntry } = resolveAttack(
         rng,
-        actorId,
+        byId.get(actorId)!,
         choice.action.name,
         choice.action.attack,
         byId.get(choice.target.id)!,
       );
       log.push(logEntry);
-      applyUpdate(updatedTarget);
+      applyUpdate(
+        updatedTarget,
+        logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
+      );
       return;
     }
 
     if (choice.action.save) {
+      // Casting a new concentration action always ends whatever this actor
+      // was concentrating on before, success or failure — 5e's own rule.
+      if (choice.action.requiresConcentration) breakConcentration(actorId);
+
       const affected = choice.affected.map(c => byId.get(c.id)!);
-      const { updatedTargets, logEntry } = resolveSaveAction(
+      const { updatedTargets, logEntry, conditionEvents } = resolveSaveAction(
         rng,
         actorId,
         choice.action.name,
         choice.action.save,
         affected,
+        choice.action.requiresConcentration,
       );
       log.push(logEntry);
-      updatedTargets.forEach(applyUpdate);
+      conditionEvents.forEach(event => log.push(event));
+      updatedTargets.forEach(target => {
+        const damageDealt =
+          logEntry.kind === 'save-effect'
+            ? (logEntry.targets.find(t => t.targetId === target.id)?.damage ?? 0)
+            : 0;
+        applyUpdate(target, damageDealt);
+      });
+
+      // Only start tracking a new concentration effect if this cast
+      // actually landed something to maintain (a condition on at least one
+      // target) — a concentration spell whose save was fully resisted has
+      // nothing left for this engine to track as ongoing.
+      if (choice.action.requiresConcentration) {
+        const landedCondition = updatedTargets.some(target =>
+          target.activeConditions.some(
+            condition => condition.concentrationSourceId === actorId,
+          ),
+        );
+        if (landedCondition) {
+          const actorNow = byId.get(actorId)!;
+          byId.set(actorId, {
+            ...actorNow,
+            concentratingOn: {
+              actionId: choice.action.id,
+              actionName: choice.action.name,
+            },
+          });
+        }
+      }
     }
   };
 
@@ -193,7 +301,9 @@ export const runEncounter = (
   ) => {
     const mover = byId.get(moverId)!;
     const threats = livingOnSide(opposingSide(mover.side)).filter(
-      enemy => !reactionUsedThisRound.has(enemy.id),
+      enemy =>
+        !reactionUsedThisRound.has(enemy.id) &&
+        !combineConditionEffects(enemy.activeConditions).incapacitates,
     );
 
     for (const enemy of threats) {
@@ -211,13 +321,16 @@ export const runEncounter = (
 
       const { updatedTarget, logEntry } = resolveAttack(
         rng,
-        enemy.id,
+        enemy,
         `${meleeAction.name} (opportunity attack)`,
         meleeAction.attack,
         target,
       );
       log.push(logEntry);
-      applyUpdate(updatedTarget);
+      applyUpdate(
+        updatedTarget,
+        logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
+      );
     }
   };
 
@@ -273,6 +386,16 @@ export const runEncounter = (
     }
 
     let actor = byId.get(combatantId)!;
+
+    // A helpless/incapacitated combatant (Paralyzed, Petrified, Stunned,
+    // Unconscious, or a plain Incapacitated effect) takes no action, no
+    // reaction, and doesn't move — the legendary-point refill above still
+    // happens since that's just bookkeeping for other creatures' turns.
+    if (combineConditionEffects(actor.activeConditions).incapacitates) {
+      log.push({ kind: 'no-action', combatantId, reason: 'incapacitated' });
+      return;
+    }
+
     const enemies = livingOnSide(opposingSide(actor.side));
     if (!enemies.length) return;
 
@@ -280,7 +403,11 @@ export const runEncounter = (
       actor,
       usesSoFar.get(combatantId) ?? new Map(),
     );
-    const stepCells = Math.max(0, Math.floor(actor.speed / 5));
+    const effectiveSpeed = combineConditionEffects(actor.activeConditions)
+      .speedZero
+      ? 0
+      : actor.speed;
+    const stepCells = Math.max(0, Math.floor(effectiveSpeed / 5));
 
     // HP-threshold retreat (see `retreat.ts`) always moves first, away from
     // the nearest threat — a retreating caster can still act afterward if
@@ -392,6 +519,79 @@ export const runEncounter = (
     }
   };
 
+  /** Decrements every living combatant's timed conditions by one round,
+   * removing any that hit zero — run once at the start of each round.
+   * Conditions with no `roundsRemaining` cap (null) are untouched here;
+   * they only end via a successful `saveEndsEachTurn` roll or their source
+   * concentration breaking. A duration expiring doesn't itself touch
+   * `concentratingOn` — the caster may still be narratively concentrating on
+   * a spell whose mechanical effect just timed out, a documented
+   * simplification for the rare case a concentration effect also carries a
+   * hard round cap. */
+  const tickRoundDurations = () => {
+    for (const [id, combatant] of byId) {
+      if (!isLiving(combatant) || !combatant.activeConditions.length) continue;
+
+      const remaining: typeof combatant.activeConditions = [];
+      const expired: typeof combatant.activeConditions = [];
+      for (const condition of combatant.activeConditions) {
+        if (condition.roundsRemaining === null) {
+          remaining.push(condition);
+          continue;
+        }
+        const next = condition.roundsRemaining - 1;
+        if (next <= 0) expired.push(condition);
+        else remaining.push({ ...condition, roundsRemaining: next });
+      }
+
+      // Always write back — even when nothing expired this round, a timed
+      // condition's `roundsRemaining` still needs to persist its decrement
+      // for the next round to tick from.
+      byId.set(id, { ...combatant, activeConditions: remaining });
+      expired.forEach(condition =>
+        log.push({
+          kind: 'condition-removed',
+          combatantId: id,
+          conditionKey: condition.conditionKey,
+          reason: 'expired',
+        }),
+      );
+    }
+  };
+
+  /** Re-rolls every `saveEndsEachTurn` condition still on `combatantId`,
+   * removing it on a success — 5e's "repeats the save at the end of each of
+   * its turns" rule. Called right after that combatant's own turn. */
+  const checkSaveEndsConditions = (combatantId: string) => {
+    const combatant = byId.get(combatantId);
+    if (!combatant || !isLiving(combatant) || !combatant.activeConditions.length)
+      return;
+
+    const remaining: typeof combatant.activeConditions = [];
+    const removed: typeof combatant.activeConditions = [];
+    for (const condition of combatant.activeConditions) {
+      if (!condition.saveEndsEachTurn || !condition.saveAbility || condition.saveDc === null) {
+        remaining.push(condition);
+        continue;
+      }
+      const roll =
+        rollD20(rng) + saveModifierFor(combatant.saveModifiers, condition.saveAbility);
+      if (roll >= condition.saveDc) removed.push(condition);
+      else remaining.push(condition);
+    }
+
+    if (!removed.length) return;
+    byId.set(combatantId, { ...combatant, activeConditions: remaining });
+    removed.forEach(condition =>
+      log.push({
+        kind: 'condition-removed',
+        combatantId,
+        conditionKey: condition.conditionKey,
+        reason: 'save-succeeded',
+      }),
+    );
+  };
+
   const order = rollInitiativeOrder();
   let round = 1;
 
@@ -402,6 +602,7 @@ export const runEncounter = (
   ) {
     log.push({ kind: 'round-start', round });
     reactionUsedThisRound = new Set();
+    tickRoundDurations();
 
     for (const combatantId of order) {
       if (!livingOnSide('party').length || !livingOnSide('monsters').length)
@@ -409,6 +610,7 @@ export const runEncounter = (
 
       takeTurn(combatantId);
       takeLegendaryActions(combatantId, order);
+      checkSaveEndsConditions(combatantId);
     }
 
     round += 1;

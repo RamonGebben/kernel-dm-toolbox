@@ -2,6 +2,7 @@ import {
   selectAction,
   type ActionChoice,
 } from '~/server/simulator/engine/selectAction';
+import { combineConditionEffects } from '~/server/simulator/engine/conditionEffects';
 import type { EngineCombatant } from '~/server/simulator/engine/types';
 
 export type LegendaryActionSpend = { choice: ActionChoice; cost: number };
@@ -21,6 +22,10 @@ export const spendLegendaryAction = (
 ): LegendaryActionSpend | null => {
   if (self.currentHitPoints <= 0) return null;
   if (self.legendaryActionPoints <= 0) return null;
+  // A helpless creature (Paralyzed/Petrified/Stunned/Unconscious, or a
+  // plain Incapacitated effect) can't take a legendary action either — it's
+  // still an action, just spent outside its own turn (issue #5, milestone 10).
+  if (combineConditionEffects(self.activeConditions).incapacitates) return null;
 
   const affordable = self.actions
     .filter(

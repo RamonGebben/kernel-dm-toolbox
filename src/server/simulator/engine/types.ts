@@ -33,6 +33,54 @@ export type EngineSaveEffect = {
   damageOnFailRoll: string | null;
   damageOnFailType: string | null;
   halfDamageOnSave: boolean;
+  /**
+   * Condition applied to a target on a failed save (issue #5, milestone 10)
+   * — a `ConditionKey` (`~/server/simulator/engine/conditionEffects`), or
+   * null when this effect never applies a condition. Optional (rather than
+   * required-but-nullable) purely so the many existing test-fixture
+   * `EngineSaveEffect` literals across this directory don't all need
+   * updating — `toEngineAction` always sets it explicitly for real data.
+   */
+  appliesConditionKey?: string | null;
+  /** Hard cap in rounds from application; null = no fixed cap (see
+   * `EngineActiveCondition.roundsRemaining`). */
+  conditionDurationRounds?: number | null;
+  /** The affected creature repeats `saveAbility`/`saveDc` at the end of each
+   * of its own turns, removing the condition on a success. */
+  conditionSaveEndsEachTurn?: boolean;
+};
+
+/** One condition currently affecting a combatant mid-fight — the engine's
+ * own runtime tracking state, distinct from the static `conditions` library
+ * table (which only carries display name/prose). */
+export type EngineActiveCondition = {
+  /** A `ConditionKey` — see `conditionKeyFromSlug`'s doc comment for why
+   * this is the short SRD key, not the versioned `conditions.slug`. */
+  conditionKey: string;
+  /** Rounds remaining before this condition expires on its own; null = no
+   * fixed duration (persists until removed some other way — a successful
+   * `saveEndsEachTurn` roll, or its source concentration breaking). Can
+   * coexist with `saveEndsEachTurn` — whichever ends it first wins. */
+  roundsRemaining: number | null;
+  saveEndsEachTurn: boolean;
+  /** The save this condition's own `saveEndsEachTurn` check re-rolls — the
+   * same ability/DC that applied it in the first place, 5e's own rule. Null
+   * whenever `saveEndsEachTurn` is false. */
+  saveAbility: string | null;
+  saveDc: number | null;
+  /** The combatant id whose concentration is maintaining this condition, if
+   * any — losing that combatant's concentration (a new concentration action,
+   * a failed concentration check, incapacitation, or defeat) removes this
+   * condition too. Null for a condition with its own independent duration/
+   * save-ends lifecycle. */
+  concentrationSourceId: string | null;
+};
+
+/** What a combatant is currently concentrating on, if anything — at most one
+ * per combatant (5e's own rule: starting a new one ends the last). */
+export type EngineConcentration = {
+  actionId: string;
+  actionName: string;
 };
 
 export type EngineAction = {
@@ -55,6 +103,18 @@ export type EngineAction = {
    * simplification, not an oversight.
    */
   maxUsesPerEncounter: number | null;
+  /**
+   * Taking this action ends whatever the actor was previously concentrating
+   * on, then (if it lands a condition on at least one target — see
+   * `resolveSaveAction`) becomes the actor's new concentration. Optional and
+   * defaulted to falsy everywhere it's constructed today: only `spells`
+   * carries a `concentration` column upstream, and spells aren't converted
+   * to `EngineAction`s by `toEngineAction` yet (issue #5, milestone 11 wires
+   * PC spellcasting in) — so no current data producer ever sets this true.
+   * The mechanic itself is fully implemented and tested against synthetic
+   * fixtures in milestone 10, ready for milestone 11 to exercise for real.
+   */
+  requiresConcentration?: boolean;
 };
 
 export type EngineSide = 'party' | 'monsters';
@@ -133,6 +193,13 @@ export type EngineCombatant = {
   damageResistances: string[];
   damageImmunities: string[];
   damageVulnerabilities: string[];
+  /** Every condition currently affecting this combatant (issue #5, milestone
+   * 10) — see `EngineActiveCondition` and `combineConditionEffects`. */
+  activeConditions: EngineActiveCondition[];
+  /** What this combatant is concentrating on, if anything. Null for a
+   * combatant that never has an action with `requiresConcentration` (every
+   * combatant today, until milestone 11 wires PC spellcasting in). */
+  concentratingOn: EngineConcentration | null;
 };
 
 export type EngineScenarioInput = {
@@ -193,7 +260,28 @@ export type TurnLogEntry =
   | {
       kind: 'no-action';
       combatantId: string;
-      reason: 'no-living-enemies' | 'no-eligible-action';
+      reason: 'no-living-enemies' | 'no-eligible-action' | 'incapacitated';
+    }
+  | {
+      kind: 'condition-applied';
+      combatantId: string;
+      conditionKey: string;
+      sourceCombatantId: string;
+      roundsRemaining: number | null;
+    }
+  | {
+      kind: 'condition-removed';
+      combatantId: string;
+      conditionKey: string;
+      reason: 'expired' | 'save-succeeded' | 'concentration-broken';
+    }
+  | {
+      kind: 'concentration-check';
+      combatantId: string;
+      damage: number;
+      dc: number;
+      roll: number;
+      succeeded: boolean;
     };
 
 export type EngineFinalCombatantState = {

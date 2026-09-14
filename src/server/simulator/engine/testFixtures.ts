@@ -35,4 +35,6 @@ export const buildCombatant = (
   damageResistances: overrides.damageResistances ?? [],
   damageImmunities: overrides.damageImmunities ?? [],
   damageVulnerabilities: overrides.damageVulnerabilities ?? [],
+  activeConditions: overrides.activeConditions ?? [],
+  concentratingOn: overrides.concentratingOn ?? null,
 });

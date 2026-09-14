@@ -86,6 +86,9 @@ export const deriveBattleSnapshot = (
       case 'round-start':
       case 'initiative':
       case 'no-action':
+      case 'condition-applied':
+      case 'condition-removed':
+      case 'concentration-check':
         break;
 
       default: {

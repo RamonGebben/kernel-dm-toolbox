@@ -1,4 +1,5 @@
 import { parseDieSides } from '~/server/simulator/engine/dice';
+import { conditionKeyFromSlug } from '~/server/simulator/engine/conditionEffects';
 import type {
   EngineAction,
   EngineActionType,
@@ -25,6 +26,9 @@ export type EngineActionSourceFields = {
   damageOnFailRoll: string | null;
   damageOnFailType: string | null;
   halfDamageOnSave: boolean;
+  appliesConditionSlug: string | null;
+  conditionDurationRounds: number | null;
+  conditionSaveEndsEachTurn: boolean;
 };
 
 export type EngineAttackSourceFields = {
@@ -90,10 +94,20 @@ export const toEngineAction = (
           damageOnFailRoll: action.damageOnFailRoll,
           damageOnFailType: action.damageOnFailType,
           halfDamageOnSave: action.halfDamageOnSave,
+          appliesConditionKey: action.appliesConditionSlug
+            ? conditionKeyFromSlug(action.appliesConditionSlug)
+            : null,
+          conditionDurationRounds: action.conditionDurationRounds,
+          conditionSaveEndsEachTurn: action.conditionSaveEndsEachTurn,
         }
       : null,
   // Open5e's usesType/usesParam are unstructured prose with no reliable
   // recharge-vs-per-day distinction — see `EngineAction.maxUsesPerEncounter`'s
   // own doc comment for why this collapses to a flat per-encounter cap.
   maxUsesPerEncounter: action.usesType ? (action.usesParam ?? 1) : null,
+  // None of the three mirrored action tables this function reads from carry
+  // a concentration column today — only `spells` does, and spells aren't
+  // routed through this adapter yet. See `EngineAction.requiresConcentration`'s
+  // own doc comment.
+  requiresConcentration: false,
 });
