@@ -14,10 +14,13 @@ import {
   customCreatures,
   playerCharacterActionAttacks,
   playerCharacterActions,
+  playerCharacterSpellSlots,
+  playerCharacterSpells,
   playerCharacters,
   simulatorScenarioMonsterEntries,
   simulatorScenarioPartyMembers,
   simulatorScenarios,
+  spells,
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import { buildCombatantNames } from '~/utils/buildCombatantNames';
@@ -28,6 +31,7 @@ import {
   type GridCell,
 } from '~/server/simulator/engine/grid';
 import { toEngineAction } from '~/server/simulator/engine/toEngineAction';
+import { toEngineActionFromSpell } from '~/server/simulator/engine/toEngineActionFromSpell';
 import {
   toEngineSaveModifiers,
   toPlayerCharacterSaveModifiers,
@@ -78,6 +82,40 @@ const attacksPerTurnForPc = (
 const hasLegendaryResistance = (traits: readonly { name: string }[]) =>
   traits.some(trait => /^Legendary Resistance/i.test(trait.name));
 
+/** Resolves a creature's raw "Multiattack" action row (if one exists, and
+ * `parseMultiattackSequence` parsed it — issue #5, milestone 9) into
+ * `EngineCombatant.multiattackSequence`'s own `{actionId, count}[]` shape,
+ * matching each parsed `actionName` against this same creature's already-
+ * built `EngineAction[]` by name. An entry that doesn't match anything (or a
+ * creature with no parseable Multiattack at all) contributes nothing —
+ * `runEncounter.ts` falls back to normal single-attack selection either
+ * way, matching `multiattackSequence`'s own schema doc comment. */
+const resolveMultiattackSequence = (
+  actionRows: readonly {
+    name: string;
+    multiattackSequence: { actionName: string; count: number }[] | null;
+  }[],
+  actions: readonly EngineAction[],
+): { actionId: string; count: number }[] | null => {
+  const multiattackRow = actionRows.find(
+    row => row.name === 'Multiattack' && row.multiattackSequence,
+  );
+  if (!multiattackRow?.multiattackSequence) return null;
+
+  const resolved = multiattackRow.multiattackSequence
+    .map(entry => {
+      const action = actions.find(
+        a => a.name.toLowerCase() === entry.actionName.toLowerCase(),
+      );
+      return action ? { actionId: action.id, count: entry.count } : null;
+    })
+    .filter(
+      (entry): entry is { actionId: string; count: number } => entry !== null,
+    );
+
+  return resolved.length ? resolved : null;
+};
+
 const loadPartyCombatants = async (
   db: Database,
   scenarioId: string,
@@ -106,7 +144,7 @@ const loadPartyCombatants = async (
     );
   const pcById = new Map(pcRows.map(row => [row.id, row]));
 
-  const [actionRows, attackRows] = await Promise.all([
+  const [actionRows, attackRows, spellRows, slotRows] = await Promise.all([
     db
       .select()
       .from(playerCharacterActions)
@@ -120,6 +158,34 @@ const loadPartyCombatants = async (
       .select()
       .from(playerCharacterActionAttacks)
       .where(isNull(playerCharacterActionAttacks.deletedAt)),
+    // Only a prepared spell is castable this fight — a known-but-unprepared
+    // row (a prepared caster who swapped it out) stays on the PC's sheet for
+    // next time but isn't an option here, matching the same "known/prepared"
+    // distinction the class wizard already tracks.
+    db
+      .select({
+        playerCharacterId: playerCharacterSpells.playerCharacterId,
+        isAlwaysAvailable: playerCharacterSpells.isAlwaysAvailable,
+        spell: spells,
+      })
+      .from(playerCharacterSpells)
+      .innerJoin(spells, eq(playerCharacterSpells.spellSlug, spells.slug))
+      .where(
+        and(
+          inArray(playerCharacterSpells.playerCharacterId, pcIds),
+          isNull(playerCharacterSpells.deletedAt),
+          eq(playerCharacterSpells.isPrepared, true),
+        ),
+      ),
+    db
+      .select()
+      .from(playerCharacterSpellSlots)
+      .where(
+        and(
+          inArray(playerCharacterSpellSlots.playerCharacterId, pcIds),
+          isNull(playerCharacterSpellSlots.deletedAt),
+        ),
+      ),
   ]);
 
   const result: UnplacedCombatant[] = [];
@@ -128,7 +194,7 @@ const loadPartyCombatants = async (
     const pc = pcById.get(member.playerCharacterId);
     if (!pc) continue;
 
-    const actions: EngineAction[] = actionRows
+    const materializedActions: EngineAction[] = actionRows
       .filter(action => action.playerCharacterId === pc.id)
       .map(action =>
         toEngineAction(
@@ -139,6 +205,28 @@ const loadPartyCombatants = async (
           ) ?? null,
         ),
       );
+
+    const spellActions: EngineAction[] = spellRows
+      .filter(row => row.playerCharacterId === pc.id)
+      .map(row =>
+        toEngineActionFromSpell(
+          // A cantrip (`isAlwaysAvailable`) never consumes a slot regardless
+          // of what `spell.level` says — see `toEngineActionFromSpell`'s own
+          // doc comment. `spell.level` still drives which non-cantrip slot a
+          // leveled spell needs.
+          { ...row.spell, level: row.isAlwaysAvailable ? 0 : row.spell.level },
+          pc.level,
+          pc.initiativeModifier,
+        ),
+      );
+
+    const actions = [...materializedActions, ...spellActions];
+
+    const spellSlotsRemaining: Record<number, number> = {};
+    for (const slot of slotRows) {
+      if (slot.playerCharacterId !== pc.id) continue;
+      spellSlotsRemaining[slot.spellLevel] = slot.maxSlots;
+    }
 
     result.push({
       id: crypto.randomUUID(),
@@ -166,6 +254,12 @@ const loadPartyCombatants = async (
       damageVulnerabilities: [],
       activeConditions: [],
       concentratingOn: null,
+      spellSlotsRemaining,
+      // No PC has a parsed Multiattack — that's a monster stat-block concept
+      // (issue #5, milestone 9's parser reads `creature_actions`/`custom_
+      // creature_actions` only). A PC's Extra Attack already goes through
+      // `attacksPerTurn` instead.
+      multiattackSequence: null,
     });
   }
 
@@ -297,73 +391,11 @@ const loadMonsterCombatants = async (
         trait => trait.creatureSlug === entry.creatureSlug,
       );
 
-      const names = buildCombatantNames({
-        baseName: source.name,
-        count: entry.count,
-        existingNames: usedNames,
-      });
-      usedNames.push(...names);
-
-      const anchorPosition: GridCell | null =
-        entry.positionX !== null && entry.positionY !== null
-          ? { x: entry.positionX, y: entry.positionY }
-          : null;
-
-      for (const name of names) {
-        result.push({
-          id: crypto.randomUUID(),
-          templateKey: entry.id,
-          name,
-          side: 'monsters',
-          armorClass: source.armorClass,
-          maxHitPoints: source.hitPoints,
-          currentHitPoints: source.hitPoints,
-          initiativeBonus: source.initiativeBonus ?? 0,
-          speed: source.walk ?? DEFAULT_SPEED,
-          // Not modeled for monsters — see `EngineCombatant.attacksPerTurn`'s
-          // own doc comment on why a stat block's "Multiattack" action isn't
-          // parsed into this number.
-          attacksPerTurn: 1,
-          // Every individual in a >1 count shares the entry's own anchor —
-          // this engine has no per-individual placement UI yet (issue #5's
-          // own "implementation-time call" on deployment shape), so a DM
-          // placing a group of 4 goblins gets 4 stacked tokens on one cell
-          // rather than a spread footprint.
-          position: anchorPosition,
-          actions,
-          saveModifiers: toEngineSaveModifiers(source),
-          legendaryResistancesRemaining: hasLegendaryResistance(traits)
-            ? DEFAULT_LEGENDARY_RESISTANCES
-            : 0,
-          legendaryActionPoints: 0,
-          damageResistances: source.damageResistances,
-          damageImmunities: source.damageImmunities,
-          damageVulnerabilities: source.damageVulnerabilities,
-          activeConditions: [],
-          concentratingOn: null,
-        });
-      }
-      continue;
-    }
-
-    if (entry.customCreatureId !== null) {
-      const source = customById.get(entry.customCreatureId);
-      if (!source) continue;
-
-      const actions: EngineAction[] = customActionRows
-        .filter(action => action.customCreatureId === entry.customCreatureId)
-        .map(action =>
-          toEngineAction(
-            action.id,
-            action,
-            customAttackRows.find(
-              attack => attack.customCreatureActionId === action.id,
-            ) ?? null,
-          ),
-        );
-
-      const traits = customTraitRows.filter(
-        trait => trait.customCreatureId === entry.customCreatureId,
+      const multiattackSequence = resolveMultiattackSequence(
+        libraryActionRows.filter(
+          action => action.creatureSlug === entry.creatureSlug,
+        ),
+        actions,
       );
 
       const names = buildCombatantNames({
@@ -389,10 +421,93 @@ const loadMonsterCombatants = async (
           currentHitPoints: source.hitPoints,
           initiativeBonus: source.initiativeBonus ?? 0,
           speed: source.walk ?? DEFAULT_SPEED,
-          // Not modeled for monsters — see `EngineCombatant.attacksPerTurn`'s
-          // own doc comment on why a stat block's "Multiattack" action isn't
-          // parsed into this number.
+          // Extra Attack's flat repeat count is a PC-only concept — a
+          // monster's own multi-attack turn goes through
+          // `multiattackSequence` below instead, see its own doc comment.
           attacksPerTurn: 1,
+          multiattackSequence,
+          // Every individual in a >1 count shares the entry's own anchor —
+          // this engine has no per-individual placement UI yet (issue #5's
+          // own "implementation-time call" on deployment shape), so a DM
+          // placing a group of 4 goblins gets 4 stacked tokens on one cell
+          // rather than a spread footprint.
+          position: anchorPosition,
+          actions,
+          saveModifiers: toEngineSaveModifiers(source),
+          legendaryResistancesRemaining: hasLegendaryResistance(traits)
+            ? DEFAULT_LEGENDARY_RESISTANCES
+            : 0,
+          legendaryActionPoints: 0,
+          damageResistances: source.damageResistances,
+          damageImmunities: source.damageImmunities,
+          damageVulnerabilities: source.damageVulnerabilities,
+          activeConditions: [],
+          concentratingOn: null,
+          // No monster carries spell slots — casting monsters resolve their
+          // spellcasting through their own `creature_actions` rows (a save
+          // effect with a fixed DC, like any other monster action), not
+          // through a slot economy.
+          spellSlotsRemaining: {},
+        });
+      }
+      continue;
+    }
+
+    if (entry.customCreatureId !== null) {
+      const source = customById.get(entry.customCreatureId);
+      if (!source) continue;
+
+      const actions: EngineAction[] = customActionRows
+        .filter(action => action.customCreatureId === entry.customCreatureId)
+        .map(action =>
+          toEngineAction(
+            action.id,
+            action,
+            customAttackRows.find(
+              attack => attack.customCreatureActionId === action.id,
+            ) ?? null,
+          ),
+        );
+
+      const traits = customTraitRows.filter(
+        trait => trait.customCreatureId === entry.customCreatureId,
+      );
+
+      const multiattackSequence = resolveMultiattackSequence(
+        customActionRows.filter(
+          action => action.customCreatureId === entry.customCreatureId,
+        ),
+        actions,
+      );
+
+      const names = buildCombatantNames({
+        baseName: source.name,
+        count: entry.count,
+        existingNames: usedNames,
+      });
+      usedNames.push(...names);
+
+      const anchorPosition: GridCell | null =
+        entry.positionX !== null && entry.positionY !== null
+          ? { x: entry.positionX, y: entry.positionY }
+          : null;
+
+      for (const name of names) {
+        result.push({
+          id: crypto.randomUUID(),
+          templateKey: entry.id,
+          name,
+          side: 'monsters',
+          armorClass: source.armorClass,
+          maxHitPoints: source.hitPoints,
+          currentHitPoints: source.hitPoints,
+          initiativeBonus: source.initiativeBonus ?? 0,
+          speed: source.walk ?? DEFAULT_SPEED,
+          // Extra Attack's flat repeat count is a PC-only concept — a
+          // monster's own multi-attack turn goes through
+          // `multiattackSequence` below instead, see its own doc comment.
+          attacksPerTurn: 1,
+          multiattackSequence,
           position: anchorPosition,
           actions,
           saveModifiers: toEngineSaveModifiers(source),
@@ -408,6 +523,9 @@ const loadMonsterCombatants = async (
           damageVulnerabilities: [],
           activeConditions: [],
           concentratingOn: null,
+          // Same as a library creature — no custom-creature spellcasting
+          // goes through a slot economy either.
+          spellSlotsRemaining: {},
         });
       }
     }

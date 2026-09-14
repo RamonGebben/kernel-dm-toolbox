@@ -9,6 +9,7 @@ import {
   type GridCell,
 } from '~/server/simulator/engine/grid';
 import {
+  chooseTarget,
   nearestEnemy,
   selectAction,
 } from '~/server/simulator/engine/selectAction';
@@ -20,6 +21,10 @@ import {
 import { spendLegendaryAction } from '~/server/simulator/engine/legendaryActions';
 import { shouldRetreat } from '~/server/simulator/engine/retreat';
 import { combineConditionEffects } from '~/server/simulator/engine/conditionEffects';
+import {
+  consumeLowestSlot,
+  hasAvailableSlot,
+} from '~/server/simulator/engine/spellSlots';
 import type {
   EngineAction,
   EngineCombatant,
@@ -54,7 +59,11 @@ const meleeAttackAction = (combatant: EngineCombatant): EngineAction | null =>
       (action.attack.reach != null || action.attack.range == null),
   ) ?? null;
 
-/** Every action a combatant hasn't exhausted this encounter yet. */
+/** Every action a combatant hasn't exhausted this encounter yet — a flat
+ * per-action use cap (`maxUsesPerEncounter`, e.g. a recharge ability) or, for
+ * a spell (issue #5, milestone 11), whether any slot at or above its own
+ * `requiresSpellSlotLevel` still has uses left in the caster's shared pool. A
+ * cantrip (`requiresSpellSlotLevel` null) is ungated by slots either way. */
 const availableActionIds = (
   combatant: EngineCombatant,
   usesSoFar: ReadonlyMap<string, number>,
@@ -63,8 +72,13 @@ const availableActionIds = (
     combatant.actions
       .filter(
         action =>
-          action.maxUsesPerEncounter === null ||
-          (usesSoFar.get(action.id) ?? 0) < action.maxUsesPerEncounter,
+          (action.maxUsesPerEncounter === null ||
+            (usesSoFar.get(action.id) ?? 0) < action.maxUsesPerEncounter) &&
+          (action.requiresSpellSlotLevel == null ||
+            hasAvailableSlot(
+              combatant.spellSlotsRemaining,
+              action.requiresSpellSlotLevel,
+            )),
       )
       .map(action => action.id),
   );
@@ -186,7 +200,8 @@ export const runEncounter = (
     if (!target?.concentratingOn) return;
 
     const dc = Math.max(10, Math.floor(damage / 2));
-    const roll = rollD20(rng) + saveModifierFor(target.saveModifiers, 'constitution');
+    const roll =
+      rollD20(rng) + saveModifierFor(target.saveModifiers, 'constitution');
     const succeeded = roll >= dc;
     log.push({
       kind: 'concentration-check',
@@ -223,6 +238,21 @@ export const runEncounter = (
     if (!choice) return;
     recordUse(actorId, choice.action.id);
 
+    // Spending a spell slot (issue #5, milestone 11) is a shared-pool
+    // deduction, not the per-action `usesSoFar` bookkeeping `recordUse`
+    // already does above — a cantrip (`requiresSpellSlotLevel` null) never
+    // reaches this branch.
+    if (choice.action.requiresSpellSlotLevel != null) {
+      const actorNow = byId.get(actorId)!;
+      byId.set(actorId, {
+        ...actorNow,
+        spellSlotsRemaining: consumeLowestSlot(
+          actorNow.spellSlotsRemaining,
+          choice.action.requiresSpellSlotLevel,
+        ),
+      });
+    }
+
     if (choice.action.attack) {
       const { updatedTarget, logEntry } = resolveAttack(
         rng,
@@ -258,7 +288,8 @@ export const runEncounter = (
       updatedTargets.forEach(target => {
         const damageDealt =
           logEntry.kind === 'save-effect'
-            ? (logEntry.targets.find(t => t.targetId === target.id)?.damage ?? 0)
+            ? (logEntry.targets.find(t => t.targetId === target.id)?.damage ??
+              0)
             : 0;
         applyUpdate(target, damageDealt);
       });
@@ -344,6 +375,61 @@ export const runEncounter = (
     log.push({ kind: 'move', combatantId, from, to });
     byId.set(combatantId, { ...actor, position: to });
     checkOpportunityAttacks(combatantId, from, to);
+  };
+
+  /**
+   * Resolves a monster's parsed Multiattack (issue #5, milestone 11) as its
+   * own named sub-attacks in order — e.g. bite×1, claw×2 resolves as three
+   * separate `resolveAttack` calls against their own named actions, not
+   * three repeats of one. Keeps attacking `initialTarget` across the whole
+   * sequence unless it's defeated partway through, in which case the
+   * remaining sub-attacks reselect a target via the same Int-driven
+   * `chooseTarget` every other choice in this engine uses. An `actionId` in
+   * the sequence that doesn't match any of `combatantId`'s own `attack`
+   * actions (shouldn't happen given `parseMultiattackSequence`'s own
+   * validation, but this engine never trusts parsed data that far) is
+   * skipped rather than crashing the whole turn.
+   */
+  const resolveMultiattack = (
+    combatantId: string,
+    sequence: readonly { actionId: string; count: number }[],
+    initialTarget: EngineCombatant,
+  ) => {
+    let targetId = initialTarget.id;
+
+    for (const { actionId, count } of sequence) {
+      const action = byId
+        .get(combatantId)!
+        .actions.find(a => a.id === actionId);
+      if (!action?.attack) continue;
+
+      for (let i = 0; i < count; i += 1) {
+        if (!isLiving(byId.get(combatantId)!)) return;
+
+        const enemies = livingOnSide(opposingSide(byId.get(combatantId)!.side));
+        if (!enemies.length) return;
+
+        let target = byId.get(targetId);
+        if (!target || !isLiving(target)) {
+          target = chooseTarget(byId.get(combatantId)!, enemies);
+          targetId = target.id;
+        }
+
+        recordUse(combatantId, actionId);
+        const { updatedTarget, logEntry } = resolveAttack(
+          rng,
+          byId.get(combatantId)!,
+          action.name,
+          action.attack,
+          target,
+        );
+        log.push(logEntry);
+        applyUpdate(
+          updatedTarget,
+          logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
+        );
+      }
+    }
   };
 
   const rollInitiativeOrder = () => {
@@ -464,16 +550,32 @@ export const runEncounter = (
       return;
     }
 
+    // A resolved Multiattack (issue #5, milestone 11) overrides the plain
+    // Extra Attack repeat below entirely — but only when the AI actually
+    // chose to attack this turn. `selectAction`'s own priority (an AoE save
+    // action first when it would hit 2+ enemies, otherwise the nearest usable
+    // attack) already decides "breath weapon or claws this round," so
+    // checking `choice.action.attack` here is enough to respect that instead
+    // of second-guessing it.
+    if (actor.multiattackSequence?.length && choice.action.attack) {
+      resolveMultiattack(combatantId, actor.multiattackSequence, choice.target);
+      return;
+    }
+
     // Extra Attack (`EngineCombatant.attacksPerTurn`, see its own doc
     // comment): a plain `attack`-type choice can repeat up to that many
     // times in one turn; a `save`-type choice (a spell, a breath weapon)
     // always consumes the whole turn and never chains into another attempt.
+    // A spell mapped to `attack` (a cantrip like Fire Bolt) is excluded the
+    // same way even though it technically has `.attack` set — 5e's own rule
+    // that Extra Attack never multiplies a cast (`EngineAction.isSpell`'s own
+    // doc comment).
     let attacksMade = 0;
     let current: ReturnType<typeof selectAction> = choice;
     while (current) {
       resolveChoice(combatantId, current);
       attacksMade += 1;
-      if (!current.action.attack) break;
+      if (!current.action.attack || current.action.isSpell) break;
       if (!isLiving(byId.get(combatantId)!)) break;
       if (attacksMade >= actor.attacksPerTurn) break;
 
@@ -488,7 +590,7 @@ export const runEncounter = (
           usesSoFar.get(combatantId) ?? new Map(),
         ),
       );
-      if (current && !current.action.attack) break;
+      if (current && (!current.action.attack || current.action.isSpell)) break;
     }
   };
 
@@ -564,18 +666,27 @@ export const runEncounter = (
    * its turns" rule. Called right after that combatant's own turn. */
   const checkSaveEndsConditions = (combatantId: string) => {
     const combatant = byId.get(combatantId);
-    if (!combatant || !isLiving(combatant) || !combatant.activeConditions.length)
+    if (
+      !combatant ||
+      !isLiving(combatant) ||
+      !combatant.activeConditions.length
+    )
       return;
 
     const remaining: typeof combatant.activeConditions = [];
     const removed: typeof combatant.activeConditions = [];
     for (const condition of combatant.activeConditions) {
-      if (!condition.saveEndsEachTurn || !condition.saveAbility || condition.saveDc === null) {
+      if (
+        !condition.saveEndsEachTurn ||
+        !condition.saveAbility ||
+        condition.saveDc === null
+      ) {
         remaining.push(condition);
         continue;
       }
       const roll =
-        rollD20(rng) + saveModifierFor(combatant.saveModifiers, condition.saveAbility);
+        rollD20(rng) +
+        saveModifierFor(combatant.saveModifiers, condition.saveAbility);
       if (roll >= condition.saveDc) removed.push(condition);
       else remaining.push(condition);
     }

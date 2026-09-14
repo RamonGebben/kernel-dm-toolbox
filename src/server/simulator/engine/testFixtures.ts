@@ -37,4 +37,6 @@ export const buildCombatant = (
   damageVulnerabilities: overrides.damageVulnerabilities ?? [],
   activeConditions: overrides.activeConditions ?? [],
   concentratingOn: overrides.concentratingOn ?? null,
+  spellSlotsRemaining: overrides.spellSlotsRemaining ?? {},
+  multiattackSequence: overrides.multiattackSequence ?? null,
 });

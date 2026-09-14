@@ -310,6 +310,146 @@ describe('loadScenarioCombatants', () => {
     expect(combatants.find(c => c.name === 'Goblin')?.attacksPerTurn).toBe(1);
   });
 
+  it("materializes a PC's prepared spell into an EngineAction with a real spell slot", async () => {
+    await db.insert(schema.conditions).values({
+      slug: 'srd-2024_paralyzed',
+      key: 'paralyzed',
+      name: 'Paralyzed',
+      desc: 'A paralyzed creature is incapacitated and cannot move or speak.',
+    });
+    await db.insert(schema.spells).values({
+      slug: 'srd-2024_hold-person',
+      document: 'srd-2024',
+      name: 'Hold Person',
+      desc: 'Choose a humanoid you can see within range.',
+      level: 2,
+      school: 'enchantment',
+      castingTime: '1 action',
+      duration: 'Concentration, up to 1 minute',
+      savingThrowAbility: 'wisdom',
+      attackRoll: false,
+      concentration: true,
+      appliesConditionSlug: 'srd-2024_paralyzed',
+      conditionSaveEndsEachTurn: true,
+    });
+
+    const caster = await caller.characters.create({
+      name: 'Elowen',
+      armorClass: 12,
+      maxHitPoints: 20,
+      initiativeModifier: 2,
+      level: 5,
+    });
+    await db.insert(schema.playerCharacterSpells).values({
+      playerCharacterId: caster.id,
+      spellSlug: 'srd-2024_hold-person',
+      isPrepared: true,
+      isAlwaysAvailable: false,
+    });
+    await db.insert(schema.playerCharacterSpellSlots).values({
+      playerCharacterId: caster.id,
+      spellLevel: 2,
+      maxSlots: 3,
+    });
+
+    const scenario = await caller.simulator.create({ name: 'Caster test' });
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: caster.id,
+    });
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_goblin',
+      count: 1,
+    });
+
+    const combatants = await loadScenarioCombatants(db, scenario.id);
+    const elowen = combatants.find(c => c.name === 'Elowen');
+
+    expect(elowen?.spellSlotsRemaining).toEqual({ 2: 3 });
+    const spellAction = elowen?.actions.find(a => a.name === 'Hold Person');
+    expect(spellAction).toMatchObject({
+      isSpell: true,
+      requiresSpellSlotLevel: 2,
+      requiresConcentration: true,
+      save: expect.objectContaining({
+        saveAbility: 'wisdom',
+        appliesConditionKey: 'paralyzed',
+      }),
+    });
+  });
+
+  it('resolves a real Multiattack action into an ordered attack sequence', async () => {
+    await db.insert(creatures).values({
+      slug: 'srd-2024_ogre',
+      document: 'srd-2024',
+      name: 'Ogre',
+      size: 'large',
+      type: 'giant',
+      category: 'Monsters',
+      alignment: 'chaotic evil',
+      challengeRating: 2,
+      armorClass: 11,
+      hitPoints: 59,
+      hitDice: '7d10+21',
+      initiativeBonus: -1,
+      walk: 40,
+      abilityScoreStrength: 19,
+      abilityScoreDexterity: 8,
+      abilityScoreConstitution: 16,
+      abilityScoreIntelligence: 5,
+      abilityScoreWisdom: 7,
+      abilityScoreCharisma: 7,
+      passivePerception: 8,
+    });
+    await db.insert(creatureActions).values([
+      {
+        slug: 'srd-2024_ogre-multiattack',
+        creatureSlug: 'srd-2024_ogre',
+        name: 'Multiattack',
+        desc: 'The ogre makes two Greatclub attacks.',
+        actionType: 'ACTION',
+        sortOrder: 0,
+        multiattackSequence: [{ actionName: 'Greatclub', count: 2 }],
+      },
+      {
+        slug: 'srd-2024_ogre-greatclub',
+        creatureSlug: 'srd-2024_ogre',
+        name: 'Greatclub',
+        desc: 'Melee Attack Roll: +6',
+        actionType: 'ACTION',
+        sortOrder: 1,
+      },
+    ]);
+    await db.insert(creatureActionAttacks).values({
+      slug: 'srd-2024_ogre-greatclub-attack',
+      actionSlug: 'srd-2024_ogre-greatclub',
+      name: 'Greatclub',
+      toHitMod: 6,
+      reach: 10,
+      damageDieCount: 2,
+      damageDieType: 'D8',
+      damageBonus: 4,
+      damageType: 'bludgeoning',
+    });
+
+    const scenario = await caller.simulator.create({ name: 'Ogre test' });
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_ogre',
+      count: 1,
+    });
+
+    const combatants = await loadScenarioCombatants(db, scenario.id);
+    const ogre = combatants.find(c => c.name === 'Ogre');
+
+    expect(ogre?.multiattackSequence).toHaveLength(1);
+    const greatclubAction = ogre?.actions.find(a => a.name === 'Greatclub');
+    expect(ogre?.multiattackSequence).toEqual([
+      { actionId: greatclubAction?.id, count: 2 },
+    ]);
+  });
+
   it('drops a monster entry once its custom creature is removed', async () => {
     const customCreature = await caller.customCreatures.create({
       name: 'Swamp Lurker',

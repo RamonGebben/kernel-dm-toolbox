@@ -115,6 +115,25 @@ export type EngineAction = {
    * fixtures in milestone 10, ready for milestone 11 to exercise for real.
    */
   requiresConcentration?: boolean;
+  /**
+   * Set only by `toEngineActionFromSpell` (issue #5, milestone 11): this
+   * action is a spell, not a weapon attack or a monster's own action. Used
+   * to exclude a spell from `EngineCombatant.attacksPerTurn`'s repeat loop
+   * even when it has `attack` set (a spell attack like Fire Bolt), matching
+   * 5e's rule that Extra Attack never multiplies a cast.
+   */
+  isSpell?: boolean;
+  /**
+   * The minimum spell-slot level this action consumes on use, or null for
+   * anything that isn't a slot-gated spell (a cantrip, or any non-spell
+   * action). Set only by `toEngineActionFromSpell`. `runEncounter.ts`
+   * consumes the lowest available slot at or above this level from the
+   * caster's own `EngineCombatant.spellSlotsRemaining` and treats the
+   * action as unavailable when none remains — the same "gate, don't
+   * pre-filter" shape `maxUsesPerEncounter` already uses, just keyed off a
+   * shared pool instead of the action's own id.
+   */
+  requiresSpellSlotLevel?: number | null;
 };
 
 export type EngineSide = 'party' | 'monsters';
@@ -200,6 +219,27 @@ export type EngineCombatant = {
    * combatant that never has an action with `requiresConcentration` (every
    * combatant today, until milestone 11 wires PC spellcasting in). */
   concentratingOn: EngineConcentration | null;
+  /**
+   * Remaining slots per spell level (1-9), keyed by level — issue #5,
+   * milestone 11. Built once at load time from `player_character_spell_
+   * slots.maxSlots` and spent at runtime by `runEncounter.ts` (lowest
+   * eligible level first, mirroring `maxUsesPerEncounter`'s own "spend at
+   * resolution, gate at selection" shape). Empty for every non-PC combatant
+   * and for a PC with no spell slots.
+   */
+  spellSlotsRemaining: Record<number, number>;
+  /**
+   * A monster's resolved "Multiattack" sequence — which of its own
+   * `actions` (by id) fire, and how many times each, when it takes the
+   * Attack action — or null for a combatant with no parsed multiattack
+   * (every PC, and any monster whose Multiattack prose didn't parse cleanly;
+   * see `multiattackSequence`'s own schema doc comment). Resolved once at
+   * load time in `loadScenarioCombatants.ts` from the raw `{actionName,
+   * count}[]` the library stores, matched against this same combatant's own
+   * `actions` by name — matching by id here instead avoids re-doing that
+   * name lookup on every turn.
+   */
+  multiattackSequence: { actionId: string; count: number }[] | null;
 };
 
 export type EngineScenarioInput = {
