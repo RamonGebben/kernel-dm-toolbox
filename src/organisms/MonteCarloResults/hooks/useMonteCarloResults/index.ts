@@ -39,6 +39,16 @@ export const useMonteCarloResults = () => {
     }),
   );
 
+  const saveAsPreset = useMutation(
+    trpc.simulator.saveAsPreset.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.presets.list.queryKey(),
+        });
+      },
+    }),
+  );
+
   const canRun =
     (detail.data?.party.length ?? 0) > 0 &&
     (detail.data?.monsters.length ?? 0) > 0;
@@ -53,6 +63,15 @@ export const useMonteCarloResults = () => {
     onRunBatch: (trialCount: number) => {
       if (!selectedScenarioId) return;
       runBatch.mutate({ scenarioId: selectedScenarioId, trialCount });
+    },
+    isSavingPreset: saveAsPreset.isPending,
+    savePresetErrorMessage: saveAsPreset.error?.message ?? null,
+    /** Async so the form can show its own "saved" confirmation once this
+     * resolves, rather than the hook carrying stale success state across a
+     * scenario switch. */
+    onSaveAsPreset: async (name: string) => {
+      if (!selectedScenarioId) return;
+      await saveAsPreset.mutateAsync({ scenarioId: selectedScenarioId, name });
     },
   };
 };

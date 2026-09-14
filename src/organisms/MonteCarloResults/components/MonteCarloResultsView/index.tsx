@@ -21,6 +21,9 @@ export type MonteCarloResultsViewProps = {
   isRunning: boolean;
   runErrorMessage: string | null;
   onRunBatch: (trialCount: number) => void;
+  isSavingPreset: boolean;
+  savePresetErrorMessage: string | null;
+  onSaveAsPreset: (name: string) => Promise<void>;
 };
 
 type TrialRunFormProps = {
@@ -62,6 +65,54 @@ const TrialRunForm = ({
   );
 };
 
+type SavePresetFormProps = {
+  isSaving: boolean;
+  onSaveAsPreset: (name: string) => Promise<void>;
+};
+
+/** Re-keyed by `scenario.id` from the parent, same reasoning as
+ * `TrialRunForm`'s own key — a "Saved as…" confirmation from a previous
+ * scenario must not linger once the DM switches to a different one. */
+const SavePresetForm = ({ isSaving, onSaveAsPreset }: SavePresetFormProps) => {
+  const [name, setName] = useState('');
+  const [savedName, setSavedName] = useState<string | null>(null);
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) return;
+
+    const trimmed = name.trim();
+    try {
+      await onSaveAsPreset(trimmed);
+      setSavedName(trimmed);
+      setName('');
+    } catch {
+      // The error surfaces via `savePresetErrorMessage` in the parent.
+    }
+  };
+
+  return (
+    <SaveForm onSubmit={handleSubmit}>
+      <TextInput
+        value={name}
+        placeholder="Save as Encounter Preset…"
+        aria-label="Name for the saved encounter preset"
+        disabled={isSaving}
+        onChange={event => {
+          setName(event.target.value);
+          setSavedName(null);
+        }}
+      />
+      <Button type="submit" size="sm" disabled={isSaving || !name.trim()}>
+        {isSaving ? 'Saving…' : 'Save as preset'}
+      </Button>
+      {savedName && (
+        <SavedText role="status">Saved as “{savedName}”.</SavedText>
+      )}
+    </SaveForm>
+  );
+};
+
 /**
  * Presentational: a scenario's Monte Carlo balance check (issue #5,
  * milestone 6) — a trial-count input, a "Run batch" control, and (once a
@@ -79,6 +130,9 @@ export const MonteCarloResultsView = ({
   isRunning,
   runErrorMessage,
   onRunBatch,
+  isSavingPreset,
+  savePresetErrorMessage,
+  onSaveAsPreset,
 }: MonteCarloResultsViewProps) => {
   if (!hasScenario) {
     return (
@@ -120,6 +174,20 @@ export const MonteCarloResultsView = ({
       </TopBar>
 
       {runErrorMessage && <ErrorText role="alert">{runErrorMessage}</ErrorText>}
+
+      {/* Only worth saving once the DM has actually seen a balance check —
+          matches the issue's own "visible once it's been run at least once"
+          rule, enforced server-side too in `simulator.saveAsPreset`. */}
+      {scenario.lastRunAt && (
+        <SavePresetForm
+          key={scenario.id}
+          isSaving={isSavingPreset}
+          onSaveAsPreset={onSaveAsPreset}
+        />
+      )}
+      {savePresetErrorMessage && (
+        <ErrorText role="alert">{savePresetErrorMessage}</ErrorText>
+      )}
 
       {!summary && !isRunning && (
         <EmptyState
@@ -202,6 +270,18 @@ const LastRun = styled.span`
 const ErrorText = styled.p`
   margin: 0;
   color: ${props => props.theme.color.danger};
+  font-size: ${props => props.theme.fontSize.sm};
+`;
+
+const SaveForm = styled.form`
+  display: flex;
+  align-items: center;
+  gap: ${props => props.theme.space.sm};
+  flex-wrap: wrap;
+`;
+
+const SavedText = styled.span`
+  color: ${props => props.theme.color.textMuted};
   font-size: ${props => props.theme.fontSize.sm};
 `;
 

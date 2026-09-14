@@ -4,6 +4,8 @@ import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
   creatures,
   customCreatures,
+  encounterPresetEntries,
+  encounterPresets,
   playerCharacters,
   simulatorScenarioMonsterEntries,
   simulatorScenarioPartyMembers,
@@ -15,6 +17,7 @@ import {
   addPartyMemberInputSchema,
   createScenarioInputSchema,
   runBatchInputSchema,
+  saveAsPresetInputSchema,
   scenarioIdInputSchema,
   setMonsterEntryPositionInputSchema,
   setPartyMemberPositionInputSchema,
@@ -580,5 +583,65 @@ export const simulatorRouter = createTRPCRouter({
         .returning();
 
       return updated;
+    }),
+
+  /**
+   * Wires a balanced scenario's monster composition into the tracker's
+   * existing Encounter Presets (issue #5, milestone 7) — composition only,
+   * same "no PC data, no HP, no initiative" shape `presets.saveCurrent`
+   * already uses (DECISIONS #14 — a preset is a recipe, not a snapshot).
+   * Reuses that exact two-table insert shape rather than a second path, so a
+   * preset saved from here is indistinguishable from one saved off the live
+   * board. Gated on having run at least once, matching the issue's own "no
+   * point saving an unbalanced guess" UI rule — enforced here too, not just
+   * in the UI, since a scenario is reachable from more than one place.
+   */
+  saveAsPreset: publicProcedure
+    .input(saveAsPresetInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const scenario = await loadLiveScenario(ctx.db, input.scenarioId);
+
+      if (!scenario.lastRunAt) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message:
+            'Run this scenario at least once before saving it as a preset.',
+        });
+      }
+
+      const entries = await ctx.db
+        .select()
+        .from(simulatorScenarioMonsterEntries)
+        .where(
+          and(
+            eq(simulatorScenarioMonsterEntries.scenarioId, scenario.id),
+            isLiveEntry,
+          ),
+        )
+        .orderBy(asc(simulatorScenarioMonsterEntries.sortOrder));
+
+      if (!entries.length) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'This scenario has no monsters to save.',
+        });
+      }
+
+      const [preset] = await ctx.db
+        .insert(encounterPresets)
+        .values({ name: input.name, note: input.note ?? null })
+        .returning();
+
+      await ctx.db.insert(encounterPresetEntries).values(
+        entries.map(entry => ({
+          presetId: preset.id,
+          creatureSlug: entry.creatureSlug,
+          customCreatureId: entry.customCreatureId,
+          count: entry.count,
+          sortOrder: entry.sortOrder,
+        })),
+      );
+
+      return preset;
     }),
 });

@@ -354,3 +354,78 @@ describe('simulator.runBatch', () => {
     expect(typeof updated.lastRunSummary?.baseSeed).toBe('number');
   });
 });
+
+describe('simulator.saveAsPreset', () => {
+  const buildRunScenario = async () => {
+    const scenario = await createScenario();
+    const character = await createCharacter();
+
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: character.id,
+    });
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_goblin',
+      count: 3,
+    });
+    await caller.simulator.runBatch({ scenarioId: scenario.id, trialCount: 1 });
+
+    return scenario;
+  };
+
+  it('rejects a scenario that has never been run', async () => {
+    const scenario = await createScenario();
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_goblin',
+      count: 1,
+    });
+
+    await expect(
+      caller.simulator.saveAsPreset({
+        scenarioId: scenario.id,
+        name: 'Too soon',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects a run scenario with no monster entries left to save', async () => {
+    const scenario = await buildRunScenario();
+    const { monsters } = await caller.simulator.get({ id: scenario.id });
+    await caller.simulator.removeMonsterEntry({ id: monsters[0]!.id });
+
+    await expect(
+      caller.simulator.saveAsPreset({
+        scenarioId: scenario.id,
+        name: 'Nothing left',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('creates a preset from the scenario monster composition only', async () => {
+    const scenario = await buildRunScenario();
+
+    const preset = await caller.simulator.saveAsPreset({
+      scenarioId: scenario.id,
+      name: 'Bridge ambush (balanced)',
+      note: 'Party wins most of the time.',
+    });
+
+    expect(preset.name).toBe('Bridge ambush (balanced)');
+    expect(preset.note).toBe('Party wins most of the time.');
+
+    const presets = await caller.presets.list();
+    const saved = presets.find(p => p.id === preset.id);
+    expect(saved).toBeDefined();
+    expect(saved?.entries).toEqual([
+      expect.objectContaining({
+        creatureSlug: 'srd-2024_goblin',
+        customCreatureId: null,
+        count: 3,
+      }),
+    ]);
+    // Composition only — no trace of the PC that made the scenario runnable.
+    expect(JSON.stringify(saved)).not.toContain('Ari');
+  });
+});

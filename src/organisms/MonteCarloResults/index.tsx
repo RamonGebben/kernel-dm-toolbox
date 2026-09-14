@@ -18,6 +18,9 @@ export const MonteCarloResults = () => {
       isRunning={results.isRunning}
       runErrorMessage={results.runErrorMessage}
       onRunBatch={results.onRunBatch}
+      isSavingPreset={results.isSavingPreset}
+      savePresetErrorMessage={results.savePresetErrorMessage}
+      onSaveAsPreset={results.onSaveAsPreset}
     />
   );
 };

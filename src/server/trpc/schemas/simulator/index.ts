@@ -96,3 +96,13 @@ export const runBatchInputSchema = z.object({
 });
 
 export type RunBatchInput = z.infer<typeof runBatchInputSchema>;
+
+/** Mirrors `savePresetInputSchema` (`~/server/trpc/schemas/presets`) — same
+ * name/note shape, since both ultimately create an `encounter_presets` row. */
+export const saveAsPresetInputSchema = z.object({
+  scenarioId: z.uuid(),
+  name: z.string().trim().min(1).max(80),
+  note: z.string().trim().max(200).optional(),
+});
+
+export type SaveAsPresetInput = z.infer<typeof saveAsPresetInputSchema>;

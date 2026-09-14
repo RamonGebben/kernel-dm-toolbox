@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { MonteCarloResultsView } from '~/organisms/MonteCarloResults/components/MonteCarloResultsView';
 import type { SimulatorScenario } from '~/server/db/schema';
 
@@ -70,6 +70,9 @@ const meta = {
     isRunning: false,
     runErrorMessage: null,
     onRunBatch: fn(),
+    isSavingPreset: false,
+    savePresetErrorMessage: null,
+    onSaveAsPreset: fn(async () => {}),
   },
 } satisfies Meta<typeof MonteCarloResultsView>;
 
@@ -109,5 +112,46 @@ export const WithResults: Story = {
       lastRunAt: new Date('2026-02-10T14:30:00Z'),
       lastRunSummary: summary,
     },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.type(
+      canvas.getByLabelText('Name for the saved encounter preset'),
+      'Bridge ambush (balanced)',
+    );
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Save as preset' }),
+    );
+
+    await expect(args.onSaveAsPreset).toHaveBeenCalledWith(
+      'Bridge ambush (balanced)',
+    );
+    await expect(
+      canvas.getByText('Saved as “Bridge ambush (balanced)”.'),
+    ).toBeVisible();
+  },
+};
+
+/** Not yet run once — per the issue, saving as a preset is not offered until
+ * there is a balance check to base it on. */
+export const NoResultsYetHidesSaveAsPreset: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.queryByRole('button', { name: 'Save as preset' }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const SaveAsPresetError: Story = {
+  args: {
+    scenario: {
+      ...baseScenario,
+      lastRunAt: new Date('2026-02-10T14:30:00Z'),
+      lastRunSummary: summary,
+    },
+    savePresetErrorMessage: 'This scenario has no monsters to save.',
   },
 };
