@@ -6,6 +6,7 @@ import {
   real,
   check,
 } from 'drizzle-orm/sqlite-core';
+import type { BatchSummary } from '~/server/simulator/engine/aggregateBatchResults';
 
 /**
  * Every table in this app spreads `syncMeta`.
@@ -1341,15 +1342,13 @@ export const simulatorScenarios = sqliteTable('simulator_scenarios', {
   trialCount: integer('trial_count').notNull().default(100),
   lastRunAt: integer('last_run_at', { mode: 'timestamp_ms' }),
   /**
-   * Aggregate Monte Carlo stats from the most recent run. Milestone 6
-   * (`simulator.runBatch`) owns the actual shape; the column is reserved
-   * ahead of that milestone and stays null until a scenario has been run at
-   * least once.
+   * Aggregate Monte Carlo stats from the most recent `simulator.runBatch`
+   * call — win rate, round distribution, per-combatant survival/damage/kill
+   * stats. Null until a scenario has been run at least once.
    */
-  lastRunSummary: text('last_run_summary', { mode: 'json' }).$type<Record<
-    string,
-    unknown
-  > | null>(),
+  lastRunSummary: text('last_run_summary', {
+    mode: 'json',
+  }).$type<BatchSummary | null>(),
 });
 
 export type SimulatorScenario = typeof simulatorScenarios.$inferSelect;

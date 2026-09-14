@@ -14,6 +14,7 @@ import {
   addMonsterEntryInputSchema,
   addPartyMemberInputSchema,
   createScenarioInputSchema,
+  runBatchInputSchema,
   scenarioIdInputSchema,
   setMonsterEntryPositionInputSchema,
   setPartyMemberPositionInputSchema,
@@ -25,7 +26,15 @@ import {
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
+import { loadScenarioCombatants } from '~/server/simulator/loadScenarioCombatants';
+import { runEncounter } from '~/server/simulator/engine/runEncounter';
+import { aggregateBatchResults } from '~/server/simulator/engine/aggregateBatchResults';
+import type { EngineResult } from '~/server/simulator/engine/types';
 import type { Database } from '~/server/db';
+
+/** Keeps a per-trial seed inside the RNG's own 31-bit range regardless of
+ * how large `baseSeed`/the trial index get. */
+const SEED_MODULUS = 2 ** 31;
 
 const isLiveScenario = isNull(simulatorScenarios.deletedAt);
 const isLiveMember = isNull(simulatorScenarioPartyMembers.deletedAt);
@@ -511,6 +520,63 @@ export const simulatorRouter = createTRPCRouter({
           ...touchSyncMeta({ version: entry.version, now: new Date() }),
         })
         .where(eq(simulatorScenarioMonsterEntries.id, entry.id))
+        .returning();
+
+      return updated;
+    }),
+
+  /**
+   * Headless Monte Carlo balance check (issue #5, milestone 6): runs the
+   * scenario `trialCount` times with distinct, deterministic seeds derived
+   * from one `baseSeed`, aggregates the results, and persists the summary
+   * onto the scenario row so a DM can revisit it without re-running. Unlike
+   * `runOnce` (an SSE route handler, since a single run is meant to be
+   * watched as it happens) this returns once with the finished aggregate —
+   * the issue's own "Proposed API" section treats these as two distinct
+   * shapes, not two views of the same endpoint.
+   *
+   * Combatants are loaded once and reused across every trial — `runEncounter`
+   * never mutates its input, only ever produces new combatant states
+   * internally, so replaying the same starting roster with a different seed
+   * per trial is safe and avoids up to `MAX_TRIAL_COUNT` redundant DB round
+   * trips for data that never changes between trials.
+   */
+  runBatch: publicProcedure
+    .input(runBatchInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const scenario = await loadLiveScenario(ctx.db, input.scenarioId);
+      const trialCount = input.trialCount ?? scenario.trialCount;
+      const baseSeed = input.seed ?? Math.floor(Math.random() * SEED_MODULUS);
+
+      const combatants = await loadScenarioCombatants(ctx.db, scenario.id);
+
+      const hasParty = combatants.some(c => c.side === 'party');
+      const hasMonsters = combatants.some(c => c.side === 'monsters');
+      if (!hasParty || !hasMonsters) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message:
+            'This scenario needs at least one party member and one monster before it can run.',
+        });
+      }
+
+      const results: EngineResult[] = Array.from(
+        { length: trialCount },
+        (_, index) =>
+          runEncounter({ combatants }, (baseSeed + index) % SEED_MODULUS),
+      );
+
+      const summary = aggregateBatchResults(baseSeed, results);
+      const now = new Date();
+
+      const [updated] = await ctx.db
+        .update(simulatorScenarios)
+        .set({
+          lastRunAt: now,
+          lastRunSummary: summary,
+          ...touchSyncMeta({ version: scenario.version, now }),
+        })
+        .where(eq(simulatorScenarios.id, scenario.id))
         .returning();
 
       return updated;

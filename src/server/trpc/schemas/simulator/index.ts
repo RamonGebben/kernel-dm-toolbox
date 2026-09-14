@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { idInputSchema } from '~/server/trpc/schemas/common';
 
+/** Capped like BattleCast's own Monte Carlo trial limit (issue #5). */
+export const MAX_TRIAL_COUNT = 10000;
+
 export const createScenarioInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
   note: z.string().trim().max(200).optional(),
@@ -12,8 +15,7 @@ export const updateScenarioInputSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1).max(80),
   note: z.string().trim().max(200).optional(),
-  /** Capped like BattleCast's own Monte Carlo trial limit (issue #5). */
-  trialCount: z.number().int().min(1).max(10000),
+  trialCount: z.number().int().min(1).max(MAX_TRIAL_COUNT),
 });
 
 export type UpdateScenarioInput = z.infer<typeof updateScenarioInputSchema>;
@@ -79,3 +81,18 @@ export const setMonsterEntryPositionInputSchema = z.object({
 export type SetMonsterEntryPositionInput = z.infer<
   typeof setMonsterEntryPositionInputSchema
 >;
+
+/** `trialCount`/`seed` both default from the scenario itself (stored trial
+ * count, a fresh random base seed) when omitted — see `simulator.runBatch`. */
+export const runBatchInputSchema = z.object({
+  scenarioId: z.uuid(),
+  trialCount: z.number().int().min(1).max(MAX_TRIAL_COUNT).optional(),
+  seed: z
+    .number()
+    .int()
+    .min(0)
+    .max(2 ** 31 - 1)
+    .optional(),
+});
+
+export type RunBatchInput = z.infer<typeof runBatchInputSchema>;

@@ -260,3 +260,97 @@ describe('simulator monster entries', () => {
     expect(detail.monsters).toHaveLength(0);
   });
 });
+
+describe('simulator.runBatch', () => {
+  it('rejects a run with no monsters or no party', async () => {
+    const scenario = await createScenario();
+    const character = await createCharacter();
+
+    await expect(
+      caller.simulator.runBatch({ scenarioId: scenario.id }),
+    ).rejects.toThrow();
+
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: character.id,
+    });
+
+    // Still no monsters.
+    await expect(
+      caller.simulator.runBatch({ scenarioId: scenario.id }),
+    ).rejects.toThrow();
+  });
+
+  it('runs a batch, aggregates results and persists the summary', async () => {
+    const scenario = await createScenario();
+    const character = await createCharacter();
+
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: character.id,
+    });
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_goblin',
+      count: 2,
+    });
+
+    // Neither side has any actions in this fixture, so every trial runs to
+    // the engine's max-round cap and draws — a deterministic outcome that
+    // makes the aggregate easy to assert on exactly.
+    const updated = await caller.simulator.runBatch({
+      scenarioId: scenario.id,
+      trialCount: 5,
+      seed: 123,
+    });
+
+    expect(updated.lastRunAt).not.toBeNull();
+    expect(updated.lastRunSummary).toMatchObject({
+      trialCount: 5,
+      baseSeed: 123,
+      partyWinRate: 0,
+      monsterWinRate: 0,
+      drawRate: 1,
+    });
+    expect(updated.lastRunSummary?.combatants).toHaveLength(2);
+    const goblins = updated.lastRunSummary?.combatants.find(
+      c => c.side === 'monsters',
+    );
+    expect(goblins).toMatchObject({
+      name: 'Goblin',
+      survivalRate: 1,
+      averageDamageDealt: 0,
+      averageDamageTaken: 0,
+      killRate: 0,
+    });
+
+    const persisted = await caller.simulator.get({ id: scenario.id });
+    expect(persisted.scenario.lastRunSummary).toMatchObject({
+      trialCount: 5,
+      baseSeed: 123,
+    });
+  });
+
+  it('defaults trialCount and seed when omitted', async () => {
+    const scenario = await createScenario();
+    const character = await createCharacter();
+
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: character.id,
+    });
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_goblin',
+      count: 1,
+    });
+
+    const updated = await caller.simulator.runBatch({
+      scenarioId: scenario.id,
+    });
+
+    // `simulatorScenarios.trialCount` defaults to 100.
+    expect(updated.lastRunSummary).toMatchObject({ trialCount: 100 });
+    expect(typeof updated.lastRunSummary?.baseSeed).toBe('number');
+  });
+});
