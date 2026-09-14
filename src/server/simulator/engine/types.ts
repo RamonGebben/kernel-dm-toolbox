@@ -85,6 +85,25 @@ export type EngineCombatant = {
   position: GridCell;
   actions: EngineAction[];
   /**
+   * How many plain weapon-attack actions this combatant makes when it takes
+   * the Attack action — Extra Attack and its upgrades. Always >= 1. Only
+   * ever multiplies an `attack`-type resolution (`runEncounter.ts`'s
+   * `takeTurn`); a `save`-type action (a spell, a breath weapon) always
+   * consumes the whole turn regardless of this number, matching 5e's own
+   * rule that Extra Attack doesn't apply to casting.
+   *
+   * Wired for PCs from `classProgression.attacksPerActionByLevel`
+   * (`loadScenarioCombatants`'s `loadPartyCombatants`) — content that
+   * milestone 1 hand-authored for exactly this purpose but that nothing
+   * consumed until milestone 8's tuning pass caught the gap. Monsters are
+   * always 1: a stat block's own "Multiattack" action is unstructured prose
+   * naming which of its other named actions combine (e.g. "one bite and two
+   * claws"), the same class of gap as `EngineAction.maxUsesPerEncounter`'s
+   * documented recharge-die simplification — parsing that combination is
+   * real follow-up work, not implemented here.
+   */
+  attacksPerTurn: number;
+  /**
    * Per-ability save modifiers. A PC has no ability scores in this data
    * model (`player_characters` only carries AC/HP/initiative) — its
    * `initiativeModifier` stands in for every ability's save modifier as a

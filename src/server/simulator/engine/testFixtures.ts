@@ -28,6 +28,7 @@ export const buildCombatant = (
   speed: overrides.speed ?? 30,
   position: overrides.position ?? { x: 0, y: 0 },
   actions: overrides.actions ?? [],
+  attacksPerTurn: overrides.attacksPerTurn ?? 1,
   saveModifiers: overrides.saveModifiers ?? ZERO_MODIFIERS,
   legendaryResistancesRemaining: overrides.legendaryResistancesRemaining ?? 0,
   legendaryActionPoints: overrides.legendaryActionPoints ?? 0,

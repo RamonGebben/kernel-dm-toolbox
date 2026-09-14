@@ -4,6 +4,7 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { Modal } from '~/atoms/Modal';
 import { Button } from '~/atoms/Button';
+import { EmptyState } from '~/atoms/EmptyState';
 import { TextInput } from '~/atoms/TextInput';
 import { Field, Label, Select } from '~/molecules/CustomCreatureForm/styled';
 import {
@@ -136,6 +137,15 @@ const PickStep = ({
   const subclassOptions = classes.filter(
     option => option.subclassOfSlug === classSlug,
   );
+
+  if (!baseClasses.length) {
+    return (
+      <EmptyState
+        title="No classes imported yet"
+        description="The class library hasn't imported yet, or the boot import couldn't reach GitHub. Try again once the library has loaded — check the toolbox's creature library for the same signal."
+      />
+    );
+  }
 
   return (
     <PickWrapper>

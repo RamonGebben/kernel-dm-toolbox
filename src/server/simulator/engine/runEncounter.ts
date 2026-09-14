@@ -81,15 +81,18 @@ const availableActionIds = (
  * explicitly impure step (`loadScenarioCombatants`) that happens before
  * this function is ever called.
  *
- * Modeled, per issue #5 milestone 4's scope: initiative, movement, Int-
- * driven/HP-threshold-retreat targeting AI (`selectAction`/`retreat.ts`),
- * to-hit attacks and DC saves (`resolveAction.ts`), AoE (collapsed to a
- * "within N feet" circle — see `selectAction`'s own doc comment), damage
- * type resistance/immunity/vulnerability (`damageMitigation.ts`), legendary
- * actions and legendary resistance, a flat per-encounter use cap standing in
- * for recharge dice (see `EngineAction.maxUsesPerEncounter`'s doc comment),
- * and opportunity attacks on any move that leaves a threatening enemy's
- * reach.
+ * Modeled, per issue #5 milestone 4's scope (plus Extra Attack, added in
+ * milestone 8's tuning pass — see `EngineCombatant.attacksPerTurn`'s own doc
+ * comment): initiative, movement, Int-driven/HP-threshold-retreat targeting
+ * AI (`selectAction`/`retreat.ts`), to-hit attacks and DC saves
+ * (`resolveAction.ts`), a combatant repeating a plain weapon attack up to
+ * `attacksPerTurn` times in one turn (never a spell/save action, which
+ * always consumes the whole turn), AoE (collapsed to a "within N feet"
+ * circle — see `selectAction`'s own doc comment), damage type resistance/
+ * immunity/vulnerability (`damageMitigation.ts`), legendary actions and
+ * legendary resistance, a flat per-encounter use cap standing in for
+ * recharge dice (see `EngineAction.maxUsesPerEncounter`'s doc comment), and
+ * opportunity attacks on any move that leaves a threatening enemy's reach.
  *
  * Explicitly NOT modeled, left for a future milestone rather than half-built
  * here: conditions (no action data anywhere yet declares "this inflicts
@@ -334,7 +337,32 @@ export const runEncounter = (
       return;
     }
 
-    resolveChoice(combatantId, choice);
+    // Extra Attack (`EngineCombatant.attacksPerTurn`, see its own doc
+    // comment): a plain `attack`-type choice can repeat up to that many
+    // times in one turn; a `save`-type choice (a spell, a breath weapon)
+    // always consumes the whole turn and never chains into another attempt.
+    let attacksMade = 0;
+    let current: ReturnType<typeof selectAction> = choice;
+    while (current) {
+      resolveChoice(combatantId, current);
+      attacksMade += 1;
+      if (!current.action.attack) break;
+      if (!isLiving(byId.get(combatantId)!)) break;
+      if (attacksMade >= actor.attacksPerTurn) break;
+
+      const remainingEnemies = livingOnSide(opposingSide(actor.side));
+      if (!remainingEnemies.length) break;
+
+      current = selectAction(
+        byId.get(combatantId)!,
+        remainingEnemies,
+        availableActionIds(
+          byId.get(combatantId)!,
+          usesSoFar.get(combatantId) ?? new Map(),
+        ),
+      );
+      if (current && !current.action.attack) break;
+    }
   };
 
   const takeLegendaryActions = (

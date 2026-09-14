@@ -203,6 +203,83 @@ describe('runEncounter', () => {
     expect(legendaryLogEntries.length).toBeGreaterThan(0);
   });
 
+  it('lets a combatant with attacksPerTurn > 1 attack more than once in a turn', () => {
+    const attacker = buildCombatant({
+      id: 'attacker',
+      side: 'party',
+      position: { x: 0, y: 0 },
+      attacksPerTurn: 2,
+      actions: [strongAttack],
+    });
+    const punchingBag = buildCombatant({
+      id: 'punching-bag',
+      side: 'monsters',
+      position: { x: 1, y: 0 },
+      maxHitPoints: 999,
+      currentHitPoints: 999,
+      armorClass: 5,
+      actions: [weakAttack],
+    });
+
+    const result = runEncounter(
+      { combatants: [attacker, punchingBag], maxRounds: 1 },
+      1,
+    );
+
+    const attackerHits = result.log.filter(
+      entry => entry.kind === 'attack' && entry.combatantId === 'attacker',
+    );
+
+    expect(attackerHits.length).toBe(2);
+  });
+
+  it('never repeats a save/spell action even with attacksPerTurn > 1', () => {
+    const caster: EngineAction = {
+      id: 'fire-bolt',
+      name: 'Fire Bolt',
+      actionType: 'ACTION',
+      legendaryActionCost: null,
+      attack: null,
+      save: {
+        saveAbility: 'dexterity',
+        saveDc: 1,
+        areaType: null,
+        areaSize: null,
+        damageOnFailRoll: '1d4',
+        damageOnFailType: 'fire',
+        halfDamageOnSave: true,
+      },
+      maxUsesPerEncounter: null,
+    };
+
+    const attacker = buildCombatant({
+      id: 'attacker',
+      side: 'party',
+      position: { x: 0, y: 0 },
+      attacksPerTurn: 2,
+      actions: [caster],
+    });
+    const target = buildCombatant({
+      id: 'target',
+      side: 'monsters',
+      position: { x: 1, y: 0 },
+      maxHitPoints: 999,
+      currentHitPoints: 999,
+      actions: [weakAttack],
+    });
+
+    const result = runEncounter(
+      { combatants: [attacker, target], maxRounds: 1 },
+      1,
+    );
+
+    const casts = result.log.filter(
+      entry => entry.kind === 'save-effect' && entry.combatantId === 'attacker',
+    );
+
+    expect(casts.length).toBe(1);
+  });
+
   it('respects an action with a maxUsesPerEncounter cap', () => {
     const oneShot: EngineAction = {
       id: 'one-shot',

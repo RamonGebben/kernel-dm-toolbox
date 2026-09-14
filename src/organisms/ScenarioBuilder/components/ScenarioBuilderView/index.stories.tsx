@@ -44,8 +44,8 @@ const monsters = [
 ];
 
 const roster = [
-  { id: 'pc-3', name: 'Cass', level: 4 },
-  { id: 'pc-4', name: 'Dez', level: 4 },
+  { id: 'pc-3', name: 'Cass', level: 4, characterClassSlug: 'srd-2024_wizard' },
+  { id: 'pc-4', name: 'Dez', level: 4, characterClassSlug: null },
 ];
 
 const creatureOptions = [
@@ -107,6 +107,10 @@ export const LoadingDetail: Story = {
 
 export const EmptyScenario: Story = {
   args: { party: [], monsters: [] },
+};
+
+export const NoCharactersOnRoster: Story = {
+  args: { party: [], roster: [] },
 };
 
 export const TokenArmed: Story = {

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { progressionForClass } from '~/content/classProgression';
 import {
   creatureActionAttacks,
   creatureActions,
@@ -56,6 +57,23 @@ const DEFAULT_LEGENDARY_RESISTANCES = 3;
  * has no speed column at all (issue #5's own "Current state" section never
  * added one). */
 const DEFAULT_SPEED = 30;
+
+/** How many attacks a PC's Attack action grants at its current level, per
+ * `classProgression`'s hand-authored per-class table — 1 for a PC with no
+ * class applied yet, or a level outside the table's 1-20 range (clamped
+ * rather than indexing out of bounds). See `EngineCombatant.attacksPerTurn`'s
+ * own doc comment for why monsters don't get an equivalent lookup. */
+const attacksPerTurnForPc = (
+  characterClassSlug: string | null,
+  level: number,
+): number => {
+  if (!characterClassSlug) return 1;
+  const progression = progressionForClass(characterClassSlug, null);
+  if (!progression) return 1;
+
+  const clampedLevel = Math.min(Math.max(level, 1), 20);
+  return progression.attacksPerActionByLevel[clampedLevel - 1] ?? 1;
+};
 
 const hasLegendaryResistance = (traits: readonly { name: string }[]) =>
   traits.some(trait => /^Legendary Resistance/i.test(trait.name));
@@ -132,6 +150,7 @@ const loadPartyCombatants = async (
       currentHitPoints: pc.maxHitPoints,
       initiativeBonus: pc.initiativeModifier,
       speed: DEFAULT_SPEED,
+      attacksPerTurn: attacksPerTurnForPc(pc.characterClassSlug, pc.level),
       position:
         member.positionX !== null && member.positionY !== null
           ? { x: member.positionX, y: member.positionY }
@@ -299,6 +318,10 @@ const loadMonsterCombatants = async (
           currentHitPoints: source.hitPoints,
           initiativeBonus: source.initiativeBonus ?? 0,
           speed: source.walk ?? DEFAULT_SPEED,
+          // Not modeled for monsters — see `EngineCombatant.attacksPerTurn`'s
+          // own doc comment on why a stat block's "Multiattack" action isn't
+          // parsed into this number.
+          attacksPerTurn: 1,
           // Every individual in a >1 count shares the entry's own anchor —
           // this engine has no per-individual placement UI yet (issue #5's
           // own "implementation-time call" on deployment shape), so a DM
@@ -362,6 +385,10 @@ const loadMonsterCombatants = async (
           currentHitPoints: source.hitPoints,
           initiativeBonus: source.initiativeBonus ?? 0,
           speed: source.walk ?? DEFAULT_SPEED,
+          // Not modeled for monsters — see `EngineCombatant.attacksPerTurn`'s
+          // own doc comment on why a stat block's "Multiattack" action isn't
+          // parsed into this number.
+          attacksPerTurn: 1,
           position: anchorPosition,
           actions,
           saveModifiers: toEngineSaveModifiers(source),

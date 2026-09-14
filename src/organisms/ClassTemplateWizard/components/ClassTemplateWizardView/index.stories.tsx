@@ -73,6 +73,15 @@ export const PickStepConfirmingOverwrite: Story = {
   },
 };
 
+export const NoClassesImported: Story = {
+  args: { classes: [] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('No classes imported yet')).toBeVisible();
+  },
+};
+
 export const Loading: Story = {
   args: { isPending: true },
   play: async ({ canvasElement }) => {

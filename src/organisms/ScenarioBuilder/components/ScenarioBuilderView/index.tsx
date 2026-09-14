@@ -36,7 +36,17 @@ export type BuilderMonsterEntry = {
   position: BuilderPosition | null;
 };
 
-export type RosterOption = { id: string; name: string; level: number };
+export type RosterOption = {
+  id: string;
+  name: string;
+  level: number;
+  /** Null means no class/subclass has been applied via the class wizard yet
+   * — such a PC has no materialized actions, so the engine simulates it as
+   * present on the board but never attacking (see `loadScenarioCombatants`).
+   * Flagged here so a DM picks it knowingly rather than discovering it mid-
+   * fight. */
+  characterClassSlug: string | null;
+};
 
 export type CreatureOption = {
   key: string;
@@ -52,6 +62,10 @@ export type ScenarioBuilderViewProps = {
   isDetailPending: boolean;
   party: readonly BuilderPartyMember[];
   monsters: readonly BuilderMonsterEntry[];
+  /** The full character roster, unfiltered — `AddPartyMemberForm` filters out
+   * PCs already in this scenario itself, so it can tell "nobody's on the
+   * roster at all" apart from "everyone's already added" instead of showing
+   * the same message for both. */
   roster: readonly RosterOption[];
   creatureOptions: readonly CreatureOption[];
   isCreatureOptionsPending: boolean;
@@ -148,6 +162,7 @@ export const ScenarioBuilderView = ({
           <SectionTitle>Party</SectionTitle>
           <AddPartyMemberForm
             roster={availableRoster}
+            hasAnyCharacters={roster.length > 0}
             onAdd={onAddPartyMember}
           />
           <TokenList>
@@ -330,15 +345,27 @@ const ScenarioHeader = ({
 
 type AddPartyMemberFormProps = {
   roster: readonly RosterOption[];
+  /** Whether the character roster has anyone on it at all, independent of
+   * how many are already in this scenario — see `roster`'s own doc comment
+   * on `ScenarioBuilderViewProps`. */
+  hasAnyCharacters: boolean;
   onAdd: (playerCharacterId: string) => void;
 };
 
-const AddPartyMemberForm = ({ roster, onAdd }: AddPartyMemberFormProps) => {
+const AddPartyMemberForm = ({
+  roster,
+  hasAnyCharacters,
+  onAdd,
+}: AddPartyMemberFormProps) => {
   const [selectedId, setSelectedId] = useState('');
 
   if (!roster.length) {
     return (
-      <Muted>Every character on the roster is already in this scenario.</Muted>
+      <Muted>
+        {hasAnyCharacters
+          ? 'Every character on the roster is already in this scenario.'
+          : 'No characters on the roster yet — add one in the Characters tool first.'}
+      </Muted>
     );
   }
 
@@ -360,6 +387,7 @@ const AddPartyMemberForm = ({ roster, onAdd }: AddPartyMemberFormProps) => {
         {roster.map(pc => (
           <option key={pc.id} value={pc.id}>
             {pc.name} (lvl {pc.level})
+            {pc.characterClassSlug === null ? ' — no class, won’t attack' : ''}
           </option>
         ))}
       </Select>

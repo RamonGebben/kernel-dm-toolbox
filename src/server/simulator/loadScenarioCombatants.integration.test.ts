@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import * as schema from '~/server/db/schema';
 import {
+  characterClasses,
   creatureActions,
   creatureActionAttacks,
   creatureTraits,
   creatures,
+  playerCharacters,
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import { appRouter } from '~/server/trpc/routers/_app';
@@ -254,6 +257,57 @@ describe('loadScenarioCombatants', () => {
       expect(combatant.position.x).toBeGreaterThanOrEqual(0);
       expect(combatant.position.y).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it('derives attacksPerTurn for a PC from classProgression, and defaults monsters to 1', async () => {
+    await db.insert(characterClasses).values({
+      slug: 'srd-2024_fighter',
+      document: 'srd-2024',
+      name: 'Fighter',
+      casterType: 'NONE',
+    });
+
+    const noClassPc = await caller.characters.create({
+      name: 'Ari',
+      armorClass: 16,
+      maxHitPoints: 30,
+      initiativeModifier: 3,
+      level: 4,
+    });
+
+    const fighter = await caller.characters.create({
+      name: 'Borin',
+      armorClass: 18,
+      maxHitPoints: 44,
+      initiativeModifier: 1,
+      level: 5,
+    });
+    await db
+      .update(playerCharacters)
+      .set({ characterClassSlug: 'srd-2024_fighter' })
+      .where(eq(playerCharacters.id, fighter.id));
+
+    const scenario = await caller.simulator.create({ name: 'Extra Attack' });
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: noClassPc.id,
+    });
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: fighter.id,
+    });
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_goblin',
+      count: 1,
+    });
+
+    const combatants = await loadScenarioCombatants(db, scenario.id);
+
+    expect(combatants.find(c => c.name === 'Ari')?.attacksPerTurn).toBe(1);
+    // Fighter level 5: Extra Attack grants a second attack.
+    expect(combatants.find(c => c.name === 'Borin')?.attacksPerTurn).toBe(2);
+    expect(combatants.find(c => c.name === 'Goblin')?.attacksPerTurn).toBe(1);
   });
 
   it('drops a monster entry once its custom creature is removed', async () => {
