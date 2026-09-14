@@ -178,6 +178,26 @@ export const creatures = sqliteTable('creatures', {
   languagesDesc: text('languages_desc'),
 });
 
+/**
+ * Save/area data for an action, backfilled at import time by parsing
+ * `desc`'s prose (`~/server/library/parseCreatureActionSaveArea`) — Open5e
+ * has no structured fields for this, unlike a spell. Left null wherever the
+ * prose doesn't match the parser's template; the engine falls back to
+ * treating the action as a basic attack when these are null.
+ */
+const saveAreaColumns = {
+  saveAbility: text('save_ability'),
+  saveDc: integer('save_dc'),
+  areaType: text('area_type'),
+  areaSize: real('area_size'),
+  areaSizeUnit: text('area_size_unit'),
+  damageOnFailRoll: text('damage_on_fail_roll'),
+  damageOnFailType: text('damage_on_fail_type'),
+  halfDamageOnSave: integer('half_damage_on_save', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+};
+
 /** ACTION | BONUS_ACTION | REACTION | LEGENDARY_ACTION, ordered for display. */
 export const creatureActions = sqliteTable('creature_actions', {
   slug: text('slug').primaryKey(),
@@ -192,6 +212,7 @@ export const creatureActions = sqliteTable('creature_actions', {
   legendaryActionCost: integer('legendary_action_cost'),
   usesType: text('uses_type'),
   usesParam: integer('uses_param'),
+  ...saveAreaColumns,
 });
 
 /** Structured attack rolls hanging off an action. */
@@ -259,6 +280,8 @@ export const importRuns = sqliteTable('import_runs', {
   conditionCount: integer('condition_count').notNull().default(0),
   spellCount: integer('spell_count').notNull().default(0),
   castingOptionCount: integer('casting_option_count').notNull().default(0),
+  characterClassCount: integer('character_class_count').notNull().default(0),
+  classFeatureCount: integer('class_feature_count').notNull().default(0),
   /** How many spells matched an animated effect this run — see
    * `spellEffects`. Not how many *files* were downloaded: several spells
    * commonly share one deduplicated clip. */
@@ -356,6 +379,60 @@ export const spellCastingOptions = sqliteTable('spell_casting_options', {
   shapeSize: real('shape_size'),
   concentration: integer('concentration', { mode: 'boolean' }),
 });
+
+/**
+ * A PC class or subclass, imported from Open5e's `CharacterClass.json`
+ * (issue #5). Library-style: read-only, keyed by the upstream slug, exempt
+ * from `syncMeta` — same treatment as `creatures`/`spells`.
+ *
+ * Both a base class (`subclassOfSlug` null) and its subclasses are rows in
+ * this one table, distinguished by the self-referencing FK — matching
+ * upstream, which models a subclass as just another `CharacterClass` record
+ * rather than a separate model.
+ */
+export const characterClasses = sqliteTable('character_classes', {
+  /** The upstream primary key, e.g. `srd-2024_barbarian`. */
+  slug: text('slug').primaryKey(),
+  document: text('document').notNull(),
+  name: text('name').notNull(),
+  /** Only present upstream for a subclass — flavor text, not mechanics. */
+  desc: text('desc'),
+  /** Null for most subclasses, which inherit the parent class's hit dice. */
+  hitDice: text('hit_dice'),
+  casterType: text('caster_type').notNull(),
+  primaryAbilities: text('primary_abilities', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  savingThrows: text('saving_throws', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  /** Null for a base class; the parent class's slug for a subclass. */
+  subclassOfSlug: text('subclass_of_slug'),
+});
+
+export type CharacterClass = typeof characterClasses.$inferSelect;
+export type NewCharacterClass = typeof characterClasses.$inferInsert;
+
+/**
+ * Reference text for a class/subclass feature — prose only, no level gating
+ * or numeric grants upstream. Shown alongside a granted action/resource, not
+ * consumed mechanically by the simulator engine; the mechanical numbers live
+ * in the hand-authored `src/content/classProgression` instead.
+ */
+export const characterClassFeatures = sqliteTable('character_class_features', {
+  slug: text('slug').primaryKey(),
+  classSlug: text('class_slug')
+    .notNull()
+    .references(() => characterClasses.slug, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  desc: text('desc').notNull(),
+});
+
+export type CharacterClassFeature = typeof characterClassFeatures.$inferSelect;
+export type NewCharacterClassFeature =
+  typeof characterClassFeatures.$inferInsert;
 
 export type Creature = typeof creatures.$inferSelect;
 export type NewCreature = typeof creatures.$inferInsert;
@@ -548,6 +625,9 @@ export const customCreatureActions = sqliteTable('custom_creature_actions', {
   legendaryActionCost: integer('legendary_action_cost'),
   usesType: text('uses_type'),
   usesParam: integer('uses_param'),
+  /** Same shape as `creatureActions`' own save/area columns — always
+   * hand-authored here via the custom-creature wizard, never parsed. */
+  ...saveAreaColumns,
 });
 
 export type CustomCreatureAction = typeof customCreatureActions.$inferSelect;

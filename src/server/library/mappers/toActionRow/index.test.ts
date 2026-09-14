@@ -40,4 +40,23 @@ describe('toActionRow', () => {
 
     expect(toActionRow(legendary).legendaryActionCost).toBe(2);
   });
+
+  it('backfills save/area data by parsing desc', () => {
+    expect(toActionRow(consumeMemories).saveAbility).toBe('intelligence');
+    expect(toActionRow(consumeMemories).saveDc).toBe(16);
+  });
+
+  it('leaves save/area data null for an action with no saving throw', () => {
+    const multiattack = creatureActionFixtureSchema.parse({
+      ...consumeMemories,
+      pk: 'srd-2024_aboleth_multiattack',
+      fields: {
+        ...consumeMemories.fields,
+        desc: 'The aboleth makes three Tentacle attacks.',
+      },
+    });
+
+    expect(toActionRow(multiattack).saveAbility).toBeNull();
+    expect(toActionRow(multiattack).areaType).toBeNull();
+  });
 });
