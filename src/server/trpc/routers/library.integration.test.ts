@@ -127,3 +127,61 @@ describe('library.listCreatures source merge', () => {
     ).toEqual([]);
   });
 });
+
+describe('library character classes (issue #5)', () => {
+  beforeEach(async () => {
+    await db.insert(schema.characterClasses).values([
+      {
+        slug: 'srd-2024_barbarian',
+        document: 'srd-2024',
+        name: 'Barbarian',
+        hitDice: '1d12',
+        casterType: 'NONE',
+        primaryAbilities: ['strength'],
+        savingThrows: ['strength', 'constitution'],
+        subclassOfSlug: null,
+      },
+      {
+        slug: 'srd-2024_berserker',
+        document: 'srd-2024',
+        name: 'Path of the Berserker',
+        desc: 'A path of untamed fury.',
+        casterType: 'NONE',
+        primaryAbilities: [],
+        savingThrows: [],
+        subclassOfSlug: 'srd-2024_barbarian',
+      },
+    ]);
+
+    await db.insert(schema.characterClassFeatures).values({
+      slug: 'srd-2024_barbarian-rage',
+      classSlug: 'srd-2024_barbarian',
+      name: 'Rage',
+      desc: 'In battle, you fight with primal ferocity.',
+    });
+  });
+
+  it('lists every class and subclass in name order', async () => {
+    const rows = await caller.library.listCharacterClasses();
+
+    expect(rows.map(row => row.slug)).toEqual([
+      'srd-2024_barbarian',
+      'srd-2024_berserker',
+    ]);
+  });
+
+  it('fetches one class with its features', async () => {
+    const result = await caller.library.getCharacterClass({
+      slug: 'srd-2024_barbarian',
+    });
+
+    expect(result?.characterClass.name).toBe('Barbarian');
+    expect(result?.features.map(feature => feature.name)).toEqual(['Rage']);
+  });
+
+  it('returns null for a class that does not exist', async () => {
+    expect(
+      await caller.library.getCharacterClass({ slug: 'not-a-class' }),
+    ).toBeNull();
+  });
+});

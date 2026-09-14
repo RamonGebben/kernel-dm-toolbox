@@ -38,3 +38,8 @@ export type ListSpellsInput = z.infer<typeof listSpellsInputSchema>;
 export const spellSlugInputSchema = z.object({
   slug: z.string().min(1).max(200),
 });
+
+/** A `character_classes` slug — a base class or a subclass, per issue #5. */
+export const characterClassSlugInputSchema = z.object({
+  slug: z.string().min(1).max(200),
+});

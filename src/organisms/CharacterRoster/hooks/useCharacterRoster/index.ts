@@ -41,6 +41,8 @@ export const useCharacterRoster = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<EditingTarget>(null);
+  const [classWizardTarget, setClassWizardTarget] =
+    useState<RosterCharacter | null>(null);
 
   const list = useQuery(trpc.characters.list.queryOptions());
   const encounter = useQuery(trpc.encounter.get.queryOptions());
@@ -110,5 +112,9 @@ export const useCharacterRoster = () => {
         // sensible starting value the DM overwrites with the real roll.
         initiative: character.initiativeModifier,
       }),
+    classWizardTarget,
+    openClassWizard: (character: RosterCharacter) =>
+      setClassWizardTarget(character),
+    closeClassWizard: () => setClassWizardTarget(null),
   };
 };

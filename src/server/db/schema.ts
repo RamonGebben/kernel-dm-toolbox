@@ -501,6 +501,15 @@ export const playerCharacters = sqliteTable('player_characters', {
   /** Added to a d20 when the DM types in what the player rolled. */
   initiativeModifier: integer('initiative_modifier').notNull().default(0),
   level: integer('level').notNull().default(1),
+  /**
+   * Nullable so an existing PC (or a DM who doesn't care about the
+   * simulator) is never broken by this pair — set together by
+   * `characters.applyClassTemplate` (issue #5, milestone 2).
+   */
+  characterClassSlug: text('character_class_slug').references(
+    () => characterClasses.slug,
+  ),
+  subclassSlug: text('subclass_slug').references(() => characterClasses.slug),
 });
 
 export type PlayerCharacter = typeof playerCharacters.$inferSelect;
@@ -665,6 +674,157 @@ export type CustomCreatureActionAttack =
   typeof customCreatureActionAttacks.$inferSelect;
 export type NewCustomCreatureActionAttack =
   typeof customCreatureActionAttacks.$inferInsert;
+
+/* ---------------------------------------------------------------------------
+ * Encounter simulator: PC class materialization (issue #5, milestone 2)
+ *
+ * Picking a class/subclass/level on a `player_characters` row (via
+ * `characters.applyClassTemplate`) writes a snapshot into the four tables
+ * below, then leaves it fully DM-editable — same spirit as `custom_creatures`
+ * being hand-authored once and edited freely afterward. A re-apply (a level
+ * up, a respec) wipes and recreates every row here; it is an explicit,
+ * confirmed overwrite in the UI, not a silent resync, so nothing tries to
+ * diff/merge a DM's manual edits against a new template.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Mirrors `custom_creature_actions` field-for-field (including the save/area
+ * columns, for parity, even though `applyClassTemplate` never populates them
+ * itself — a DM adding a homebrew AoE ability to a PC gets the same fields a
+ * monster's would have).
+ */
+export const playerCharacterActions = sqliteTable('player_character_actions', {
+  ...syncMeta,
+  playerCharacterId: text('player_character_id')
+    .notNull()
+    .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  desc: text('desc').notNull(),
+  actionType: text('action_type').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  legendaryActionCost: integer('legendary_action_cost'),
+  usesType: text('uses_type'),
+  usesParam: integer('uses_param'),
+  ...saveAreaColumns,
+});
+
+export type PlayerCharacterAction = typeof playerCharacterActions.$inferSelect;
+export type NewPlayerCharacterAction =
+  typeof playerCharacterActions.$inferInsert;
+
+/**
+ * Mirrors `custom_creature_action_attacks` field-for-field. Per the issue,
+ * this is also where a PC's weapon lives — same as a monster, there is no
+ * separate "weapon" concept, just an attack row hanging off an action.
+ */
+export const playerCharacterActionAttacks = sqliteTable(
+  'player_character_action_attacks',
+  {
+    ...syncMeta,
+    playerCharacterActionId: text('player_character_action_id')
+      .notNull()
+      .references(() => playerCharacterActions.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    attackType: text('attack_type'),
+    toHitMod: integer('to_hit_mod'),
+    reach: integer('reach'),
+    range: integer('range'),
+    longRange: integer('long_range'),
+    targetCreatureOnly: integer('target_creature_only', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    damageDieCount: integer('damage_die_count'),
+    damageDieType: text('damage_die_type'),
+    damageBonus: integer('damage_bonus'),
+    damageType: text('damage_type'),
+    extraDamageDieCount: integer('extra_damage_die_count'),
+    extraDamageDieType: text('extra_damage_die_type'),
+    extraDamageBonus: integer('extra_damage_bonus'),
+    extraDamageType: text('extra_damage_type'),
+  },
+);
+
+export type PlayerCharacterActionAttack =
+  typeof playerCharacterActionAttacks.$inferSelect;
+export type NewPlayerCharacterActionAttack =
+  typeof playerCharacterActionAttacks.$inferInsert;
+
+/**
+ * A spell a PC knows or has prepared. `isPrepared` does double duty for both
+ * casting styles the issue calls out — a "known" caster (Sorcerer, Bard)
+ * just always has it prepared; a "prepared" caster (Cleric, Wizard, Druid)
+ * toggles it. `isAlwaysAvailable` is the cantrip flag: a cantrip is never
+ * affected by the prepared list.
+ */
+export const playerCharacterSpells = sqliteTable('player_character_spells', {
+  ...syncMeta,
+  playerCharacterId: text('player_character_id')
+    .notNull()
+    .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+  spellSlug: text('spell_slug')
+    .notNull()
+    .references(() => spells.slug),
+  isPrepared: integer('is_prepared', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  isAlwaysAvailable: integer('is_always_available', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+});
+
+export type PlayerCharacterSpell = typeof playerCharacterSpells.$inferSelect;
+export type NewPlayerCharacterSpell = typeof playerCharacterSpells.$inferInsert;
+
+/**
+ * One row per spell level (1-9) with slots at the PC's current level, from
+ * `~/content/spellSlotsByCasterType`. A Warlock's Pact Magic slots (all cast
+ * at one elevated level) still fit this shape as a single row.
+ */
+export const playerCharacterSpellSlots = sqliteTable(
+  'player_character_spell_slots',
+  {
+    ...syncMeta,
+    playerCharacterId: text('player_character_id')
+      .notNull()
+      .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+    spellLevel: integer('spell_level').notNull(),
+    maxSlots: integer('max_slots').notNull(),
+  },
+);
+
+export type PlayerCharacterSpellSlot =
+  typeof playerCharacterSpellSlots.$inferSelect;
+export type NewPlayerCharacterSpellSlot =
+  typeof playerCharacterSpellSlots.$inferInsert;
+
+/**
+ * A class resource pool (Rage, Ki, Channel Divinity, …) from
+ * `~/content/classProgression`. `resourceKey` carries that module's stable
+ * `key` so a future re-apply/level-up can recognize "this is still Rage"
+ * rather than only matching on the display name. `maxUses` is null when
+ * `isUnlimited` is set (Barbarian's level-20 Rage) — SQLite has no `Infinity`.
+ */
+export const playerCharacterResources = sqliteTable(
+  'player_character_resources',
+  {
+    ...syncMeta,
+    playerCharacterId: text('player_character_id')
+      .notNull()
+      .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+    resourceKey: text('resource_key').notNull(),
+    name: text('name').notNull(),
+    maxUses: integer('max_uses'),
+    isUnlimited: integer('is_unlimited', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    resetsOn: text('resets_on').notNull(),
+  },
+);
+
+export type PlayerCharacterResource =
+  typeof playerCharacterResources.$inferSelect;
+export type NewPlayerCharacterResource =
+  typeof playerCharacterResources.$inferInsert;
 
 /**
  * The encounter. There is exactly one (DECISIONS #14), held as a single row

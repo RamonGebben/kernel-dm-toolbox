@@ -12,6 +12,8 @@ import {
 } from 'drizzle-orm';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
+  characterClassFeatures,
+  characterClasses,
   conditions,
   creatureActionAttacks,
   creatureActions,
@@ -23,6 +25,7 @@ import {
   spells,
 } from '~/server/db/schema';
 import {
+  characterClassSlugInputSchema,
   creatureSlugInputSchema,
   listCreaturesInputSchema,
   listSpellsInputSchema,
@@ -356,5 +359,33 @@ export const libraryRouter = createTRPCRouter({
         .orderBy(asc(spellCastingOptions.type));
 
       return buildSpellDetail({ spell, castingOptions });
+    }),
+
+  /**
+   * Every class and subclass (24 rows for SRD-2024) — cheap enough to fetch
+   * in one go rather than paginating; the class wizard groups base classes
+   * and their subclasses client-side via `subclassOfSlug`.
+   */
+  listCharacterClasses: publicProcedure.query(({ ctx }) =>
+    ctx.db.select().from(characterClasses).orderBy(asc(characterClasses.name)),
+  ),
+
+  /** One class/subclass plus its reference-text features. */
+  getCharacterClass: publicProcedure
+    .input(characterClassSlugInputSchema)
+    .query(async ({ ctx, input }) => {
+      const characterClass = await ctx.db.query.characterClasses.findFirst({
+        where: eq(characterClasses.slug, input.slug),
+      });
+
+      if (!characterClass) return null;
+
+      const features = await ctx.db
+        .select()
+        .from(characterClassFeatures)
+        .where(eq(characterClassFeatures.classSlug, input.slug))
+        .orderBy(asc(characterClassFeatures.name));
+
+      return { characterClass, features };
     }),
 });

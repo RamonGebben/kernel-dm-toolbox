@@ -32,6 +32,7 @@ const meta = {
     editing: null,
     combatantCharacterIds: [],
     onAddToEncounter: fn(),
+    onOpenClass: fn(),
     onStartCreate: fn(),
     onStartEdit: fn(),
     onCancelEdit: fn(),

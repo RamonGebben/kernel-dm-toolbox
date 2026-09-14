@@ -174,3 +174,274 @@ describe('characters.remove', () => {
     );
   });
 });
+
+const seedBarbarian = async () =>
+  db.insert(schema.characterClasses).values({
+    slug: 'srd-2024_barbarian',
+    document: 'srd-2024',
+    name: 'Barbarian',
+    hitDice: '1d12',
+    casterType: 'NONE',
+    primaryAbilities: ['strength'],
+    savingThrows: ['strength', 'constitution'],
+    subclassOfSlug: null,
+  });
+
+const seedBerserker = async () =>
+  db.insert(schema.characterClasses).values({
+    slug: 'srd-2024_berserker',
+    document: 'srd-2024',
+    name: 'Path of the Berserker',
+    casterType: 'NONE',
+    primaryAbilities: [],
+    savingThrows: [],
+    subclassOfSlug: 'srd-2024_barbarian',
+  });
+
+const seedWizard = async () =>
+  db.insert(schema.characterClasses).values({
+    slug: 'srd-2024_wizard',
+    document: 'srd-2024',
+    name: 'Wizard',
+    hitDice: '1d6',
+    casterType: 'FULL',
+    primaryAbilities: ['intelligence'],
+    savingThrows: ['intelligence', 'wisdom'],
+    subclassOfSlug: null,
+  });
+
+describe('characters.applyClassTemplate', () => {
+  it('writes the class fields onto the character', async () => {
+    await seedBarbarian();
+    const created = await caller.characters.create(validCharacter);
+
+    const updated = await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_barbarian',
+      level: 3,
+    });
+
+    expect(updated?.characterClassSlug).toBe('srd-2024_barbarian');
+    expect(updated?.subclassSlug).toBeNull();
+    expect(updated?.level).toBe(3);
+  });
+
+  it('materializes resources from classProgression at the applied level', async () => {
+    await seedBarbarian();
+    const created = await caller.characters.create(validCharacter);
+
+    await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_barbarian',
+      level: 3,
+    });
+
+    const combatData = await caller.characters.getCombatData({
+      id: created.id,
+    });
+
+    expect(combatData.resources).toEqual([
+      expect.objectContaining({
+        resourceKey: 'rage',
+        name: 'Rage',
+        maxUses: 3,
+        isUnlimited: false,
+        resetsOn: 'LONG_REST',
+      }),
+    ]);
+  });
+
+  it('materializes spell slots for a full caster', async () => {
+    await seedWizard();
+    const created = await caller.characters.create(validCharacter);
+
+    await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_wizard',
+      level: 3,
+    });
+
+    const combatData = await caller.characters.getCombatData({
+      id: created.id,
+    });
+
+    expect(combatData.spellSlots).toEqual([
+      expect.objectContaining({ spellLevel: 1, maxSlots: 4 }),
+      expect.objectContaining({ spellLevel: 2, maxSlots: 2 }),
+    ]);
+  });
+
+  it('accepts a subclass that belongs to the chosen class', async () => {
+    await seedBarbarian();
+    await seedBerserker();
+    const created = await caller.characters.create(validCharacter);
+
+    const updated = await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_barbarian',
+      subclassSlug: 'srd-2024_berserker',
+      level: 3,
+    });
+
+    expect(updated?.subclassSlug).toBe('srd-2024_berserker');
+  });
+
+  it('rejects a subclass that belongs to a different class', async () => {
+    await seedBarbarian();
+    await seedWizard();
+    const created = await caller.characters.create(validCharacter);
+
+    await expect(
+      caller.characters.applyClassTemplate({
+        id: created.id,
+        characterClassSlug: 'srd-2024_barbarian',
+        subclassSlug: 'srd-2024_wizard',
+        level: 3,
+      }),
+    ).rejects.toThrow(/does not belong/);
+  });
+
+  it('rejects a class that does not exist', async () => {
+    const created = await caller.characters.create(validCharacter);
+
+    await expect(
+      caller.characters.applyClassTemplate({
+        id: created.id,
+        characterClassSlug: 'srd-2024_not-a-class',
+        level: 1,
+      }),
+    ).rejects.toThrow(/does not exist/);
+  });
+
+  it('a re-apply wipes and regenerates the materialized rows rather than merging', async () => {
+    await seedBarbarian();
+    const created = await caller.characters.create(validCharacter);
+
+    await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_barbarian',
+      level: 1,
+    });
+
+    await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_barbarian',
+      level: 3,
+    });
+
+    const combatData = await caller.characters.getCombatData({
+      id: created.id,
+    });
+
+    // Only the level-3 Rage row survives — the level-1 row was tombstoned,
+    // not left alongside it.
+    expect(combatData.resources).toHaveLength(1);
+    expect(combatData.resources[0]?.maxUses).toBe(3);
+  });
+});
+
+describe('characters.updateCombatData', () => {
+  it('replaces a PC action(+attack), spell, slot, and resource in one call', async () => {
+    await seedWizard();
+    await db.insert(schema.spells).values({
+      slug: 'srd-2024_fire-bolt',
+      document: 'srd-2024',
+      name: 'Fire Bolt',
+      desc: 'A mote of fire.',
+      level: 0,
+      school: 'evocation',
+      castingTime: '1 action',
+      duration: 'Instantaneous',
+    });
+    const created = await caller.characters.create(validCharacter);
+
+    await caller.characters.updateCombatData({
+      id: created.id,
+      actions: [
+        {
+          name: 'Fire Bolt',
+          desc: 'Ranged spell attack.',
+          actionType: 'ACTION',
+          attack: {
+            name: 'Fire Bolt',
+            attackType: 'Ranged Spell Attack',
+            toHitMod: 5,
+            range: 120,
+            targetCreatureOnly: false,
+            damageDieCount: 1,
+            damageDieType: 'd10',
+            damageType: 'fire',
+          },
+        },
+      ],
+      spells: [
+        {
+          spellSlug: 'srd-2024_fire-bolt',
+          isPrepared: true,
+          isAlwaysAvailable: true,
+        },
+      ],
+      spellSlots: [{ spellLevel: 1, maxSlots: 4 }],
+      resources: [],
+    });
+
+    const combatData = await caller.characters.getCombatData({
+      id: created.id,
+    });
+
+    expect(combatData.actions).toHaveLength(1);
+    expect(combatData.actions[0]?.attack).toMatchObject({
+      name: 'Fire Bolt',
+      damageDieType: 'd10',
+    });
+    expect(combatData.spells).toHaveLength(1);
+    expect(combatData.spellSlots).toEqual([
+      expect.objectContaining({ spellLevel: 1, maxSlots: 4 }),
+    ]);
+  });
+
+  it('a second call replaces rather than appends', async () => {
+    const created = await caller.characters.create(validCharacter);
+
+    await caller.characters.updateCombatData({
+      id: created.id,
+      actions: [
+        { name: 'Unarmed Strike', desc: 'A punch.', actionType: 'ACTION' },
+      ],
+      spells: [],
+      spellSlots: [],
+      resources: [],
+    });
+
+    await caller.characters.updateCombatData({
+      id: created.id,
+      actions: [
+        { name: 'Dagger', desc: 'A thrown blade.', actionType: 'ACTION' },
+      ],
+      spells: [],
+      spellSlots: [],
+      resources: [],
+    });
+
+    const combatData = await caller.characters.getCombatData({
+      id: created.id,
+    });
+
+    expect(combatData.actions.map(action => action.name)).toEqual(['Dagger']);
+  });
+
+  it('refuses to save combat data for a removed character', async () => {
+    const created = await caller.characters.create(validCharacter);
+    await caller.characters.remove({ id: created.id });
+
+    await expect(
+      caller.characters.updateCombatData({
+        id: created.id,
+        actions: [],
+        spells: [],
+        spellSlots: [],
+        resources: [],
+      }),
+    ).rejects.toThrow(/no longer exists/);
+  });
+});

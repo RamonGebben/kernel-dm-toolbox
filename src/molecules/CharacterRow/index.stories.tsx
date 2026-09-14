@@ -14,6 +14,7 @@ const meta = {
     initiativeModifier: 2,
     isInEncounter: false,
     onAddToEncounter: fn(),
+    onOpenClass: fn(),
     onEdit: fn(),
     onRemove: fn(),
   },
