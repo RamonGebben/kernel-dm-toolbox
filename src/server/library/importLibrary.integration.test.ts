@@ -49,7 +49,7 @@ const tentacleAction = {
   pk: 'srd-2024_aboleth_tentacle',
   fields: {
     name: 'Tentacle',
-    desc: 'Melee attack.',
+    desc: "Melee attack, and the target has the Blinded condition until the start of the aboleth's next turn.",
     parent: 'srd-2024_aboleth',
     action_type: 'ACTION',
     order_in_statblock: 1,
@@ -335,6 +335,19 @@ describe('importLibrary', () => {
 
     expect(condition?.name).toBe('Blinded');
     expect(condition?.key).toBe('blinded');
+  });
+
+  it('resolves a creature action’s condition application through the imported conditions table', async () => {
+    await importLibrary({ db, fetchJson: stubFetch });
+
+    const action = await db.query.creatureActions.findFirst({
+      where: (creatureActions, { eq }) =>
+        eq(creatureActions.slug, 'srd-2024_aboleth_tentacle'),
+    });
+
+    expect(action?.appliesConditionSlug).toBe('srd-2024_blinded');
+    expect(action?.conditionDurationRounds).toBe(1);
+    expect(action?.conditionSaveEndsEachTurn).toBe(false);
   });
 
   it('imports spells with their higher-slot options attached', async () => {

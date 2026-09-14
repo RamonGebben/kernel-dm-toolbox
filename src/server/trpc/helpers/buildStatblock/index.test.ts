@@ -105,6 +105,10 @@ const action = (
   damageOnFailRoll: null,
   damageOnFailType: null,
   halfDamageOnSave: true,
+  appliesConditionSlug: null,
+  conditionDurationRounds: null,
+  conditionSaveEndsEachTurn: false,
+  multiattackSequence: null,
   ...overrides,
 });
 

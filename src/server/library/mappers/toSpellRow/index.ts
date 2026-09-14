@@ -1,5 +1,6 @@
 import type { SpellFixture } from '~/server/library/fixtures';
 import type { NewSpell } from '~/server/db/schema';
+import { parseConditionApplication } from '~/server/library/parseConditionApplication';
 
 /**
  * Upstream uses the empty string where a value is absent — no saving throw, no
@@ -8,41 +9,56 @@ import type { NewSpell } from '~/server/db/schema';
  */
 const emptyToNull = (value: string): string | null => value.trim() || null;
 
-export const toSpellRow = (fixture: SpellFixture): NewSpell => ({
-  slug: fixture.pk,
-  document: fixture.fields.document,
-  name: fixture.fields.name,
-  desc: fixture.fields.desc,
-  level: fixture.fields.level,
-  school: fixture.fields.school,
-  higherLevel: emptyToNull(fixture.fields.higher_level),
+/** `conditionSlugByKey` is the already-imported `conditions` list, keyed by
+ * `conditions.key` — see `toActionRow`'s own doc comment for why this is a
+ * caller-supplied lookup rather than something the parser resolves itself. */
+export const toSpellRow = (
+  fixture: SpellFixture,
+  conditionSlugByKey: ReadonlyMap<string, string>,
+): NewSpell => {
+  const { appliesConditionKey, ...conditionApplication } =
+    parseConditionApplication(fixture.fields.desc);
 
-  targetType: emptyToNull(fixture.fields.target_type),
-  rangeText: emptyToNull(fixture.fields.range_text),
-  range: fixture.fields.range,
-  rangeUnit: fixture.fields.range_unit,
-  targetCount: fixture.fields.target_count,
+  return {
+    slug: fixture.pk,
+    document: fixture.fields.document,
+    name: fixture.fields.name,
+    desc: fixture.fields.desc,
+    level: fixture.fields.level,
+    school: fixture.fields.school,
+    higherLevel: emptyToNull(fixture.fields.higher_level),
 
-  castingTime: fixture.fields.casting_time,
-  reactionCondition: fixture.fields.reaction_condition,
-  ritual: fixture.fields.ritual,
-  concentration: fixture.fields.concentration,
-  duration: fixture.fields.duration,
+    targetType: emptyToNull(fixture.fields.target_type),
+    rangeText: emptyToNull(fixture.fields.range_text),
+    range: fixture.fields.range,
+    rangeUnit: fixture.fields.range_unit,
+    targetCount: fixture.fields.target_count,
 
-  verbal: fixture.fields.verbal,
-  somatic: fixture.fields.somatic,
-  material: fixture.fields.material,
-  materialSpecified: emptyToNull(fixture.fields.material_specified),
-  materialConsumed: fixture.fields.material_consumed,
+    castingTime: fixture.fields.casting_time,
+    reactionCondition: fixture.fields.reaction_condition,
+    ritual: fixture.fields.ritual,
+    concentration: fixture.fields.concentration,
+    duration: fixture.fields.duration,
 
-  savingThrowAbility: emptyToNull(fixture.fields.saving_throw_ability),
-  attackRoll: fixture.fields.attack_roll,
-  damageRoll: emptyToNull(fixture.fields.damage_roll),
-  damageTypes: fixture.fields.damage_types,
+    verbal: fixture.fields.verbal,
+    somatic: fixture.fields.somatic,
+    material: fixture.fields.material,
+    materialSpecified: emptyToNull(fixture.fields.material_specified),
+    materialConsumed: fixture.fields.material_consumed,
 
-  shapeType: fixture.fields.shape_type,
-  shapeSize: fixture.fields.shape_size,
-  shapeSizeUnit: fixture.fields.shape_size_unit,
+    savingThrowAbility: emptyToNull(fixture.fields.saving_throw_ability),
+    attackRoll: fixture.fields.attack_roll,
+    damageRoll: emptyToNull(fixture.fields.damage_roll),
+    damageTypes: fixture.fields.damage_types,
+    ...conditionApplication,
+    appliesConditionSlug: appliesConditionKey
+      ? (conditionSlugByKey.get(appliesConditionKey) ?? null)
+      : null,
 
-  classes: fixture.fields.classes,
-});
+    shapeType: fixture.fields.shape_type,
+    shapeSize: fixture.fields.shape_size,
+    shapeSizeUnit: fixture.fields.shape_size_unit,
+
+    classes: fixture.fields.classes,
+  };
+};

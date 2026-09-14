@@ -7,6 +7,7 @@ import {
   check,
 } from 'drizzle-orm/sqlite-core';
 import type { BatchSummary } from '~/server/simulator/engine/aggregateBatchResults';
+import type { MultiattackSequenceEntry } from '~/server/library/parseMultiattackSequence';
 
 /**
  * Every table in this app spreads `syncMeta`.
@@ -186,6 +187,40 @@ export const creatures = sqliteTable('creatures', {
  * prose doesn't match the parser's template; the engine falls back to
  * treating the action as a basic attack when these are null.
  */
+/**
+ * Condition applied on a failed save. Read together by the simulator engine
+ * (issue #5, milestone 10):
+ * - `appliesConditionSlug` null: this action/spell never applies a condition.
+ * - `conditionSaveEndsEachTurn` true: the affected creature repeats the
+ *   triggering save (the bundle's own `saveAbility`/`saveDc` — there is no
+ *   separate "condition save") at the end of each of its turns, removing the
+ *   condition on a success — the common "Hold Person" shape.
+ * - `conditionDurationRounds` set: a hard cap in rounds from application,
+ *   e.g. a dragon breath's "after 1 minute, it succeeds automatically" (10
+ *   rounds). Can coexist with `conditionSaveEndsEachTurn` — whichever ends
+ *   the condition first wins.
+ * - Both null/false: no fixed short duration and no repeat save — the
+ *   condition persists until removed by some other means the engine doesn't
+ *   model (matches how `combatant_conditions.roundsRemaining` already
+ *   treats an indefinite condition like Prone in the live tracker).
+ *
+ * Left null wherever `desc`'s prose doesn't parse cleanly, or describes a
+ * multi-stage escalating effect (e.g. "First Failure ... Second Failure
+ * ...") that can't be reduced to one condition + duration — see
+ * `parseConditionApplication`'s own doc comment.
+ */
+const conditionApplicationColumns = {
+  appliesConditionSlug: text('applies_condition_slug').references(
+    () => conditions.slug,
+  ),
+  conditionDurationRounds: integer('condition_duration_rounds'),
+  conditionSaveEndsEachTurn: integer('condition_save_ends_each_turn', {
+    mode: 'boolean',
+  })
+    .notNull()
+    .default(false),
+};
+
 const saveAreaColumns = {
   saveAbility: text('save_ability'),
   saveDc: integer('save_dc'),
@@ -197,6 +232,7 @@ const saveAreaColumns = {
   halfDamageOnSave: integer('half_damage_on_save', { mode: 'boolean' })
     .notNull()
     .default(true),
+  ...conditionApplicationColumns,
 };
 
 /** ACTION | BONUS_ACTION | REACTION | LEGENDARY_ACTION, ordered for display. */
@@ -214,6 +250,20 @@ export const creatureActions = sqliteTable('creature_actions', {
   usesType: text('uses_type'),
   usesParam: integer('uses_param'),
   ...saveAreaColumns,
+  /**
+   * Only set on a "Multiattack" action, parsed from its own `desc` prose
+   * (`~/server/library/parseMultiattackSequence`) into which other named
+   * actions on this creature it triggers and how many times each. Null for
+   * every other action, and null on a Multiattack whose prose doesn't match
+   * a recognized pattern (a choice like "using X or Y in any combination",
+   * or an optional "it can replace one attack with..." clause, isn't
+   * modeled — see the parser's own doc comment). The engine falls back to a
+   * single basic attack when this is null, same fallback `saveAreaColumns`
+   * already uses.
+   */
+  multiattackSequence: text('multiattack_sequence', {
+    mode: 'json',
+  }).$type<MultiattackSequenceEntry[] | null>(),
 });
 
 /** Structured attack rolls hanging off an action. */
@@ -345,6 +395,7 @@ export const spells = sqliteTable('spells', {
     .$type<string[]>()
     .notNull()
     .default([]),
+  ...conditionApplicationColumns,
 
   shapeType: text('shape_type'),
   shapeSize: real('shape_size'),
@@ -638,6 +689,11 @@ export const customCreatureActions = sqliteTable('custom_creature_actions', {
   /** Same shape as `creatureActions`' own save/area columns — always
    * hand-authored here via the custom-creature wizard, never parsed. */
   ...saveAreaColumns,
+  /** Same shape as `creatureActions.multiattackSequence` — always
+   * hand-authored, never parsed (there is no prose to parse). */
+  multiattackSequence: text('multiattack_sequence', {
+    mode: 'json',
+  }).$type<MultiattackSequenceEntry[] | null>(),
 });
 
 export type CustomCreatureAction = typeof customCreatureActions.$inferSelect;

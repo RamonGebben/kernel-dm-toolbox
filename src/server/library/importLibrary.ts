@@ -152,8 +152,17 @@ export const importLibrary = async ({
     const creatureRows = creatureFixtures.map(toCreatureRow);
     const creatureSlugs = new Set(creatureRows.map(row => row.slug));
 
+    // Computed before actions/spells (not after, as a plain reading order
+    // would suggest) because both `toActionRow` and `toSpellRow` resolve a
+    // parsed condition key (e.g. "paralyzed") to its full `conditions.slug`
+    // through this map — a pure parser has no DB access of its own.
+    const conditionRows = conditionFixtures.map(toConditionRow);
+    const conditionSlugByKey = new Map(
+      conditionRows.map(row => [row.key, row.slug]),
+    );
+
     const actionPartition = partitionByParent(
-      actionFixtures.map(toActionRow),
+      actionFixtures.map(fixture => toActionRow(fixture, conditionSlugByKey)),
       'creatureSlug',
       creatureSlugs,
     );
@@ -169,9 +178,10 @@ export const importLibrary = async ({
       'creatureSlug',
       creatureSlugs,
     );
-    const conditionRows = conditionFixtures.map(toConditionRow);
 
-    const spellRows = spellFixtures.map(toSpellRow);
+    const spellRows = spellFixtures.map(fixture =>
+      toSpellRow(fixture, conditionSlugByKey),
+    );
     const spellSlugs = new Set(spellRows.map(row => row.slug));
     const castingOptionPartition = partitionByParent(
       castingOptionFixtures.map(toSpellCastingOptionRow),
@@ -198,6 +208,19 @@ export const importLibrary = async ({
         .onConflictDoUpdate({
           target: creatures.slug,
           set: conflictUpdateSet(creatures, rows[0]),
+        });
+    }
+
+    // Conditions before actions/spells: both now carry an
+    // `appliesConditionSlug` FK onto this table (issue #5, milestone 9).
+    onProgress(`Writing ${conditionRows.length} conditions`);
+    for (const rows of chunk(conditionRows, CHUNK_SIZES.conditions)) {
+      await db
+        .insert(conditions)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: conditions.slug,
+          set: conflictUpdateSet(conditions, rows[0]),
         });
     }
 
@@ -231,17 +254,6 @@ export const importLibrary = async ({
         .onConflictDoUpdate({
           target: creatureTraits.slug,
           set: conflictUpdateSet(creatureTraits, rows[0]),
-        });
-    }
-
-    onProgress(`Writing ${conditionRows.length} conditions`);
-    for (const rows of chunk(conditionRows, CHUNK_SIZES.conditions)) {
-      await db
-        .insert(conditions)
-        .values(rows)
-        .onConflictDoUpdate({
-          target: conditions.slug,
-          set: conflictUpdateSet(conditions, rows[0]),
         });
     }
 
