@@ -1317,4 +1317,100 @@ export const mapMeasurementShapes = sqliteTable(
 );
 
 export type MapMeasurementShape = typeof mapMeasurementShapes.$inferSelect;
+
+/* ---------------------------------------------------------------------------
+ * Encounter simulator: scenarios (issue #5, milestone 3)
+ *
+ * A scenario is a workspace for iterating on a fight before running it — ours,
+ * all `syncMeta`, not library data. It is not itself the tracker's preset
+ * format: "save as preset" (milestone 7) reads a scenario's monster entries
+ * and creates a normal `encounter_presets` row through the existing creation
+ * path — no PC data ever gets baked into a preset, matching
+ * `encounter_presets`' own monster-composition-only shape (DECISIONS #14).
+ * ------------------------------------------------------------------------- */
+
+/** A grid-cell anchor the DM placed a token at. Null means "let the engine
+ * (milestone 4) auto-place this one" rather than requiring every combatant
+ * to be positioned by hand before a scenario can run. */
+export type SimulatorDeploymentPosition = { x: number; y: number };
+
+export const simulatorScenarios = sqliteTable('simulator_scenarios', {
+  ...syncMeta,
+  name: text('name').notNull(),
+  note: text('note'),
+  trialCount: integer('trial_count').notNull().default(100),
+  lastRunAt: integer('last_run_at', { mode: 'timestamp_ms' }),
+  /**
+   * Aggregate Monte Carlo stats from the most recent run. Milestone 6
+   * (`simulator.runBatch`) owns the actual shape; the column is reserved
+   * ahead of that milestone and stays null until a scenario has been run at
+   * least once.
+   */
+  lastRunSummary: text('last_run_summary', { mode: 'json' }).$type<Record<
+    string,
+    unknown
+  > | null>(),
+});
+
+export type SimulatorScenario = typeof simulatorScenarios.$inferSelect;
+export type NewSimulatorScenario = typeof simulatorScenarios.$inferInsert;
+
+/** One PC in a scenario's party. */
+export const simulatorScenarioPartyMembers = sqliteTable(
+  'simulator_scenario_party_members',
+  {
+    ...syncMeta,
+    scenarioId: text('scenario_id')
+      .notNull()
+      .references(() => simulatorScenarios.id, { onDelete: 'cascade' }),
+    playerCharacterId: text('player_character_id')
+      .notNull()
+      .references(() => playerCharacters.id),
+    positionX: integer('position_x'),
+    positionY: integer('position_y'),
+  },
+);
+
+export type SimulatorScenarioPartyMember =
+  typeof simulatorScenarioPartyMembers.$inferSelect;
+export type NewSimulatorScenarioPartyMember =
+  typeof simulatorScenarioPartyMembers.$inferInsert;
+
+/**
+ * One creature line of a scenario's monster group — a count rather than one
+ * row per monster, same reasoning as `encounter_preset_entries`. Exactly one
+ * of `creatureSlug`/`customCreatureId` is set, the same XOR shape
+ * `encounter_preset_entries`/`combatants` already use. `position` here
+ * anchors the whole group; the engine (milestone 4) spreads `count`
+ * individuals out from it when a trial actually runs.
+ */
+export const simulatorScenarioMonsterEntries = sqliteTable(
+  'simulator_scenario_monster_entries',
+  {
+    ...syncMeta,
+    scenarioId: text('scenario_id')
+      .notNull()
+      .references(() => simulatorScenarios.id, { onDelete: 'cascade' }),
+    creatureSlug: text('creature_slug').references(() => creatures.slug),
+    customCreatureId: text('custom_creature_id').references(
+      () => customCreatures.id,
+    ),
+    count: integer('count').notNull().default(1),
+    /** Display order within the scenario. Never `order` — reserved word. */
+    sortOrder: integer('sort_order').notNull().default(0),
+    positionX: integer('position_x'),
+    positionY: integer('position_y'),
+  },
+  table => [
+    check(
+      'simulator_scenario_monster_entry_has_exactly_one_source',
+      sql`(${table.creatureSlug} is not null) <> (${table.customCreatureId} is not null)`,
+    ),
+  ],
+);
+
+export type SimulatorScenarioMonsterEntry =
+  typeof simulatorScenarioMonsterEntries.$inferSelect;
+export type NewSimulatorScenarioMonsterEntry =
+  typeof simulatorScenarioMonsterEntries.$inferInsert;
 export type NewMapMeasurementShape = typeof mapMeasurementShapes.$inferInsert;

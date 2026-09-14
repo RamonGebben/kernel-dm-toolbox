@@ -13,6 +13,8 @@ const names: IconName[] = [
   'unlock',
   'more',
   'chevronDown',
+  'ruler',
+  'target',
 ];
 
 const meta = {

@@ -24,7 +24,8 @@ export type IconName =
   | 'unlock'
   | 'more'
   | 'chevronDown'
-  | 'ruler';
+  | 'ruler'
+  | 'target';
 
 export type IconProps = {
   name: IconName;
@@ -110,6 +111,13 @@ const paths: Record<IconName, ReactNode> = {
       <path d="m11.5 9.5 2-2" />
       <path d="m8.5 6.5 2-2" />
       <path d="m17.5 15.5 2-2" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
     </>
   ),
 };

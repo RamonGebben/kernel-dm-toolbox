@@ -9,7 +9,7 @@ import type { IconName } from '~/atoms/Icon';
  * that render disabled, because a nav item that silently does nothing is worse
  * than one that says why.
  */
-export type ToolId = 'initiative' | 'maps' | 'spells';
+export type ToolId = 'initiative' | 'maps' | 'spells' | 'simulator';
 
 export type Tool = {
   id: ToolId;
@@ -21,7 +21,7 @@ export type Tool = {
    * Set only for a tool that has a route. An unbuilt tool has none, which is
    * what keeps `typedRoutes` honest — there is no href to get wrong.
    */
-  href?: '/' | '/spells' | '/maps';
+  href?: '/' | '/spells' | '/maps' | '/simulator';
 };
 
 export const tools: readonly Tool[] = [
@@ -45,5 +45,12 @@ export const tools: readonly Tool[] = [
     description: 'Quick spell lookup',
     icon: 'spellbook',
     href: '/spells',
+  },
+  {
+    id: 'simulator',
+    label: 'Simulator',
+    description: 'Balance an encounter before you run it',
+    icon: 'target',
+    href: '/simulator',
   },
 ] as const;
