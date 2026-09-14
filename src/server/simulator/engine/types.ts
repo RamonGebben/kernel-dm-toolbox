@@ -333,6 +333,13 @@ export type TurnLogEntry =
       conditionKey: string;
       sourceCombatantId: string;
       roundsRemaining: number | null;
+      /** Whether this condition ends early on a successful save at the end
+       * of the affected combatant's own turn — issue #5, milestone 13's
+       * addition, purely for the battle-viewer's log line ("save ends" vs.
+       * a fixed round count vs. persists-until-otherwise-removed); no
+       * engine logic reads this field, `EngineActiveCondition` is what
+       * actually drives the mechanic. */
+      saveEndsEachTurn: boolean;
     }
   | {
       kind: 'condition-removed';

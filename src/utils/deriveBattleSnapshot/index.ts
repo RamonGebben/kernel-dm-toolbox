@@ -9,6 +9,23 @@ export type BattleSnapshotCombatant = {
   maxHitPoints: number;
   currentHitPoints: number;
   isDefeated: boolean;
+  /** At 0 HP and still in the fight — `down` has fired but neither
+   * `stabilized` nor `revived`/`defeated` has yet (issue #5, milestone 13).
+   * Distinct from `isDefeated`: a down combatant is still drawn, just
+   * visually marked as out of the action. Always false for a combatant
+   * that isn't death-save-eligible (a monster just goes straight to
+   * `isDefeated` instead — see `EngineCombatant.tracksDeathSaves`). */
+  isDown: boolean;
+  /** 3 death-save successes reached — stopped rolling, stays down for the
+   * rest of the encounter. A stricter sub-state of `isDown` (`isDown` stays
+   * true too), drawn distinctly since "still might die" and "definitely
+   * not dying any further" read differently to a DM watching the replay. */
+  isStabilized: boolean;
+  /** Every condition currently affecting this combatant, by key — for a
+   * small persistent badge on its token. Order follows application order;
+   * duplicates aren't possible (an already-active condition of the same
+   * key isn't reapplied by the engine). */
+  activeConditionKeys: string[];
 };
 
 /**
@@ -38,6 +55,9 @@ export const deriveBattleSnapshot = (
         maxHitPoints: combatant.maxHitPoints,
         currentHitPoints: combatant.maxHitPoints,
         isDefeated: false,
+        isDown: false,
+        isStabilized: false,
+        activeConditionKeys: [],
       },
     ]),
   );
@@ -83,22 +103,59 @@ export const deriveBattleSnapshot = (
         break;
       }
 
-      // A death-save-eligible combatant going down (`down`), rolling
-      // (`death-save`), stabilizing, or waking back up (`revived`) is all
-      // real detail for milestone 13's UI pass to draw — this snapshot
-      // reducer just needs `revived` to restore the 1 HP `rollDeathSave`
-      // grants so a later `attack`/`save-effect` entry's damage clamp has
-      // the right starting point to subtract from; the others need no
-      // numeric change here (HP is already 0 from the hit that caused
-      // `down`, and `isDefeated` deliberately stays false for all of
-      // `down`/`death-save`/`stabilized` — a down-but-not-dead combatant
-      // is not the same terminal state `defeated` represents).
+      // `isDefeated` deliberately stays false for all of `down`/
+      // `death-save`/`stabilized` — a down-but-not-dead combatant is not
+      // the same terminal state `defeated` represents (issue #5, milestone
+      // 13's own visual distinction: still drawn, just visibly out).
+      case 'down': {
+        const current = byId.get(entry.combatantId);
+        if (current) byId.set(entry.combatantId, { ...current, isDown: true });
+        break;
+      }
+
+      case 'stabilized': {
+        const current = byId.get(entry.combatantId);
+        if (current) {
+          byId.set(entry.combatantId, { ...current, isStabilized: true });
+        }
+        break;
+      }
+
       case 'revived': {
         const current = byId.get(entry.combatantId);
         if (current) {
           byId.set(entry.combatantId, {
             ...current,
             currentHitPoints: entry.hitPoints,
+            isDown: false,
+            isStabilized: false,
+          });
+        }
+        break;
+      }
+
+      case 'condition-applied': {
+        const current = byId.get(entry.combatantId);
+        if (current && !current.activeConditionKeys.includes(entry.conditionKey)) {
+          byId.set(entry.combatantId, {
+            ...current,
+            activeConditionKeys: [
+              ...current.activeConditionKeys,
+              entry.conditionKey,
+            ],
+          });
+        }
+        break;
+      }
+
+      case 'condition-removed': {
+        const current = byId.get(entry.combatantId);
+        if (current) {
+          byId.set(entry.combatantId, {
+            ...current,
+            activeConditionKeys: current.activeConditionKeys.filter(
+              key => key !== entry.conditionKey,
+            ),
           });
         }
         break;
@@ -107,12 +164,8 @@ export const deriveBattleSnapshot = (
       case 'round-start':
       case 'initiative':
       case 'no-action':
-      case 'condition-applied':
-      case 'condition-removed':
       case 'concentration-check':
-      case 'down':
       case 'death-save':
-      case 'stabilized':
         break;
 
       default: {

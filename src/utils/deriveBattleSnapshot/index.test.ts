@@ -33,6 +33,9 @@ describe('deriveBattleSnapshot', () => {
         maxHitPoints: 20,
         currentHitPoints: 20,
         isDefeated: false,
+        isDown: false,
+        isStabilized: false,
+        activeConditionKeys: [],
       },
       {
         id: 'm1',
@@ -42,6 +45,9 @@ describe('deriveBattleSnapshot', () => {
         maxHitPoints: 7,
         currentHitPoints: 7,
         isDefeated: false,
+        isDown: false,
+        isStabilized: false,
+        activeConditionKeys: [],
       },
     ]);
   });
@@ -145,7 +151,7 @@ describe('deriveBattleSnapshot', () => {
     expect(goblin?.currentHitPoints).toBe(0);
   });
 
-  it('ignores round-start, initiative, and no-action entries', () => {
+  it('ignores round-start, initiative, no-action, death-save, and concentration-check entries', () => {
     const entries: TurnLogEntry[] = [
       { kind: 'round-start', round: 1 },
       {
@@ -153,9 +159,89 @@ describe('deriveBattleSnapshot', () => {
         order: [{ combatantId: 'a1', name: 'Fighter', roll: 18 }],
       },
       { kind: 'no-action', combatantId: 'm1', reason: 'no-eligible-action' },
+      {
+        kind: 'death-save',
+        combatantId: 'a1',
+        roll: 14,
+        failuresAdded: 0,
+        isNatural20: false,
+        successes: 1,
+        failures: 0,
+      },
+      {
+        kind: 'concentration-check',
+        combatantId: 'a1',
+        damage: 5,
+        dc: 10,
+        roll: 15,
+        succeeded: true,
+      },
     ];
 
     const snapshot = deriveBattleSnapshot(initial, entries);
     expect(snapshot).toEqual(deriveBattleSnapshot(initial, []));
+  });
+
+  it('marks a combatant down without defeating it, then clears it on revived', () => {
+    const downEntries: TurnLogEntry[] = [
+      { kind: 'down', combatantId: 'a1', name: 'Fighter' },
+    ];
+
+    const down = deriveBattleSnapshot(initial, downEntries);
+    const fighterDown = down.find(c => c.id === 'a1');
+    expect(fighterDown?.isDown).toBe(true);
+    expect(fighterDown?.isDefeated).toBe(false);
+
+    const revivedEntries: TurnLogEntry[] = [
+      ...downEntries,
+      { kind: 'revived', combatantId: 'a1', hitPoints: 1 },
+    ];
+    const revived = deriveBattleSnapshot(initial, revivedEntries);
+    const fighterRevived = revived.find(c => c.id === 'a1');
+    expect(fighterRevived?.isDown).toBe(false);
+    expect(fighterRevived?.currentHitPoints).toBe(1);
+  });
+
+  it('marks a combatant stabilized while keeping isDown true', () => {
+    const entries: TurnLogEntry[] = [
+      { kind: 'down', combatantId: 'a1', name: 'Fighter' },
+      { kind: 'stabilized', combatantId: 'a1' },
+    ];
+
+    const snapshot = deriveBattleSnapshot(initial, entries);
+    const fighter = snapshot.find(c => c.id === 'a1');
+    expect(fighter?.isDown).toBe(true);
+    expect(fighter?.isStabilized).toBe(true);
+  });
+
+  it('tracks active conditions being applied and removed', () => {
+    const applied: TurnLogEntry[] = [
+      {
+        kind: 'condition-applied',
+        combatantId: 'a1',
+        conditionKey: 'frightened',
+        sourceCombatantId: 'm1',
+        roundsRemaining: null,
+        saveEndsEachTurn: true,
+      },
+    ];
+    expect(
+      deriveBattleSnapshot(initial, applied).find(c => c.id === 'a1')
+        ?.activeConditionKeys,
+    ).toEqual(['frightened']);
+
+    const removed: TurnLogEntry[] = [
+      ...applied,
+      {
+        kind: 'condition-removed',
+        combatantId: 'a1',
+        conditionKey: 'frightened',
+        reason: 'save-succeeded',
+      },
+    ];
+    expect(
+      deriveBattleSnapshot(initial, removed).find(c => c.id === 'a1')
+        ?.activeConditionKeys,
+    ).toEqual([]);
   });
 });

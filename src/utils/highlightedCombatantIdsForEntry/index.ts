@@ -15,7 +15,6 @@ export const highlightedCombatantIdsForEntry = (
     case 'move':
     case 'defeated':
     case 'no-action':
-    case 'condition-applied':
     case 'condition-removed':
     case 'concentration-check':
     case 'down':
@@ -23,6 +22,9 @@ export const highlightedCombatantIdsForEntry = (
     case 'stabilized':
     case 'revived':
       return [entry.combatantId];
+
+    case 'condition-applied':
+      return [entry.combatantId, entry.sourceCombatantId];
 
     case 'attack':
       return [entry.combatantId, entry.targetId];

@@ -211,6 +211,9 @@ describe('aggregateBatchResults', () => {
     expect(goblins).toMatchObject({
       name: 'Goblin',
       survivalRate: 0.5,
+      // Monsters never carry a `down` entry — they're removed outright at
+      // 0 HP (`tracksDeathSaves` false) — so this always reads 0 for them.
+      wentDownRate: 0,
       averageDamageTaken: (7 + 4) / 2,
       killRate: 0,
     });
@@ -219,9 +222,43 @@ describe('aggregateBatchResults', () => {
     expect(hero).toMatchObject({
       name: 'Hero',
       survivalRate: 1,
+      wentDownRate: 0,
       averageDamageDealt: 7 + 4,
       // One kill (Goblin 1), one instance -> killRate 1.
       killRate: 1,
     });
+  });
+
+  it('reports wentDownRate from `down` entries, independent of survivalRate', () => {
+    // One PC across two trials: goes down and stabilizes in trial 1
+    // (survives, but did go down), stays healthy in trial 2 (survives,
+    // never went down) — proving the two rates track different things.
+    const buildTrial = (wentDown: boolean): EngineResult => ({
+      seed: 1,
+      winner: 'party',
+      rounds: 3,
+      log: wentDown
+        ? [{ kind: 'down', combatantId: 'hero-1', name: 'Hero' }]
+        : [],
+      combatants: [
+        {
+          id: 'hero-1',
+          templateKey: 'hero',
+          name: 'Hero',
+          side: 'party' as const,
+          maxHitPoints: 30,
+          finalHitPoints: wentDown ? 0 : 20,
+          survived: true,
+        },
+      ],
+    });
+
+    const summary = aggregateBatchResults(1, [
+      buildTrial(true),
+      buildTrial(false),
+    ]);
+
+    const hero = summary.combatants.find(c => c.templateKey === 'hero');
+    expect(hero).toMatchObject({ survivalRate: 1, wentDownRate: 0.5 });
   });
 });

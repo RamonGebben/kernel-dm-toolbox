@@ -239,6 +239,7 @@ export const resolveSaveAction = (
         conditionKey: newCondition.conditionKey,
         sourceCombatantId: attackerId,
         roundsRemaining: newCondition.roundsRemaining,
+        saveEndsEachTurn: newCondition.saveEndsEachTurn,
       });
     }
 

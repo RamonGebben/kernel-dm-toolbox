@@ -74,6 +74,70 @@ describe('highlightedCombatantIdsForEntry', () => {
     expect(highlightedCombatantIdsForEntry(entry)).toEqual(['m1', 'a1', 'a2']);
   });
 
+  it('returns the target and the source for a condition-applied entry', () => {
+    const entry: TurnLogEntry = {
+      kind: 'condition-applied',
+      combatantId: 'a1',
+      conditionKey: 'frightened',
+      sourceCombatantId: 'm1',
+      roundsRemaining: null,
+      saveEndsEachTurn: true,
+    };
+    expect(highlightedCombatantIdsForEntry(entry)).toEqual(['a1', 'm1']);
+  });
+
+  it('returns the affected combatant for condition-removed/concentration-check/down/death-save/stabilized/revived', () => {
+    expect(
+      highlightedCombatantIdsForEntry({
+        kind: 'condition-removed',
+        combatantId: 'a1',
+        conditionKey: 'frightened',
+        reason: 'expired',
+      }),
+    ).toEqual(['a1']);
+    expect(
+      highlightedCombatantIdsForEntry({
+        kind: 'concentration-check',
+        combatantId: 'a1',
+        damage: 5,
+        dc: 10,
+        roll: 4,
+        succeeded: false,
+      }),
+    ).toEqual(['a1']);
+    expect(
+      highlightedCombatantIdsForEntry({
+        kind: 'down',
+        combatantId: 'a1',
+        name: 'Fighter',
+      }),
+    ).toEqual(['a1']);
+    expect(
+      highlightedCombatantIdsForEntry({
+        kind: 'death-save',
+        combatantId: 'a1',
+        roll: 14,
+        failuresAdded: 0,
+        isNatural20: false,
+        successes: 1,
+        failures: 0,
+      }),
+    ).toEqual(['a1']);
+    expect(
+      highlightedCombatantIdsForEntry({
+        kind: 'stabilized',
+        combatantId: 'a1',
+      }),
+    ).toEqual(['a1']);
+    expect(
+      highlightedCombatantIdsForEntry({
+        kind: 'revived',
+        combatantId: 'a1',
+        hitPoints: 1,
+      }),
+    ).toEqual(['a1']);
+  });
+
   it('returns nothing for round-start/initiative entries', () => {
     expect(
       highlightedCombatantIdsForEntry({ kind: 'round-start', round: 1 }),

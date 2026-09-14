@@ -20,6 +20,7 @@ export const CombatantStatsTable = ({
         <Th scope="col">Combatant</Th>
         <Th scope="col">Side</Th>
         <Th scope="col">Survival</Th>
+        <Th scope="col">Went down</Th>
         <Th scope="col">Avg. dealt</Th>
         <Th scope="col">Avg. taken</Th>
         <Th scope="col">Kill rate</Th>
@@ -31,6 +32,14 @@ export const CombatantStatsTable = ({
           <Td>{combatant.name}</Td>
           <Td>{combatant.side === 'party' ? 'Party' : 'Monster'}</Td>
           <Td>{formatPercent(combatant.survivalRate)}</Td>
+          {/* Monsters never track death saves, so `wentDownRate` is always
+           * 0 for them — a dash reads more honestly than a permanent "0%"
+           * that looks like a (misleading) stat. */}
+          <Td>
+            {combatant.side === 'party'
+              ? formatPercent(combatant.wentDownRate)
+              : '—'}
+          </Td>
           <Td>{combatant.averageDamageDealt.toFixed(1)}</Td>
           <Td>{combatant.averageDamageTaken.toFixed(1)}</Td>
           <Td>{combatant.killRate.toFixed(2)}</Td>

@@ -525,6 +525,7 @@ describe('resolveSaveAction — conditions', () => {
         conditionKey: 'paralyzed',
         sourceCombatantId: 'caster-1',
         roundsRemaining: null,
+        saveEndsEachTurn: true,
       },
     ]);
   });

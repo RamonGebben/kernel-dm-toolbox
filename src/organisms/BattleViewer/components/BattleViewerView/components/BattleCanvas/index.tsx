@@ -30,6 +30,16 @@ const HIGHLIGHT_COLOR = 'rgba(255, 255, 255, 0.9)';
 const HP_BAR_BACKGROUND = 'rgba(0, 0, 0, 0.5)';
 const HP_BAR_FILL = '#6fdc8c';
 const HP_BAR_FILL_LOW = '#ff6f6f';
+/** A down-but-not-dead combatant's ring — amber, distinct from both a
+ * healthy token's own side color and a truly `defeated` token's grey, so a
+ * DM watching the replay can tell "still might die" apart from "gone for
+ * good" at a glance. */
+const DOWN_RING_COLOR = '#e8b339';
+/** A stabilized combatant's ring — a cooler, desaturated variant of the
+ * down ring: still down, but no longer at risk of dying this encounter. */
+const STABILIZED_RING_COLOR = '#9aa5b1';
+const CONDITION_BADGE_COLOR = '#c084fc';
+const CONDITION_BADGE_TEXT_COLOR = '#1a1025';
 
 /**
  * Presentational: draws the current battle snapshot — a token per combatant,
@@ -93,7 +103,11 @@ export const BattleCanvas = ({
         ctx.stroke();
       }
 
-      ctx.globalAlpha = combatant.isDefeated ? 0.4 : 1;
+      // A down-but-not-dead combatant keeps its side color (still a real
+      // combatant, might get back up) but dims like a defeated one reads at
+      // a glance as "not currently acting" — a `defeated` token dims
+      // further still (0.4 vs 0.7) so the two remain visually distinct.
+      ctx.globalAlpha = combatant.isDefeated ? 0.4 : combatant.isDown ? 0.7 : 1;
 
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -103,6 +117,18 @@ export const BattleCanvas = ({
           ? PARTY_COLOR
           : MONSTER_COLOR;
       ctx.fill();
+
+      if (!combatant.isDefeated && combatant.isDown) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius + 3, 0, Math.PI * 2);
+        ctx.strokeStyle = combatant.isStabilized
+          ? STABILIZED_RING_COLOR
+          : DOWN_RING_COLOR;
+        ctx.lineWidth = 2;
+        ctx.setLineDash(combatant.isStabilized ? [] : [3, 2]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
       ctx.fillStyle = '#0a0a0a';
       ctx.font = '600 11px sans-serif';
@@ -124,6 +150,39 @@ export const BattleCanvas = ({
       ctx.fillRect(barX, barY, barWidth * Math.max(0, hpRatio), 3);
 
       ctx.globalAlpha = 1;
+
+      // A small row of dots above the token for active conditions — a
+      // count, not a legend (the turn log already spells out which
+      // condition by name); capped at 4 visible dots plus a "+N" label so a
+      // heavily-debuffed combatant doesn't grow an ever-wider row.
+      if (!combatant.isDefeated && combatant.activeConditionKeys.length > 0) {
+        const maxDots = 4;
+        const shown = Math.min(combatant.activeConditionKeys.length, maxDots);
+        const dotRadius = 2.5;
+        const dotGap = 6;
+        const dotsWidth = (shown - 1) * dotGap;
+        const startX = centerX - dotsWidth / 2;
+        const dotY = centerY - radius - 5;
+
+        ctx.fillStyle = CONDITION_BADGE_COLOR;
+        for (let dot = 0; dot < shown; dot += 1) {
+          ctx.beginPath();
+          ctx.arc(startX + dot * dotGap, dotY, dotRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (combatant.activeConditionKeys.length > maxDots) {
+          ctx.fillStyle = CONDITION_BADGE_TEXT_COLOR;
+          ctx.font = '600 8px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(
+            `+${combatant.activeConditionKeys.length - maxDots}`,
+            startX + shown * dotGap,
+            dotY,
+          );
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combatants, highlightedCombatantIds, cols, rows]);

@@ -14,8 +14,22 @@ export type CombatantBatchStats = {
   name: string;
   side: EngineSide;
   /** Fraction of individual instances (a 4-goblin entry contributes 4 per
-   * trial) that survived to the end of their trial. */
+   * trial) that survived to the end of their trial. For a death-save-eligible
+   * combatant (a PC), "survived" means "didn't die" — a stabilized or still-
+   * `dying` PC at 0 HP still counts, matching `EngineFinalCombatantState.
+   * survived`'s own definition (issue #5, milestone 12). */
   survivalRate: number;
+  /**
+   * Fraction of individual instances that were knocked to 0 HP at least once
+   * during their trial (a `down` log entry), regardless of whether they went
+   * on to stabilize, get revived, or die — always 0 for a combatant that
+   * never tracks death saves (every monster; see `EngineCombatant.
+   * tracksDeathSaves`), since those are removed outright at 0 HP instead.
+   * This is the signal `survivalRate` alone can't give a DM balancing a
+   * fight: "the party won" and "the party won without anyone dropping" are
+   * different outcomes worth seeing separately (issue #5, milestone 13).
+   */
+  wentDownRate: number;
   /** Per-instance average across every trial — see the doc comment on
    * `aggregateBatchResults` for why this is per-instance, not per-trial. */
   averageDamageDealt: number;
@@ -46,6 +60,8 @@ type Tally = {
   damageDealt: Map<string, number>;
   damageTaken: Map<string, number>;
   kills: Map<string, number>;
+  /** `templateKey`s that had at least one `down` entry this trial. */
+  wentDown: Set<string>;
 };
 
 const addTo = (map: Map<string, number>, key: string, amount: number) => {
@@ -74,6 +90,7 @@ const tallyResult = (result: EngineResult): Tally => {
   const damageDealt = new Map<string, number>();
   const damageTaken = new Map<string, number>();
   const kills = new Map<string, number>();
+  const wentDown = new Set<string>();
   let lastAttackerTemplateKey: string | null = null;
 
   const recordDamage = (
@@ -113,12 +130,18 @@ const tallyResult = (result: EngineResult): Tally => {
 
     if (entry.kind === 'defeated' && lastAttackerTemplateKey) {
       addTo(kills, lastAttackerTemplateKey, 1);
+      return;
+    }
+
+    if (entry.kind === 'down') {
+      const key = templateKeyById.get(entry.combatantId);
+      if (key) wentDown.add(key);
     }
   };
 
   result.log.forEach(handle);
 
-  return { damageDealt, damageTaken, kills };
+  return { damageDealt, damageTaken, kills, wentDown };
 };
 
 const median = (sorted: readonly number[]): number => {
@@ -173,6 +196,7 @@ export const aggregateBatchResults = (
     side: EngineSide;
     totalInstances: number;
     survivedInstances: number;
+    wentDownInstances: number;
     totalDamageDealt: number;
     totalDamageTaken: number;
     totalKills: number;
@@ -181,7 +205,7 @@ export const aggregateBatchResults = (
   const combatantAcc = new Map<string, CombatantAccumulator>();
 
   for (const result of results) {
-    const { damageDealt, damageTaken, kills } = tallyResult(result);
+    const { damageDealt, damageTaken, kills, wentDown } = tallyResult(result);
 
     for (const finalState of result.combatants) {
       const existing = combatantAcc.get(finalState.templateKey) ?? {
@@ -190,6 +214,7 @@ export const aggregateBatchResults = (
         side: finalState.side,
         totalInstances: 0,
         survivedInstances: 0,
+        wentDownInstances: 0,
         totalDamageDealt: 0,
         totalDamageTaken: 0,
         totalKills: 0,
@@ -197,6 +222,7 @@ export const aggregateBatchResults = (
 
       existing.totalInstances += 1;
       if (finalState.survived) existing.survivedInstances += 1;
+      if (wentDown.has(finalState.templateKey)) existing.wentDownInstances += 1;
       combatantAcc.set(finalState.templateKey, existing);
     }
 
@@ -220,6 +246,7 @@ export const aggregateBatchResults = (
       name: acc.name,
       side: acc.side,
       survivalRate: acc.survivedInstances / acc.totalInstances,
+      wentDownRate: acc.wentDownInstances / acc.totalInstances,
       averageDamageDealt: acc.totalDamageDealt / acc.totalInstances,
       averageDamageTaken: acc.totalDamageTaken / acc.totalInstances,
       killRate: acc.totalKills / acc.totalInstances,
