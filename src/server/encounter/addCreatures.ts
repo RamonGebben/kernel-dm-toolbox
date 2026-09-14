@@ -6,6 +6,7 @@ import {
   CURRENT_ENCOUNTER_ID,
   combatants,
   creatures,
+  customCreatures,
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import { buildCombatantNames } from '~/utils/buildCombatantNames';
@@ -26,9 +27,52 @@ export const nextSortOrder = async (db: Database): Promise<number> => {
   return (row?.highest ?? -1) + 1;
 };
 
-export type AddCreaturesInput = {
-  slug: string;
-  count: number;
+export type AddCreaturesInput =
+  | { source: 'library'; slug: string; count: number }
+  | { source: 'custom'; id: string; count: number };
+
+/** The handful of columns a combatant row actually copies from its source. */
+type CombatantSource = {
+  name: string;
+  initiativeBonus: number | null;
+  hitPoints: number;
+  armorClass: number;
+};
+
+const loadCombatantSource = async (
+  db: Database,
+  input: AddCreaturesInput,
+): Promise<CombatantSource> => {
+  if (input.source === 'library') {
+    const creature = await db.query.creatures.findFirst({
+      where: eq(creatures.slug, input.slug),
+    });
+
+    if (!creature) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'That creature is not in the library.',
+      });
+    }
+
+    return creature;
+  }
+
+  const customCreature = await db.query.customCreatures.findFirst({
+    where: and(
+      eq(customCreatures.id, input.id),
+      isNull(customCreatures.deletedAt),
+    ),
+  });
+
+  if (!customCreature) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'That custom creature no longer exists.',
+    });
+  }
+
+  return customCreature;
 };
 
 /**
@@ -37,22 +81,15 @@ export type AddCreaturesInput = {
  * Lives here rather than inside the `addCreature` resolver because two callers
  * need it: adding from the creature library, and applying a saved encounter.
  * Duplicating it would mean a saved encounter's goblins were numbered or
- * rolled differently from hand-added ones.
+ * rolled differently from hand-added ones. Accepts either a library slug or a
+ * custom creature id (issue #3) — the two sources are resolved to the same
+ * handful of fields before anything else happens.
  */
 export const addCreaturesToEncounter = async (
   db: Database,
   input: AddCreaturesInput,
 ) => {
-  const creature = await db.query.creatures.findFirst({
-    where: eq(creatures.slug, input.slug),
-  });
-
-  if (!creature) {
-    throw new TRPCError({
-      code: 'NOT_FOUND',
-      message: 'That creature is not in the library.',
-    });
-  }
+  const source = await loadCombatantSource(db, input);
 
   const existing = await db
     .select({ displayName: combatants.displayName })
@@ -60,7 +97,7 @@ export const addCreaturesToEncounter = async (
     .where(inCurrentEncounter);
 
   const names = buildCombatantNames({
-    baseName: creature.name,
+    baseName: source.name,
     count: input.count,
     existingNames: existing.map(row => row.displayName),
   });
@@ -72,14 +109,15 @@ export const addCreaturesToEncounter = async (
     .values(
       names.map((displayName, index) => ({
         encounterId: CURRENT_ENCOUNTER_ID,
-        creatureSlug: creature.slug,
+        creatureSlug: input.source === 'library' ? input.slug : null,
+        customCreatureId: input.source === 'custom' ? input.id : null,
         displayName,
         // Monsters roll for themselves; the book average is the starting hit
         // point total and stays editable.
-        initiative: rollInitiative(creature.initiativeBonus),
-        currentHitPoints: creature.hitPoints,
-        maxHitPoints: creature.hitPoints,
-        armorClass: creature.armorClass,
+        initiative: rollInitiative(source.initiativeBonus),
+        currentHitPoints: source.hitPoints,
+        maxHitPoints: source.hitPoints,
+        armorClass: source.armorClass,
         sortOrder: startOrder + index,
       })),
     )

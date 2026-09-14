@@ -2,12 +2,23 @@
 
 import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
+import { Button } from '~/atoms/Button';
 import { FormattedText } from '~/molecules/FormattedText';
 import type { Statblock } from '~/server/trpc/helpers/buildStatblock';
 
 export type StatblockViewProps = {
   isPending: boolean;
   statblock: Statblock | null;
+  /** True once a creature/combatant is targeted, even if its statblock
+   * failed to load — distinguishes "nothing picked yet" from "the thing
+   * that was picked is gone" so a deleted custom creature doesn't read as
+   * if the DM never selected anything. */
+  hasSelection?: boolean;
+  /** Only a DM-authored creature can be edited or deleted — the library is
+   * read only. */
+  isCustom?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 };
 
 /**
@@ -15,9 +26,25 @@ export type StatblockViewProps = {
  * modifiers, XP, proficiency bonus, the speed and senses prose) arrives
  * precomputed from `buildStatblock`, which is where it is tested.
  */
-export const StatblockView = ({ isPending, statblock }: StatblockViewProps) => {
+export const StatblockView = ({
+  isPending,
+  statblock,
+  hasSelection = false,
+  isCustom = false,
+  onEdit,
+  onDelete,
+}: StatblockViewProps) => {
   if (isPending)
     return <Skeleton role="status" aria-label="Loading statblock" />;
+
+  if (!statblock && hasSelection) {
+    return (
+      <EmptyState
+        title="Creature unavailable"
+        description="This creature no longer exists — it may have been deleted."
+      />
+    );
+  }
 
   if (!statblock) {
     return (
@@ -30,7 +57,31 @@ export const StatblockView = ({ isPending, statblock }: StatblockViewProps) => {
 
   return (
     <article>
-      <Name>{statblock.name}</Name>
+      <NameRow>
+        <Name>{statblock.name}</Name>
+        {isCustom && (
+          <CustomActions>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onEdit}
+              aria-label={`Edit ${statblock.name}`}
+            >
+              Edit
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              aria-label={`Delete ${statblock.name}`}
+            >
+              Delete
+            </Button>
+          </CustomActions>
+        )}
+      </NameRow>
       <Ruleset>5e 2024 Rules</Ruleset>
       <Subtitle>{statblock.subtitle}</Subtitle>
 
@@ -154,11 +205,24 @@ const ValueLine = ({
   );
 };
 
+const NameRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: ${props => props.theme.space.sm};
+`;
+
 const Name = styled.h3`
   margin: 0;
   font-size: ${props => props.theme.fontSize.xl};
   letter-spacing: 0.02em;
   color: ${props => props.theme.color.accent};
+`;
+
+const CustomActions = styled.div`
+  display: flex;
+  flex-shrink: 0;
+  gap: ${props => props.theme.space.xs};
 `;
 
 const Ruleset = styled.p`

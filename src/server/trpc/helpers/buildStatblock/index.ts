@@ -4,6 +4,86 @@ import type {
   CreatureActionAttack,
   CreatureTrait,
 } from '~/server/db/schema';
+
+/**
+ * Every field these pure functions actually read off a creature row — kept
+ * narrow (rather than the full `Creature` type) so a custom-creature row can
+ * satisfy it too, via `~/server/trpc/helpers/toCustomCreatureStatblockSource`,
+ * without widening `custom_creatures` to carry Open5e-only columns like
+ * `document`/`category`. `Creature` itself stays assignable, being a
+ * structural superset.
+ */
+export type StatblockSourceCreature = Pick<
+  Creature,
+  | 'slug'
+  | 'name'
+  | 'size'
+  | 'type'
+  | 'alignment'
+  | 'armorClass'
+  | 'armorDetail'
+  | 'hitPoints'
+  | 'hitDice'
+  | 'initiativeBonus'
+  | 'challengeRating'
+  | 'abilityScoreStrength'
+  | 'abilityScoreDexterity'
+  | 'abilityScoreConstitution'
+  | 'abilityScoreIntelligence'
+  | 'abilityScoreWisdom'
+  | 'abilityScoreCharisma'
+  | 'savingThrowStrength'
+  | 'savingThrowDexterity'
+  | 'savingThrowConstitution'
+  | 'savingThrowIntelligence'
+  | 'savingThrowWisdom'
+  | 'savingThrowCharisma'
+  | 'skillBonusAcrobatics'
+  | 'skillBonusAnimalHandling'
+  | 'skillBonusArcana'
+  | 'skillBonusAthletics'
+  | 'skillBonusDeception'
+  | 'skillBonusHistory'
+  | 'skillBonusInsight'
+  | 'skillBonusIntimidation'
+  | 'skillBonusInvestigation'
+  | 'skillBonusMedicine'
+  | 'skillBonusNature'
+  | 'skillBonusPerception'
+  | 'skillBonusPerformance'
+  | 'skillBonusPersuasion'
+  | 'skillBonusReligion'
+  | 'skillBonusSleightOfHand'
+  | 'skillBonusStealth'
+  | 'skillBonusSurvival'
+  | 'walk'
+  | 'swim'
+  | 'fly'
+  | 'climb'
+  | 'burrow'
+  | 'hover'
+  | 'darkvisionRange'
+  | 'blindsightRange'
+  | 'tremorsenseRange'
+  | 'truesightRange'
+  | 'telepathyRange'
+  | 'passivePerception'
+  | 'damageImmunitiesDisplay'
+  | 'damageResistancesDisplay'
+  | 'damageVulnerabilitiesDisplay'
+  | 'conditionImmunitiesDisplay'
+  | 'languagesDesc'
+>;
+
+export type StatblockSourceTrait = Pick<
+  CreatureTrait,
+  'slug' | 'name' | 'desc'
+>;
+
+export type StatblockSourceAction = Pick<
+  CreatureAction,
+  'slug' | 'name' | 'desc' | 'actionType' | 'sortOrder' | 'legendaryActionCost'
+>;
 import {
   experienceForChallengeRating,
   formatChallengeRating,
@@ -138,10 +218,10 @@ const SENSE_FIELDS = [
 const blankToNull = (value: string | null): string | null =>
   value && value.trim().length > 0 ? value : null;
 
-export const buildSubtitle = (creature: Creature): string =>
+export const buildSubtitle = (creature: StatblockSourceCreature): string =>
   `${slugToTitle(creature.size)} ${slugToTitle(creature.type)}, ${creature.alignment}`;
 
-export const buildSpeed = (creature: Creature): string => {
+export const buildSpeed = (creature: StatblockSourceCreature): string => {
   const parts = MOVEMENT_FIELDS.filter(([field]) => creature[field] != null)
     .map(([field, label]) => `${label} ${creature[field]} ft.`)
     .concat(creature.hover ? ['hover'] : []);
@@ -149,7 +229,7 @@ export const buildSpeed = (creature: Creature): string => {
   return parts.length ? parts.join(', ') : '—';
 };
 
-export const buildSenses = (creature: Creature): string =>
+export const buildSenses = (creature: StatblockSourceCreature): string =>
   [
     ...SENSE_FIELDS.filter(([field]) => creature[field] != null).map(
       ([field, label]) => `${label} ${creature[field]} ft.`,
@@ -157,7 +237,9 @@ export const buildSenses = (creature: Creature): string =>
     `passive Perception ${creature.passivePerception}`,
   ].join(', ');
 
-export const buildAbilities = (creature: Creature): StatblockAbility[] =>
+export const buildAbilities = (
+  creature: StatblockSourceCreature,
+): StatblockAbility[] =>
   ABILITIES.map(([key, label, scoreField]) => {
     const score = creature[scoreField] ?? 10;
 
@@ -169,7 +251,9 @@ export const buildAbilities = (creature: Creature): StatblockAbility[] =>
     };
   });
 
-export const buildSavingThrows = (creature: Creature): StatblockEntry[] =>
+export const buildSavingThrows = (
+  creature: StatblockSourceCreature,
+): StatblockEntry[] =>
   ABILITIES.filter(([, , , saveField]) => creature[saveField] != null).map(
     ([, label, , saveField]) => ({
       label,
@@ -177,7 +261,9 @@ export const buildSavingThrows = (creature: Creature): StatblockEntry[] =>
     }),
   );
 
-export const buildSkills = (creature: Creature): StatblockEntry[] =>
+export const buildSkills = (
+  creature: StatblockSourceCreature,
+): StatblockEntry[] =>
   SKILL_FIELDS.filter(([field]) => creature[field] != null).map(
     ([field, label]) => ({
       label,
@@ -191,7 +277,7 @@ export const buildSkills = (creature: Creature): StatblockEntry[] =>
  * `sortOrder`.
  */
 export const buildActionSections = (
-  actions: readonly CreatureAction[],
+  actions: readonly StatblockSourceAction[],
 ): StatblockActionSection[] =>
   ACTION_SECTIONS.map(([actionType, title]) => ({
     key: actionType,
@@ -208,9 +294,9 @@ export const buildActionSections = (
   })).filter(section => section.actions.length > 0);
 
 type BuildStatblockArgs = {
-  creature: Creature;
-  traits: readonly CreatureTrait[];
-  actions: readonly CreatureAction[];
+  creature: StatblockSourceCreature;
+  traits: readonly StatblockSourceTrait[];
+  actions: readonly StatblockSourceAction[];
   /** Reserved for rendering structured attack rolls; not yet displayed. */
   attacks?: readonly CreatureActionAttack[];
 };

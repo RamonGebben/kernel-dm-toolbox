@@ -1,11 +1,21 @@
 import { z } from 'zod';
 import { idInputSchema } from '~/server/trpc/schemas/common';
 
-export const addCreatureInputSchema = z.object({
-  slug: z.string().min(1).max(200),
-  /** Four goblins in one action; each becomes its own row. */
-  count: z.number().int().min(1).max(20).default(1),
-});
+/** Four goblins in one action; each becomes its own row. */
+const countSchema = z.number().int().min(1).max(20).default(1);
+
+export const addCreatureInputSchema = z.discriminatedUnion('source', [
+  z.object({
+    source: z.literal('library'),
+    slug: z.string().min(1).max(200),
+    count: countSchema,
+  }),
+  z.object({
+    source: z.literal('custom'),
+    id: z.uuid(),
+    count: countSchema,
+  }),
+]);
 
 export const addCharacterInputSchema = z.object({
   playerCharacterId: z.uuid(),

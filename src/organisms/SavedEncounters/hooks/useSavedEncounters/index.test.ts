@@ -11,15 +11,31 @@ describe('hasSaveableCreatures', () => {
   });
 
   it('does not count the party — a preset is the opposition', () => {
-    expect(hasSaveableCreatures({ combatants: [{ creatureSlug: null }] })).toBe(
-      false,
-    );
-  });
-
-  it('counts a single monster', () => {
     expect(
       hasSaveableCreatures({
-        combatants: [{ creatureSlug: null }, { creatureSlug: 'goblin' }],
+        combatants: [{ creatureSlug: null, customCreatureId: null }],
+      }),
+    ).toBe(false);
+  });
+
+  it('counts a single library monster', () => {
+    expect(
+      hasSaveableCreatures({
+        combatants: [
+          { creatureSlug: null, customCreatureId: null },
+          { creatureSlug: 'goblin', customCreatureId: null },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it('counts a single custom monster', () => {
+    expect(
+      hasSaveableCreatures({
+        combatants: [
+          { creatureSlug: null, customCreatureId: null },
+          { creatureSlug: null, customCreatureId: 'custom-goblin-boss' },
+        ],
       }),
     ).toBe(true);
   });

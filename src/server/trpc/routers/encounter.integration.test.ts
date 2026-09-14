@@ -93,7 +93,10 @@ describe('encounter.get', () => {
 
 describe('encounter.addCreature', () => {
   it('adds one unnumbered monster', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
 
     const { combatants: rows } = await caller.encounter.get();
     expect(rows).toHaveLength(1);
@@ -102,6 +105,7 @@ describe('encounter.addCreature', () => {
 
   it('gives four goblins four numbered rows with their own hit points', async () => {
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_goblin',
       count: 4,
     });
@@ -119,8 +123,15 @@ describe('encounter.addCreature', () => {
   });
 
   it('continues numbering when more of the same arrive later', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
 
     const { combatants: rows } = await caller.encounter.get();
 
@@ -133,6 +144,7 @@ describe('encounter.addCreature', () => {
 
   it('starts each monster at the book average hit points', async () => {
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
     });
 
@@ -145,6 +157,7 @@ describe('encounter.addCreature', () => {
 
   it('rolls initiative in the range the die allows', async () => {
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
       count: 10,
     });
@@ -159,7 +172,10 @@ describe('encounter.addCreature', () => {
 
   it('refuses a creature that is not in the library', async () => {
     await expect(
-      caller.encounter.addCreature({ slug: 'srd-2024_tarrasque' }),
+      caller.encounter.addCreature({
+        source: 'library',
+        slug: 'srd-2024_tarrasque',
+      }),
     ).rejects.toThrow(/not in the library/);
   });
 });
@@ -223,6 +239,7 @@ describe('initiative ordering', () => {
       initiative: 5,
     });
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
     });
     const [dragon] = (await caller.encounter.get()).combatants.filter(
@@ -243,6 +260,7 @@ describe('initiative ordering', () => {
 describe('encounter.update', () => {
   it('renames a combatant without touching the library', async () => {
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
     });
     const [dragon] = (await caller.encounter.get()).combatants;
@@ -259,7 +277,10 @@ describe('encounter.update', () => {
   });
 
   it('allows a custom max hit point total, as "Meat 35/52" needs', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
 
     await caller.encounter.update({
@@ -279,7 +300,10 @@ describe('encounter.update', () => {
   });
 
   it('bumps the sync version on every edit', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
 
     const updated = await caller.encounter.update({
@@ -293,7 +317,10 @@ describe('encounter.update', () => {
 
 describe('damage and healing', () => {
   const addGoblin = async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
     await caller.encounter.update({
       id: goblin.id,
@@ -356,7 +383,11 @@ describe('damage and healing', () => {
 
 describe('encounter.remove', () => {
   it('takes the combatant out of the order', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
     const [first] = (await caller.encounter.get()).combatants;
 
     await caller.encounter.remove({ id: first.id });
@@ -367,7 +398,10 @@ describe('encounter.remove', () => {
   });
 
   it('tombstones rather than deleting the row', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
 
     await caller.encounter.remove({ id: goblin.id });
@@ -386,7 +420,11 @@ describe('encounter.clearNonPlayerCombatants', () => {
       playerCharacterId: sigrid.id,
       initiative: 10,
     });
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 3 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 3,
+    });
 
     const result = await caller.encounter.clearNonPlayerCombatants();
 
@@ -410,7 +448,10 @@ describe('encounter.clearNonPlayerCombatants', () => {
   });
 
   it('resets the round and the turn pointer', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
 
     await caller.encounter.clearNonPlayerCombatants();
 
@@ -447,7 +488,11 @@ describe('encounter.clearNonPlayerCombatants', () => {
 describe('turn tracking', () => {
   /** Three combatants at known, unambiguous initiatives. */
   const buildOrder = async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 3 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 3,
+    });
     const rows = (await caller.encounter.get()).combatants;
 
     await caller.encounter.update({ id: rows[0].id, initiative: 20 });
@@ -542,7 +587,11 @@ describe('turn tracking', () => {
 
 describe('encounter.toggleDelay', () => {
   it('drops a delayed combatant to the bottom of the order', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
     const rows = (await caller.encounter.get()).combatants;
     await caller.encounter.update({ id: rows[0].id, initiative: 20 });
     await caller.encounter.update({ id: rows[1].id, initiative: 10 });
@@ -556,7 +605,11 @@ describe('encounter.toggleDelay', () => {
   });
 
   it('skips a delayed combatant when advancing turns', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 3 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 3,
+    });
     const rows = (await caller.encounter.get()).combatants;
     await caller.encounter.update({ id: rows[0].id, initiative: 20 });
     await caller.encounter.update({ id: rows[1].id, initiative: 15 });
@@ -571,7 +624,10 @@ describe('encounter.toggleDelay', () => {
   });
 
   it('leaves initiative untouched, so undoing is free', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
     await caller.encounter.update({ id: goblin.id, initiative: 20 });
 
@@ -584,7 +640,11 @@ describe('encounter.toggleDelay', () => {
   });
 
   it('gives up the turn when the active combatant delays', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
     await caller.encounter.nextTurn();
     const active = (await caller.encounter.get()).activeCombatantId!;
 
@@ -614,7 +674,10 @@ describe('conditions', () => {
   };
 
   const addGoblin = async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
     return goblin.id;
   };
@@ -796,6 +859,7 @@ describe('encounter difficulty', () => {
 
   it('reports no party when only monsters are present', async () => {
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
     });
 
@@ -819,6 +883,7 @@ describe('encounter difficulty', () => {
       });
     }
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
     });
 
@@ -844,10 +909,14 @@ describe('encounter difficulty', () => {
       initiative: 10,
     });
 
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const easy = (await caller.encounter.get()).difficulty.difficulty;
 
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
     });
     const hard = (await caller.encounter.get()).difficulty;
@@ -868,6 +937,7 @@ describe('encounter difficulty', () => {
       initiative: 10,
     });
     await caller.encounter.addCreature({
+      source: 'library',
       slug: 'srd-2024_young-black-dragon',
     });
 
@@ -881,7 +951,11 @@ describe('encounter difficulty', () => {
 
 describe('encounter.start', () => {
   it('writes the rolled order and opens round one on the top of it', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
     const character = await addCharacter('Sigrid');
     await caller.encounter.addCharacter({
       playerCharacterId: character.id,
@@ -908,7 +982,10 @@ describe('encounter.start', () => {
   });
 
   it('leaves a combatant the DM did not touch at its automatic roll', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
 
     await caller.encounter.start({ initiatives: [] });
@@ -918,7 +995,10 @@ describe('encounter.start', () => {
   });
 
   it('brings a delayed combatant back into the new order', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin' });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+    });
     const [goblin] = (await caller.encounter.get()).combatants;
     await caller.encounter.toggleDelay({ id: goblin.id });
 
@@ -941,7 +1021,11 @@ describe('encounter.start', () => {
 
 describe('encounter.end', () => {
   it('stops the round counter and clears the turn, keeping the board', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
     await caller.encounter.start({ initiatives: [] });
     await caller.encounter.nextTurn();
 
@@ -957,7 +1041,11 @@ describe('encounter.end', () => {
   });
 
   it('releases anyone still holding their action', async () => {
-    await caller.encounter.addCreature({ slug: 'srd-2024_goblin', count: 2 });
+    await caller.encounter.addCreature({
+      source: 'library',
+      slug: 'srd-2024_goblin',
+      count: 2,
+    });
     await caller.encounter.start({ initiatives: [] });
     const [first] = (await caller.encounter.get()).combatants;
     await caller.encounter.toggleDelay({ id: first.id });

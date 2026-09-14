@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { StatblockView } from '~/organisms/StatblockPanel/components/StatblockView';
 import type { Statblock } from '~/server/trpc/helpers/buildStatblock';
 
@@ -75,7 +75,14 @@ const youngBlackDragon: Statblock = {
 const meta = {
   title: 'Organisms/StatblockPanel/StatblockView',
   component: StatblockView,
-  args: { isPending: false, statblock: youngBlackDragon },
+  args: {
+    isPending: false,
+    statblock: youngBlackDragon,
+    hasSelection: true,
+    isCustom: false,
+    onEdit: fn(),
+    onDelete: fn(),
+  },
 } satisfies Meta<typeof StatblockView>;
 
 export default meta;
@@ -104,11 +111,26 @@ export const Pending: Story = {
 };
 
 export const NothingSelected: Story = {
-  args: { statblock: null },
+  args: { statblock: null, hasSelection: false },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('Nothing selected')).toBeVisible();
+  },
+};
+
+/** A combatant or browsed creature is targeted, but its custom creature was
+ * deleted (or a library slug vanished on reimport) — distinct copy from
+ * `NothingSelected`, since the DM did pick something. */
+export const SelectionDeleted: Story = {
+  args: { statblock: null, hasSelection: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Creature unavailable')).toBeVisible();
+    await expect(
+      canvas.getByText(/no longer exists — it may have been deleted/),
+    ).toBeVisible();
   },
 };
 
@@ -135,6 +157,26 @@ export const SparseCreature: Story = {
     await expect(canvas.queryByText(/^Saves/)).not.toBeInTheDocument();
     await expect(canvas.queryByText('Traits')).not.toBeInTheDocument();
     await expect(canvas.getByText(/1\/8 \(25 XP\)/)).toBeVisible();
+  },
+};
+
+export const CustomCreature: Story = {
+  args: {
+    isCustom: true,
+    statblock: { ...youngBlackDragon, name: 'Homebrew Wyrmling' },
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Edit Homebrew Wyrmling' }),
+    );
+    await expect(args.onEdit).toHaveBeenCalledOnce();
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Delete Homebrew Wyrmling' }),
+    );
+    await expect(args.onDelete).toHaveBeenCalledOnce();
   },
 };
 
