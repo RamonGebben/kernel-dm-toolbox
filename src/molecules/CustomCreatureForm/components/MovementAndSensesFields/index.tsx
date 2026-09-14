@@ -136,7 +136,13 @@ export const MovementAndSensesFields = ({
           type="number"
           value={values.passivePerception}
           onChange={event =>
-            onChange({ passivePerception: Number(event.target.value) || 10 })
+            onChange({
+              // `|| 10` would also catch a legitimately-typed "0" (the schema
+              // allows passivePerception down to 0) — only blank/invalid
+              // input should fall back to the default.
+              passivePerception:
+                event.target.value === '' ? 10 : Number(event.target.value),
+            })
           }
         />
       </Field>

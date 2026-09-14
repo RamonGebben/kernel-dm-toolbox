@@ -9,6 +9,11 @@ import type { Statblock } from '~/server/trpc/helpers/buildStatblock';
 export type StatblockViewProps = {
   isPending: boolean;
   statblock: Statblock | null;
+  /** True once a creature/combatant is targeted, even if its statblock
+   * failed to load — distinguishes "nothing picked yet" from "the thing
+   * that was picked is gone" so a deleted custom creature doesn't read as
+   * if the DM never selected anything. */
+  hasSelection?: boolean;
   /** Only a DM-authored creature can be edited or deleted — the library is
    * read only. */
   isCustom?: boolean;
@@ -24,12 +29,22 @@ export type StatblockViewProps = {
 export const StatblockView = ({
   isPending,
   statblock,
+  hasSelection = false,
   isCustom = false,
   onEdit,
   onDelete,
 }: StatblockViewProps) => {
   if (isPending)
     return <Skeleton role="status" aria-label="Loading statblock" />;
+
+  if (!statblock && hasSelection) {
+    return (
+      <EmptyState
+        title="Creature unavailable"
+        description="This creature no longer exists — it may have been deleted."
+      />
+    );
+  }
 
   if (!statblock) {
     return (

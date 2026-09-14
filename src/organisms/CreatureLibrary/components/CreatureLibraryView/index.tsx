@@ -70,50 +70,57 @@ export const CreatureLibraryView = ({
   onSelect,
   onAdd,
   onNewCreature,
-}: CreatureLibraryViewProps) => (
-  <Wrapper>
-    <TextInput
-      value={search}
-      onChange={event => onSearchChange(event.target.value)}
-      placeholder="Filter…"
-      aria-label="Filter creatures"
-      disabled={!isLibraryImported}
-    />
-    <Filters>
-      <MultiSelectFilter
-        label="Source"
-        options={sourceOptions}
-        selectedValues={selectedSources}
-        onChange={onSourcesChange}
-        disabled={!isLibraryImported}
+}: CreatureLibraryViewProps) => {
+  // The Open5e import failing (or never running) shouldn't lock a DM out of
+  // searching/filtering their own homebrew — only disable these controls
+  // when there is truly nothing to search yet, custom or otherwise.
+  const isUsable = isLibraryImported || creatures.length > 0;
+
+  return (
+    <Wrapper>
+      <TextInput
+        value={search}
+        onChange={event => onSearchChange(event.target.value)}
+        placeholder="Filter…"
+        aria-label="Filter creatures"
+        disabled={!isUsable}
       />
-      <MultiSelectFilter
-        label="Type"
-        options={typeOptions}
-        selectedValues={selectedTypes}
-        onChange={onTypesChange}
-        disabled={!isLibraryImported}
-      />
-    </Filters>
-    <Results>
-      <ResultsBody
-        isPending={isPending}
-        isLibraryImported={isLibraryImported}
-        creatures={creatures}
-        search={search}
-        selectedSlug={selectedSlug}
-        selectedCustomCreatureId={selectedCustomCreatureId}
-        onSelect={onSelect}
-        onAdd={onAdd}
-      />
-    </Results>
-    <Footer>
-      <Button type="button" size="sm" isFullWidth onClick={onNewCreature}>
-        New Creature
-      </Button>
-    </Footer>
-  </Wrapper>
-);
+      <Filters>
+        <MultiSelectFilter
+          label="Source"
+          options={sourceOptions}
+          selectedValues={selectedSources}
+          onChange={onSourcesChange}
+          disabled={!isUsable}
+        />
+        <MultiSelectFilter
+          label="Type"
+          options={typeOptions}
+          selectedValues={selectedTypes}
+          onChange={onTypesChange}
+          disabled={!isUsable}
+        />
+      </Filters>
+      <Results>
+        <ResultsBody
+          isPending={isPending}
+          isLibraryImported={isLibraryImported}
+          creatures={creatures}
+          search={search}
+          selectedSlug={selectedSlug}
+          selectedCustomCreatureId={selectedCustomCreatureId}
+          onSelect={onSelect}
+          onAdd={onAdd}
+        />
+      </Results>
+      <Footer>
+        <Button type="button" size="sm" isFullWidth onClick={onNewCreature}>
+          New Creature
+        </Button>
+      </Footer>
+    </Wrapper>
+  );
+};
 
 type ResultsBodyProps = Omit<
   CreatureLibraryViewProps,
@@ -144,17 +151,22 @@ const ResultsBody = ({
   if (isPending)
     return <Skeleton role="status" aria-label="Loading creatures" />;
 
-  if (!isLibraryImported) {
-    return (
-      <EmptyState
-        title="No library yet"
-        description="An instance imports the creature library the first time it boots. If this stayed empty, the import could not reach GitHub. Restart, or run it by hand."
-        detail={<Command>pnpm db:import</Command>}
-      />
-    );
-  }
-
+  // `isLibraryImported` only reflects the read-only Open5e import — a DM's
+  // own custom creatures are unrelated to it, so this only renders the "no
+  // library" empty state when there is truly nothing to show, custom or
+  // otherwise. Checking `creatures.length` first keeps a DM's homebrew
+  // visible even on an instance where the SRD import never succeeded.
   if (!creatures.length) {
+    if (!isLibraryImported) {
+      return (
+        <EmptyState
+          title="No library yet"
+          description="An instance imports the creature library the first time it boots. If this stayed empty, the import could not reach GitHub. Restart, or run it by hand."
+          detail={<Command>pnpm db:import</Command>}
+        />
+      );
+    }
+
     return (
       <EmptyState
         title="No matches"

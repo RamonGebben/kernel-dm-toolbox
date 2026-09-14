@@ -24,6 +24,7 @@ const meta = {
     isBasePickerPending: false,
     isBasePending: false,
     initialValues: null,
+    baseKey: 'blank',
     isSaving: false,
     onSearchChange: fn(),
     onChooseBase: fn(),

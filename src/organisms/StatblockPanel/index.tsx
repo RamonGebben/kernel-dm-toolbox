@@ -70,6 +70,7 @@ export const StatblockPanel = () => {
       <StatblockView
         isPending={isPending}
         statblock={statblock}
+        hasSelection={target.kind !== 'none'}
         isCustom={target.kind === 'customCreature'}
         onEdit={editor.startEdit}
         onDelete={editor.remove}

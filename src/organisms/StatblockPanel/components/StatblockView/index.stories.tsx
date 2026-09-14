@@ -78,6 +78,7 @@ const meta = {
   args: {
     isPending: false,
     statblock: youngBlackDragon,
+    hasSelection: true,
     isCustom: false,
     onEdit: fn(),
     onDelete: fn(),
@@ -110,11 +111,26 @@ export const Pending: Story = {
 };
 
 export const NothingSelected: Story = {
-  args: { statblock: null },
+  args: { statblock: null, hasSelection: false },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('Nothing selected')).toBeVisible();
+  },
+};
+
+/** A combatant or browsed creature is targeted, but its custom creature was
+ * deleted (or a library slug vanished on reimport) — distinct copy from
+ * `NothingSelected`, since the DM did pick something. */
+export const SelectionDeleted: Story = {
+  args: { statblock: null, hasSelection: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Creature unavailable')).toBeVisible();
+    await expect(
+      canvas.getByText(/no longer exists — it may have been deleted/),
+    ).toBeVisible();
   },
 };
 

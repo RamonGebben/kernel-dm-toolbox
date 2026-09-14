@@ -27,6 +27,8 @@ import { formatChallengeRating } from '~/utils/formatChallengeRating';
 import type { Database } from '~/server/db';
 
 const isLive = isNull(customCreatures.deletedAt);
+const isLiveTrait = isNull(customCreatureTraits.deletedAt);
+const isLiveAction = isNull(customCreatureActions.deletedAt);
 
 const loadLiveCustomCreature = async (db: Database, id: string) => {
   const creature = await db.query.customCreatures.findFirst({
@@ -46,7 +48,9 @@ const loadLiveCustomCreature = async (db: Database, id: string) => {
 /**
  * Replaces every trait/action(+attack) row for a custom creature in one go.
  * They are never referenced from anywhere except their parent row, so a full
- * replace on every save is simpler and just as safe as diffing.
+ * replace on every save is simpler and just as safe as diffing. Superseded
+ * rows are tombstoned, never hard-deleted, matching every other `syncMeta`
+ * table in this app.
  */
 const replaceChildRows = async (
   db: Database,
@@ -54,13 +58,49 @@ const replaceChildRows = async (
   traits: readonly CustomCreatureTraitInput[],
   actions: readonly CustomCreatureActionInput[],
 ) => {
-  await db
-    .delete(customCreatureTraits)
-    .where(eq(customCreatureTraits.customCreatureId, customCreatureId));
-  // Attacks cascade-delete with their parent action at the DB level.
-  await db
-    .delete(customCreatureActions)
-    .where(eq(customCreatureActions.customCreatureId, customCreatureId));
+  const now = new Date();
+
+  const [doomedTraits, doomedActions] = await Promise.all([
+    db
+      .select({
+        id: customCreatureTraits.id,
+        version: customCreatureTraits.version,
+      })
+      .from(customCreatureTraits)
+      .where(
+        and(
+          eq(customCreatureTraits.customCreatureId, customCreatureId),
+          isLiveTrait,
+        ),
+      ),
+    db
+      .select({
+        id: customCreatureActions.id,
+        version: customCreatureActions.version,
+      })
+      .from(customCreatureActions)
+      .where(
+        and(
+          eq(customCreatureActions.customCreatureId, customCreatureId),
+          isLiveAction,
+        ),
+      ),
+  ]);
+
+  await Promise.all([
+    ...doomedTraits.map(trait =>
+      db
+        .update(customCreatureTraits)
+        .set(tombstoneSyncMeta({ version: trait.version, now }))
+        .where(eq(customCreatureTraits.id, trait.id)),
+    ),
+    ...doomedActions.map(action =>
+      db
+        .update(customCreatureActions)
+        .set(tombstoneSyncMeta({ version: action.version, now }))
+        .where(eq(customCreatureActions.id, action.id)),
+    ),
+  ]);
 
   if (traits.length) {
     await db.insert(customCreatureTraits).values(
@@ -153,12 +193,22 @@ export const customCreaturesRouter = createTRPCRouter({
         ctx.db
           .select()
           .from(customCreatureTraits)
-          .where(eq(customCreatureTraits.customCreatureId, input.id))
+          .where(
+            and(
+              eq(customCreatureTraits.customCreatureId, input.id),
+              isLiveTrait,
+            ),
+          )
           .orderBy(asc(customCreatureTraits.name)),
         ctx.db
           .select()
           .from(customCreatureActions)
-          .where(eq(customCreatureActions.customCreatureId, input.id))
+          .where(
+            and(
+              eq(customCreatureActions.customCreatureId, input.id),
+              isLiveAction,
+            ),
+          )
           .orderBy(asc(customCreatureActions.sortOrder)),
       ]);
 
@@ -190,12 +240,22 @@ export const customCreaturesRouter = createTRPCRouter({
         ctx.db
           .select()
           .from(customCreatureTraits)
-          .where(eq(customCreatureTraits.customCreatureId, input.id))
+          .where(
+            and(
+              eq(customCreatureTraits.customCreatureId, input.id),
+              isLiveTrait,
+            ),
+          )
           .orderBy(asc(customCreatureTraits.name)),
         ctx.db
           .select()
           .from(customCreatureActions)
-          .where(eq(customCreatureActions.customCreatureId, input.id))
+          .where(
+            and(
+              eq(customCreatureActions.customCreatureId, input.id),
+              isLiveAction,
+            ),
+          )
           .orderBy(asc(customCreatureActions.sortOrder)),
       ]);
 
@@ -260,6 +320,16 @@ export const customCreaturesRouter = createTRPCRouter({
         })
         .where(eq(customCreatures.id, id))
         .returning();
+
+      // The row was live when `loadLiveCustomCreature` read it, but a
+      // concurrent delete could have tombstoned it since — don't insert
+      // orphaned trait/action rows for a parent that no longer matched.
+      if (!updated) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'That custom creature no longer exists.',
+        });
+      }
 
       await replaceChildRows(ctx.db, id, traits, actions);
 

@@ -232,11 +232,54 @@ export const presetsRouter = createTRPCRouter({
         .where(and(eq(encounterPresetEntries.presetId, preset.id), isLiveEntry))
         .orderBy(asc(encounterPresetEntries.sortOrder));
 
+      const librarySlugs = entries
+        .map(entry => entry.creatureSlug)
+        .filter((slug): slug is string => slug !== null);
+      const customCreatureIds = entries
+        .map(entry => entry.customCreatureId)
+        .filter((id): id is string => id !== null);
+
+      const [liveLibraryRows, liveCustomRows] = await Promise.all([
+        librarySlugs.length
+          ? ctx.db
+              .select({ slug: creatures.slug })
+              .from(creatures)
+              .where(inArray(creatures.slug, librarySlugs))
+          : [],
+        customCreatureIds.length
+          ? ctx.db
+              .select({ id: customCreatures.id })
+              .from(customCreatures)
+              .where(
+                and(
+                  inArray(customCreatures.id, customCreatureIds),
+                  isNull(customCreatures.deletedAt),
+                ),
+              )
+          : [],
+      ]);
+
+      const liveSlugs = new Set(liveLibraryRows.map(row => row.slug));
+      const liveCustomIds = new Set(liveCustomRows.map(row => row.id));
+
+      // A referenced creature/custom creature may have been removed since
+      // this preset was saved — drop the entry rather than let
+      // `addCreaturesToEncounter` throw mid-loop, which would otherwise
+      // leave the board with only the entries processed before the stale
+      // one. Matches `list`'s own graceful handling of a dangling reference.
+      const liveEntries = entries.filter(entry =>
+        entry.creatureSlug !== null
+          ? liveSlugs.has(entry.creatureSlug)
+          : entry.customCreatureId !== null
+            ? liveCustomIds.has(entry.customCreatureId)
+            : false,
+      );
+
       // Sequential on purpose: each creature's auto-numbering reads the names
       // already on the board, so adding them in parallel would race for
       // "Goblin 3" and produce duplicates.
       let addedCount = 0;
-      for (const entry of entries) {
+      for (const entry of liveEntries) {
         const created = await addCreaturesToEncounter(
           ctx.db,
           toAddCreaturesInput(entry),
@@ -246,7 +289,7 @@ export const presetsRouter = createTRPCRouter({
 
       publishEncounterChanged();
 
-      return { addedCount };
+      return { addedCount, skippedCount: entries.length - liveEntries.length };
     }),
 
   remove: publicProcedure

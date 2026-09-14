@@ -35,6 +35,7 @@ export const NewCreatureWizard = ({
       isBasePickerPending={wizard.isBasePickerPending}
       isBasePending={wizard.isBasePending}
       initialValues={wizard.initialValues}
+      baseKey={wizard.baseKey}
       isSaving={wizard.isSaving}
       onSearchChange={wizard.setSearch}
       onChooseBase={wizard.chooseBase}

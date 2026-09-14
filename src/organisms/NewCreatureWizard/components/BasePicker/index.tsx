@@ -59,7 +59,12 @@ export const BasePicker = ({
               key={`${creature.source}-${creature.source === 'library' ? creature.slug : creature.id}`}
             >
               <Row>
-                <span>{creature.name}</span>
+                <NameAndChallengeRating>
+                  <span>{creature.name}</span>
+                  <ChallengeRating>
+                    CR {creature.challengeRatingLabel}
+                  </ChallengeRating>
+                </NameAndChallengeRating>
                 <Button
                   type="button"
                   variant="ghost"
@@ -112,6 +117,20 @@ const Row = styled.div`
   background: ${props => props.theme.color.canvas};
   border: 1px solid ${props => props.theme.color.border};
   border-radius: ${props => props.theme.radius.sm};
+`;
+
+const NameAndChallengeRating = styled.span`
+  display: flex;
+  align-items: baseline;
+  gap: ${props => props.theme.space.sm};
+  min-width: 0;
+`;
+
+const ChallengeRating = styled.span`
+  flex-shrink: 0;
+  font-family: ${props => props.theme.font.mono};
+  font-size: ${props => props.theme.fontSize.sm};
+  color: ${props => props.theme.color.textMuted};
 `;
 
 const Skeleton = styled.div`

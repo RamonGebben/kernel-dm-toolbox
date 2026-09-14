@@ -55,6 +55,13 @@ export const useCustomCreatureEditor = (customCreatureId: string | null) => {
         selectCustomCreature(null);
         await invalidate();
       },
+      // Deletion always succeeds for a live creature, in or out of use — a
+      // combatant or saved preset referencing it just drops the reference
+      // gracefully (see `presets.list`, `readEncounterState`). This only
+      // fires for a genuine failure, e.g. it was already deleted elsewhere.
+      onError: error => {
+        window.alert(error.message);
+      },
     }),
   );
 

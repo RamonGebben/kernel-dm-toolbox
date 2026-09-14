@@ -76,6 +76,21 @@ export const useNewCreatureWizard = ({
     (base.kind === 'library' && libraryBase.isPending) ||
     (base.kind === 'custom' && customBase.isPending);
 
+  /**
+   * Identifies which base creature the form is currently seeded from — by
+   * identity (source + slug/id), not by name. `CustomCreatureForm` is
+   * uncontrolled and only re-seeds its draft when React remounts it, so a
+   * key derived from `name` alone would fail to remount (and leave the
+   * form showing stale data) when two different base creatures happen to
+   * share a name.
+   */
+  const baseKey =
+    base.kind === 'blank'
+      ? 'blank'
+      : base.kind === 'library'
+        ? `library:${base.slug}`
+        : `custom:${base.id}`;
+
   const initialValues: CustomCreatureFormValues | null =
     base.kind === 'blank'
       ? emptyCustomCreatureForm
@@ -100,6 +115,7 @@ export const useNewCreatureWizard = ({
     isBasePickerPending: basePicker.isPending,
     isBasePending,
     initialValues,
+    baseKey,
     isSaving: create.isPending,
     chooseBase,
     backToPickBase: () => setStep('pick-base'),

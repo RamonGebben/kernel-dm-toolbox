@@ -22,6 +22,10 @@ export type NewCreatureWizardViewProps = {
   isBasePickerPending: boolean;
   isBasePending: boolean;
   initialValues: CustomCreatureFormValues | null;
+  /** Identifies the base creature by identity (source + slug/id), not by
+   * name — see `useNewCreatureWizard`. Used to force `CustomCreatureForm`
+   * to remount when the base changes. */
+  baseKey: string;
   isSaving: boolean;
   onSearchChange: (search: string) => void;
   onChooseBase: (selection: BaseSelection) => void;
@@ -43,6 +47,7 @@ export const NewCreatureWizardView = ({
   isBasePickerPending,
   isBasePending,
   initialValues,
+  baseKey,
   isSaving,
   onSearchChange,
   onChooseBase,
@@ -81,7 +86,7 @@ export const NewCreatureWizardView = ({
           <Skeleton role="status" aria-label="Loading creature to copy" />
         ) : (
           <CustomCreatureForm
-            key={JSON.stringify(initialValues.name)}
+            key={baseKey}
             initialValues={initialValues}
             isSaving={isSaving}
             submitLabel="Create Creature"

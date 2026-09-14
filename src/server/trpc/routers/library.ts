@@ -130,9 +130,14 @@ export const libraryRouter = createTRPCRouter({
                 initiativeBonus: creatures.initiativeBonus,
               })
               .from(creatures)
-              .where(
-                libraryFilters.length ? and(...libraryFilters) : undefined,
-              ),
+              .where(libraryFilters.length ? and(...libraryFilters) : undefined)
+              .orderBy(asc(creatures.name))
+              // The final result is a merge-sort-slice to `input.limit`
+              // across both sources, so neither side can ever contribute
+              // more than `input.limit` rows to it — bounding each query
+              // here keeps a broad/unfiltered browse from pulling the
+              // entire table into memory just to discard most of it.
+              .limit(input.limit),
         // A category filter has no custom-creature equivalent — treat it as
         // "not a match" rather than ignoring it.
         input.source === 'library' || input.category
@@ -149,7 +154,9 @@ export const libraryRouter = createTRPCRouter({
                 initiativeBonus: customCreatures.initiativeBonus,
               })
               .from(customCreatures)
-              .where(and(...customFilters)),
+              .where(and(...customFilters))
+              .orderBy(asc(customCreatures.name))
+              .limit(input.limit),
       ]);
 
       const merged = [
