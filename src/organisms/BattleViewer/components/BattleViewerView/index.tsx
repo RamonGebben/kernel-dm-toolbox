@@ -9,8 +9,8 @@ import type { BattleRunState } from '~/organisms/BattleViewer/hooks/useBattleRun
 import type { PlaybackSpeed } from '~/organisms/BattleViewer/hooks/usePlaybackClock';
 import { deriveBattleSnapshot } from '~/utils/deriveBattleSnapshot';
 import { formatBattleLogEntry } from '~/utils/formatBattleLogEntry';
+import { formatWinnerLabel } from '~/utils/formatWinnerLabel';
 import { highlightedCombatantIdsForEntry } from '~/utils/highlightedCombatantIdsForEntry';
-import type { EngineSide } from '~/server/simulator/engine/types';
 
 export type BattleViewerViewProps = {
   hasScenario: boolean;
@@ -28,13 +28,6 @@ export type BattleViewerViewProps = {
   onStep: () => void;
   onSpeedChange: (speed: PlaybackSpeed) => void;
 };
-
-const winnerLabel = (winner: EngineSide | 'draw'): string =>
-  winner === 'party'
-    ? 'The party wins!'
-    : winner === 'monsters'
-      ? 'The monsters win!'
-      : "It's a draw.";
 
 /**
  * Presentational: a scenario's animated battle viewer (issue #5, milestone
@@ -127,7 +120,7 @@ export const BattleViewerView = ({
         </Button>
         <Seed>Seed {runState.seed}</Seed>
         {runState.status === 'complete' && runState.winner && (
-          <Winner>{winnerLabel(runState.winner)}</Winner>
+          <Winner>{formatWinnerLabel(runState.winner)}</Winner>
         )}
       </TopBar>
 

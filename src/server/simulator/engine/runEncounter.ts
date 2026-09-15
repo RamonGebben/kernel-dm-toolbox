@@ -31,6 +31,7 @@ import {
 } from '~/server/simulator/engine/deathSaves';
 import type {
   EngineAction,
+  EngineAttack,
   EngineCombatant,
   EngineResult,
   EngineScenarioInput,
@@ -173,6 +174,11 @@ export const runEncounter = (
     usesSoFar.set(combatantId, forCombatant);
   };
 
+  /** `availableActionIds`' own per-combatant use map, defaulted to empty for
+   * a combatant that hasn't used anything yet this encounter. */
+  const usesFor = (combatantId: string): ReadonlyMap<string, number> =>
+    usesSoFar.get(combatantId) ?? new Map();
+
   const livingOnSide = (side: EngineSide) =>
     [...byId.values()].filter(c => c.side === side && isLiving(c));
 
@@ -292,6 +298,31 @@ export const runEncounter = (
     }
   };
 
+  /** Resolves one to-hit attack against `target` and routes the result
+   * through `applyUpdate` — the "roll, log, apply" sequence every attack
+   * source (a chosen action, an opportunity attack, one leg of a
+   * Multiattack) needs identically. */
+  const performAttack = (
+    attacker: Pick<EngineCombatant, 'id' | 'activeConditions'>,
+    actionName: string,
+    attack: EngineAttack,
+    target: EngineCombatant,
+  ) => {
+    const { updatedTarget, logEntry } = resolveAttack(
+      rng,
+      attacker,
+      actionName,
+      attack,
+      target,
+    );
+    log.push(logEntry);
+    applyUpdate(
+      updatedTarget,
+      logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
+      logEntry.kind === 'attack' && logEntry.critical,
+    );
+  };
+
   const resolveChoice = (
     actorId: string,
     choice: ReturnType<typeof selectAction>,
@@ -322,18 +353,11 @@ export const runEncounter = (
       // handling.
       if (choice.action.requiresConcentration) breakConcentration(actorId);
 
-      const { updatedTarget, logEntry } = resolveAttack(
-        rng,
+      performAttack(
         byId.get(actorId)!,
         choice.action.name,
         choice.action.attack,
         byId.get(choice.target.id)!,
-      );
-      log.push(logEntry);
-      applyUpdate(
-        updatedTarget,
-        logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
-        logEntry.kind === 'attack' && logEntry.critical,
       );
 
       // Concentration begins the moment the spell is cast, independent of
@@ -431,10 +455,7 @@ export const runEncounter = (
       // capped when triggered as an opportunity attack as it is on the
       // combatant's own turn — gate on the same per-encounter use tracking
       // `availableActionIds` already enforces everywhere else.
-      const available = availableActionIds(
-        enemy,
-        usesSoFar.get(enemy.id) ?? new Map(),
-      );
+      const available = availableActionIds(enemy, usesFor(enemy.id));
       if (!available.has(meleeAction.id)) continue;
 
       const reach = meleeAction.attack.reach ?? DEFAULT_MELEE_REACH_FEET;
@@ -447,18 +468,11 @@ export const runEncounter = (
       if (!target || !isLiving(target)) continue;
 
       recordUse(enemy.id, meleeAction.id);
-      const { updatedTarget, logEntry } = resolveAttack(
-        rng,
+      performAttack(
         enemy,
         `${meleeAction.name} (opportunity attack)`,
         meleeAction.attack,
         target,
-      );
-      log.push(logEntry);
-      applyUpdate(
-        updatedTarget,
-        logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
-        logEntry.kind === 'attack' && logEntry.critical,
       );
     }
   };
@@ -526,18 +540,11 @@ export const runEncounter = (
         }
 
         recordUse(combatantId, actionId);
-        const { updatedTarget, logEntry } = resolveAttack(
-          rng,
+        performAttack(
           byId.get(combatantId)!,
           action.name,
           action.attack,
           target,
-        );
-        log.push(logEntry);
-        applyUpdate(
-          updatedTarget,
-          logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
-          logEntry.kind === 'attack' && logEntry.critical,
         );
       }
     }
@@ -615,10 +622,7 @@ export const runEncounter = (
     const enemies = livingOnSide(opposingSide(actor.side));
     if (!enemies.length) return;
 
-    const available = availableActionIds(
-      actor,
-      usesSoFar.get(combatantId) ?? new Map(),
-    );
+    const available = availableActionIds(actor, usesFor(combatantId));
     const effectiveSpeed = combineConditionEffects(actor.activeConditions)
       .speedZero
       ? 0
@@ -715,10 +719,7 @@ export const runEncounter = (
       current = selectAction(
         byId.get(combatantId)!,
         remainingEnemies,
-        availableActionIds(
-          byId.get(combatantId)!,
-          usesSoFar.get(combatantId) ?? new Map(),
-        ),
+        availableActionIds(byId.get(combatantId)!, usesFor(combatantId)),
       );
       if (current && (!current.action.attack || current.action.isSpell)) break;
     }
@@ -736,10 +737,7 @@ export const runEncounter = (
       const enemies = livingOnSide(opposingSide(self.side));
       if (!enemies.length) continue;
 
-      const available = availableActionIds(
-        self,
-        usesSoFar.get(id) ?? new Map(),
-      );
+      const available = availableActionIds(self, usesFor(id));
       const spend = spendLegendaryAction(self, enemies, available);
       if (!spend) continue;
 

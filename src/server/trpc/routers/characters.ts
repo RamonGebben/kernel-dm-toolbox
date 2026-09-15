@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
@@ -51,6 +52,52 @@ const loadLiveCharacter = async (db: Database, id: string) => {
   return character;
 };
 
+/**
+ * Selects every currently-live row of one child table for a PC and
+ * tombstones it — the "fetch doomed rows, then soft-delete them" half of the
+ * full-replace pattern, shared by `replaceCombatDataRows`,
+ * `replaceSpellSlotsAndResources`, and `remove` so it's written once instead
+ * of once per table per call site. `Table` is narrowed to the four child
+ * tables below, which all share `id`/`version`/`playerCharacterId` from
+ * `syncMeta`.
+ */
+type SyncMetaChildTable =
+  | typeof playerCharacterActions
+  | typeof playerCharacterSpells
+  | typeof playerCharacterSpellSlots
+  | typeof playerCharacterResources;
+
+async function tombstoneLiveChildRows(
+  db: Database,
+  table: SyncMetaChildTable,
+  isLiveClause: SQL,
+  playerCharacterId: string,
+  now: Date,
+): Promise<void> {
+  // Drizzle's column/update types don't resolve cleanly through a union
+  // table parameter — the four tables above are known at every call site to
+  // share `id`/`version`/`playerCharacterId` from `syncMeta`, which is what
+  // this function actually relies on.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const anyTable = table as any;
+  const doomed: { id: string; version: number }[] = await db
+    .select({ id: anyTable.id, version: anyTable.version })
+    .from(anyTable)
+    .where(
+      and(eq(anyTable.playerCharacterId, playerCharacterId), isLiveClause),
+    );
+
+  await Promise.all(
+    doomed.map(row =>
+      db
+        .update(anyTable)
+        .set(tombstoneSyncMeta({ version: row.version, now }))
+        .where(eq(anyTable.id, row.id)),
+    ),
+  );
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}
+
 /** Accepted by both a DM's zod-validated edit and the deterministic
  * materializer's output — the only difference is `null` vs. `undefined` for
  * "no cap", which the insert below normalizes away anyway. */
@@ -82,119 +129,82 @@ const replaceCombatDataRows = async (
 ) => {
   const now = new Date();
 
-  const [doomedActions, doomedSpells, doomedSlots, doomedResources] =
-    await Promise.all([
-      db
-        .select({
-          id: playerCharacterActions.id,
-          version: playerCharacterActions.version,
-        })
-        .from(playerCharacterActions)
-        .where(
-          and(
-            eq(playerCharacterActions.playerCharacterId, playerCharacterId),
-            isLiveAction,
-          ),
-        ),
-      db
-        .select({
-          id: playerCharacterSpells.id,
-          version: playerCharacterSpells.version,
-        })
-        .from(playerCharacterSpells)
-        .where(
-          and(
-            eq(playerCharacterSpells.playerCharacterId, playerCharacterId),
-            isLiveSpell,
-          ),
-        ),
-      db
-        .select({
-          id: playerCharacterSpellSlots.id,
-          version: playerCharacterSpellSlots.version,
-        })
-        .from(playerCharacterSpellSlots)
-        .where(
-          and(
-            eq(playerCharacterSpellSlots.playerCharacterId, playerCharacterId),
-            isLiveSlot,
-          ),
-        ),
-      db
-        .select({
-          id: playerCharacterResources.id,
-          version: playerCharacterResources.version,
-        })
-        .from(playerCharacterResources)
-        .where(
-          and(
-            eq(playerCharacterResources.playerCharacterId, playerCharacterId),
-            isLiveResource,
-          ),
-        ),
-    ]);
-
   await Promise.all([
-    ...doomedActions.map(row =>
-      db
-        .update(playerCharacterActions)
-        .set(tombstoneSyncMeta({ version: row.version, now }))
-        .where(eq(playerCharacterActions.id, row.id)),
+    tombstoneLiveChildRows(
+      db,
+      playerCharacterActions,
+      isLiveAction,
+      playerCharacterId,
+      now,
     ),
-    ...doomedSpells.map(row =>
-      db
-        .update(playerCharacterSpells)
-        .set(tombstoneSyncMeta({ version: row.version, now }))
-        .where(eq(playerCharacterSpells.id, row.id)),
+    tombstoneLiveChildRows(
+      db,
+      playerCharacterSpells,
+      isLiveSpell,
+      playerCharacterId,
+      now,
     ),
-    ...doomedSlots.map(row =>
-      db
-        .update(playerCharacterSpellSlots)
-        .set(tombstoneSyncMeta({ version: row.version, now }))
-        .where(eq(playerCharacterSpellSlots.id, row.id)),
+    tombstoneLiveChildRows(
+      db,
+      playerCharacterSpellSlots,
+      isLiveSlot,
+      playerCharacterId,
+      now,
     ),
-    ...doomedResources.map(row =>
-      db
-        .update(playerCharacterResources)
-        .set(tombstoneSyncMeta({ version: row.version, now }))
-        .where(eq(playerCharacterResources.id, row.id)),
+    tombstoneLiveChildRows(
+      db,
+      playerCharacterResources,
+      isLiveResource,
+      playerCharacterId,
+      now,
     ),
   ]);
 
-  for (const [index, action] of actions.entries()) {
-    const [createdAction] = await db
+  if (actions.length) {
+    const createdActions = await db
       .insert(playerCharacterActions)
-      .values({
-        playerCharacterId,
-        name: action.name,
-        desc: action.desc,
-        actionType: action.actionType,
-        sortOrder: index,
-        legendaryActionCost: action.legendaryActionCost ?? null,
-      })
+      .values(
+        actions.map((action, index) => ({
+          playerCharacterId,
+          name: action.name,
+          desc: action.desc,
+          actionType: action.actionType,
+          sortOrder: index,
+          legendaryActionCost: action.legendaryActionCost ?? null,
+        })),
+      )
       .returning();
 
-    if (action.attack && createdAction) {
+    // A single multi-row INSERT...RETURNING returns rows in VALUES order in
+    // SQLite, so positional zip is safe here.
+    const attackRows = actions.flatMap((action, index) => {
+      const createdAction = createdActions[index];
+      if (!action.attack || !createdAction) return [];
       const { attack } = action;
+      return [
+        {
+          playerCharacterActionId: createdAction.id,
+          name: attack.name,
+          attackType: attack.attackType ?? null,
+          toHitMod: attack.toHitMod ?? null,
+          reach: attack.reach ?? null,
+          range: attack.range ?? null,
+          longRange: attack.longRange ?? null,
+          targetCreatureOnly: attack.targetCreatureOnly,
+          damageDieCount: attack.damageDieCount ?? null,
+          damageDieType: attack.damageDieType ?? null,
+          damageBonus: attack.damageBonus ?? null,
+          damageType: attack.damageType ?? null,
+          extraDamageDieCount: attack.extraDamageDieCount ?? null,
+          extraDamageDieType: attack.extraDamageDieType ?? null,
+          extraDamageBonus: attack.extraDamageBonus ?? null,
+          extraDamageType: attack.extraDamageType ?? null,
+        },
+      ];
+    });
 
-      await db.insert(playerCharacterActionAttacks).values({
-        playerCharacterActionId: createdAction.id,
-        name: attack.name,
-        attackType: attack.attackType ?? null,
-        toHitMod: attack.toHitMod ?? null,
-        reach: attack.reach ?? null,
-        range: attack.range ?? null,
-        longRange: attack.longRange ?? null,
-        targetCreatureOnly: attack.targetCreatureOnly,
-        damageDieCount: attack.damageDieCount ?? null,
-        damageDieType: attack.damageDieType ?? null,
-        damageBonus: attack.damageBonus ?? null,
-        damageType: attack.damageType ?? null,
-        extraDamageDieCount: attack.extraDamageDieCount ?? null,
-        extraDamageDieType: attack.extraDamageDieType ?? null,
-        extraDamageBonus: attack.extraDamageBonus ?? null,
-        extraDamageType: attack.extraDamageType ?? null,
-      });
+    if (attackRows.length) {
+      await db.insert(playerCharacterActionAttacks).values(attackRows);
     }
   }
 
@@ -250,45 +260,20 @@ const replaceSpellSlotsAndResources = async (
 ) => {
   const now = new Date();
 
-  const [doomedSlots, doomedResources] = await Promise.all([
-    db
-      .select({
-        id: playerCharacterSpellSlots.id,
-        version: playerCharacterSpellSlots.version,
-      })
-      .from(playerCharacterSpellSlots)
-      .where(
-        and(
-          eq(playerCharacterSpellSlots.playerCharacterId, playerCharacterId),
-          isLiveSlot,
-        ),
-      ),
-    db
-      .select({
-        id: playerCharacterResources.id,
-        version: playerCharacterResources.version,
-      })
-      .from(playerCharacterResources)
-      .where(
-        and(
-          eq(playerCharacterResources.playerCharacterId, playerCharacterId),
-          isLiveResource,
-        ),
-      ),
-  ]);
-
   await Promise.all([
-    ...doomedSlots.map(row =>
-      db
-        .update(playerCharacterSpellSlots)
-        .set(tombstoneSyncMeta({ version: row.version, now }))
-        .where(eq(playerCharacterSpellSlots.id, row.id)),
+    tombstoneLiveChildRows(
+      db,
+      playerCharacterSpellSlots,
+      isLiveSlot,
+      playerCharacterId,
+      now,
     ),
-    ...doomedResources.map(row =>
-      db
-        .update(playerCharacterResources)
-        .set(tombstoneSyncMeta({ version: row.version, now }))
-        .where(eq(playerCharacterResources.id, row.id)),
+    tombstoneLiveChildRows(
+      db,
+      playerCharacterResources,
+      isLiveResource,
+      playerCharacterId,
+      now,
     ),
   ]);
 
@@ -424,82 +409,34 @@ export const charactersRouter = createTRPCRouter({
       // don't outlive their parent as orphaned "live" rows — mirrors
       // `replaceCombatDataRows`' own tombstone step, just with nothing to
       // re-insert afterward.
-      const [doomedActions, doomedSpells, doomedSlots, doomedResources] =
-        await Promise.all([
-          ctx.db
-            .select({
-              id: playerCharacterActions.id,
-              version: playerCharacterActions.version,
-            })
-            .from(playerCharacterActions)
-            .where(
-              and(
-                eq(playerCharacterActions.playerCharacterId, input.id),
-                isLiveAction,
-              ),
-            ),
-          ctx.db
-            .select({
-              id: playerCharacterSpells.id,
-              version: playerCharacterSpells.version,
-            })
-            .from(playerCharacterSpells)
-            .where(
-              and(
-                eq(playerCharacterSpells.playerCharacterId, input.id),
-                isLiveSpell,
-              ),
-            ),
-          ctx.db
-            .select({
-              id: playerCharacterSpellSlots.id,
-              version: playerCharacterSpellSlots.version,
-            })
-            .from(playerCharacterSpellSlots)
-            .where(
-              and(
-                eq(playerCharacterSpellSlots.playerCharacterId, input.id),
-                isLiveSlot,
-              ),
-            ),
-          ctx.db
-            .select({
-              id: playerCharacterResources.id,
-              version: playerCharacterResources.version,
-            })
-            .from(playerCharacterResources)
-            .where(
-              and(
-                eq(playerCharacterResources.playerCharacterId, input.id),
-                isLiveResource,
-              ),
-            ),
-        ]);
-
       await Promise.all([
-        ...doomedActions.map(row =>
-          ctx.db
-            .update(playerCharacterActions)
-            .set(tombstoneSyncMeta({ version: row.version, now }))
-            .where(eq(playerCharacterActions.id, row.id)),
+        tombstoneLiveChildRows(
+          ctx.db,
+          playerCharacterActions,
+          isLiveAction,
+          input.id,
+          now,
         ),
-        ...doomedSpells.map(row =>
-          ctx.db
-            .update(playerCharacterSpells)
-            .set(tombstoneSyncMeta({ version: row.version, now }))
-            .where(eq(playerCharacterSpells.id, row.id)),
+        tombstoneLiveChildRows(
+          ctx.db,
+          playerCharacterSpells,
+          isLiveSpell,
+          input.id,
+          now,
         ),
-        ...doomedSlots.map(row =>
-          ctx.db
-            .update(playerCharacterSpellSlots)
-            .set(tombstoneSyncMeta({ version: row.version, now }))
-            .where(eq(playerCharacterSpellSlots.id, row.id)),
+        tombstoneLiveChildRows(
+          ctx.db,
+          playerCharacterSpellSlots,
+          isLiveSlot,
+          input.id,
+          now,
         ),
-        ...doomedResources.map(row =>
-          ctx.db
-            .update(playerCharacterResources)
-            .set(tombstoneSyncMeta({ version: row.version, now }))
-            .where(eq(playerCharacterResources.id, row.id)),
+        tombstoneLiveChildRows(
+          ctx.db,
+          playerCharacterResources,
+          isLiveResource,
+          input.id,
+          now,
         ),
       ]);
 

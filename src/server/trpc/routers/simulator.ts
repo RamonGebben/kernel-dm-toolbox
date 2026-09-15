@@ -29,6 +29,7 @@ import {
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
+import { isScenarioRunnable } from '~/utils/isScenarioRunnable';
 import { loadScenarioCombatants } from '~/server/simulator/loadScenarioCombatants';
 import { runEncounter } from '~/server/simulator/engine/runEncounter';
 import { aggregateBatchResults } from '~/server/simulator/engine/aggregateBatchResults';
@@ -593,9 +594,9 @@ export const simulatorRouter = createTRPCRouter({
 
       const combatants = await loadScenarioCombatants(ctx.db, scenario.id);
 
-      const hasParty = combatants.some(c => c.side === 'party');
-      const hasMonsters = combatants.some(c => c.side === 'monsters');
-      if (!hasParty || !hasMonsters) {
+      const partyCount = combatants.filter(c => c.side === 'party').length;
+      const monsterCount = combatants.filter(c => c.side === 'monsters').length;
+      if (!isScenarioRunnable(partyCount, monsterCount)) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message:

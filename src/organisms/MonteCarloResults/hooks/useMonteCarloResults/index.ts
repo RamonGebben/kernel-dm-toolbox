@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useScenarioSelectionStore } from '~/stores/scenarioSelection';
+import { isScenarioRunnable } from '~/utils/isScenarioRunnable';
 
 /**
  * Assembles everything `MonteCarloResultsView` needs: the selected
@@ -49,9 +50,10 @@ export const useMonteCarloResults = () => {
     }),
   );
 
-  const canRun =
-    (detail.data?.party.length ?? 0) > 0 &&
-    (detail.data?.monsters.length ?? 0) > 0;
+  const canRun = isScenarioRunnable(
+    detail.data?.party.length ?? 0,
+    detail.data?.monsters.length ?? 0,
+  );
 
   return {
     hasScenario: selectedScenarioId !== null,

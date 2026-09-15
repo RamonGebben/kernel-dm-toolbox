@@ -72,15 +72,20 @@ export const deriveBattleSnapshot = (
     });
   };
 
+  /** The common "patch this combatant if it still exists" shape most log
+   * entries reduce to — a plain no-op for an unknown id rather than an
+   * error, since every entry only ever names combatants this snapshot
+   * already started with. */
+  const update = (id: string, patch: Partial<BattleSnapshotCombatant>) => {
+    const current = byId.get(id);
+    if (current) byId.set(id, { ...current, ...patch });
+  };
+
   for (const entry of revealedEntries) {
     switch (entry.kind) {
-      case 'move': {
-        const current = byId.get(entry.combatantId);
-        if (current) {
-          byId.set(entry.combatantId, { ...current, position: entry.to });
-        }
+      case 'move':
+        update(entry.combatantId, { position: entry.to });
         break;
-      }
 
       case 'attack':
         if (entry.hit) damage(entry.targetId, entry.damage);
@@ -91,54 +96,37 @@ export const deriveBattleSnapshot = (
           damage(target.targetId, target.damage);
         break;
 
-      case 'defeated': {
-        const current = byId.get(entry.combatantId);
-        if (current) {
-          byId.set(entry.combatantId, {
-            ...current,
-            isDefeated: true,
-            currentHitPoints: 0,
-          });
-        }
+      case 'defeated':
+        update(entry.combatantId, { isDefeated: true, currentHitPoints: 0 });
         break;
-      }
 
       // `isDefeated` deliberately stays false for all of `down`/
       // `death-save`/`stabilized` — a down-but-not-dead combatant is not
       // the same terminal state `defeated` represents (issue #5, milestone
       // 13's own visual distinction: still drawn, just visibly out).
-      case 'down': {
-        const current = byId.get(entry.combatantId);
-        if (current) byId.set(entry.combatantId, { ...current, isDown: true });
+      case 'down':
+        update(entry.combatantId, { isDown: true });
         break;
-      }
 
-      case 'stabilized': {
-        const current = byId.get(entry.combatantId);
-        if (current) {
-          byId.set(entry.combatantId, { ...current, isStabilized: true });
-        }
+      case 'stabilized':
+        update(entry.combatantId, { isStabilized: true });
         break;
-      }
 
-      case 'revived': {
-        const current = byId.get(entry.combatantId);
-        if (current) {
-          byId.set(entry.combatantId, {
-            ...current,
-            currentHitPoints: entry.hitPoints,
-            isDown: false,
-            isStabilized: false,
-          });
-        }
+      case 'revived':
+        update(entry.combatantId, {
+          currentHitPoints: entry.hitPoints,
+          isDown: false,
+          isStabilized: false,
+        });
         break;
-      }
 
       case 'condition-applied': {
         const current = byId.get(entry.combatantId);
-        if (current && !current.activeConditionKeys.includes(entry.conditionKey)) {
-          byId.set(entry.combatantId, {
-            ...current,
+        if (
+          current &&
+          !current.activeConditionKeys.includes(entry.conditionKey)
+        ) {
+          update(entry.combatantId, {
             activeConditionKeys: [
               ...current.activeConditionKeys,
               entry.conditionKey,
@@ -151,8 +139,7 @@ export const deriveBattleSnapshot = (
       case 'condition-removed': {
         const current = byId.get(entry.combatantId);
         if (current) {
-          byId.set(entry.combatantId, {
-            ...current,
+          update(entry.combatantId, {
             activeConditionKeys: current.activeConditionKeys.filter(
               key => key !== entry.conditionKey,
             ),

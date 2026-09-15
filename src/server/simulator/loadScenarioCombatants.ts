@@ -82,6 +82,13 @@ const attacksPerTurnForPc = (
 const hasLegendaryResistance = (traits: readonly { name: string }[]) =>
   traits.some(trait => /^Legendary Resistance/i.test(trait.name));
 
+/** A stored `positionX`/`positionY` pair is either both set (a DM-chosen
+ * placement) or both null (auto-place later) — never mixed, but the
+ * columns are two independent nullable ints, so every reader has to make
+ * that check itself. */
+const toGridPosition = (x: number | null, y: number | null): GridCell | null =>
+  x !== null && y !== null ? { x, y } : null;
+
 /** Resolves a creature's raw "Multiattack" action row (if one exists, and
  * `parseMultiattackSequence` parsed it — issue #5, milestone 9) into
  * `EngineCombatant.multiattackSequence`'s own `{actionId, count}[]` shape,
@@ -144,7 +151,7 @@ const loadPartyCombatants = async (
     );
   const pcById = new Map(pcRows.map(row => [row.id, row]));
 
-  const [actionRows, attackRows, spellRows, slotRows] = await Promise.all([
+  const [actionRows, spellRows, slotRows] = await Promise.all([
     db
       .select()
       .from(playerCharacterActions)
@@ -154,10 +161,6 @@ const loadPartyCombatants = async (
           isNull(playerCharacterActions.deletedAt),
         ),
       ),
-    db
-      .select()
-      .from(playerCharacterActionAttacks)
-      .where(isNull(playerCharacterActionAttacks.deletedAt)),
     // Only a prepared spell is castable this fight — a known-but-unprepared
     // row (a prepared caster who swapped it out) stays on the PC's sheet for
     // next time but isn't an option here, matching the same "known/prepared"
@@ -187,6 +190,24 @@ const loadPartyCombatants = async (
         ),
       ),
   ]);
+
+  // Fetched separately, filtered by the action rows just resolved above,
+  // rather than scanning every PC's attacks in the whole campaign.
+  const actionIds = actionRows.map(action => action.id);
+  const attackRows = actionIds.length
+    ? await db
+        .select()
+        .from(playerCharacterActionAttacks)
+        .where(
+          and(
+            inArray(
+              playerCharacterActionAttacks.playerCharacterActionId,
+              actionIds,
+            ),
+            isNull(playerCharacterActionAttacks.deletedAt),
+          ),
+        )
+    : [];
 
   const result: UnplacedCombatant[] = [];
 
@@ -239,10 +260,7 @@ const loadPartyCombatants = async (
       initiativeBonus: pc.initiativeModifier,
       speed: DEFAULT_SPEED,
       attacksPerTurn: attacksPerTurnForPc(pc.characterClassSlug, pc.level),
-      position:
-        member.positionX !== null && member.positionY !== null
-          ? { x: member.positionX, y: member.positionY }
-          : null,
+      position: toGridPosition(member.positionX, member.positionY),
       actions,
       saveModifiers: toPlayerCharacterSaveModifiers(pc.initiativeModifier),
       legendaryResistancesRemaining: 0,
@@ -299,11 +317,9 @@ const loadMonsterCombatants = async (
   const [
     libraryRows,
     libraryActionRows,
-    libraryAttackRows,
     libraryTraitRows,
     customRows,
     customActionRows,
-    customAttackRows,
     customTraitRows,
   ] = await Promise.all([
     librarySlugs.length
@@ -315,7 +331,6 @@ const loadMonsterCombatants = async (
           .from(creatureActions)
           .where(inArray(creatureActions.creatureSlug, librarySlugs))
       : [],
-    librarySlugs.length ? db.select().from(creatureActionAttacks) : [],
     librarySlugs.length
       ? db
           .select()
@@ -350,17 +365,42 @@ const loadMonsterCombatants = async (
     customCreatureIds.length
       ? db
           .select()
-          .from(customCreatureActionAttacks)
-          .where(isNull(customCreatureActionAttacks.deletedAt))
-      : [],
-    customCreatureIds.length
-      ? db
-          .select()
           .from(customCreatureTraits)
           .where(
             and(
               inArray(customCreatureTraits.customCreatureId, customCreatureIds),
               isNull(customCreatureTraits.deletedAt),
+            ),
+          )
+      : [],
+  ]);
+
+  // Neither attack table carries its grandparent creature/custom-creature
+  // key directly, only its parent action's — fetched separately, filtered
+  // by the action rows just resolved above, rather than scanning the whole
+  // attacks table on every scenario load regardless of how few monsters it
+  // actually uses.
+  const libraryActionSlugs = libraryActionRows.map(action => action.slug);
+  const customActionIds = customActionRows.map(action => action.id);
+
+  const [libraryAttackRows, customAttackRows] = await Promise.all([
+    libraryActionSlugs.length
+      ? db
+          .select()
+          .from(creatureActionAttacks)
+          .where(inArray(creatureActionAttacks.actionSlug, libraryActionSlugs))
+      : [],
+    customActionIds.length
+      ? db
+          .select()
+          .from(customCreatureActionAttacks)
+          .where(
+            and(
+              inArray(
+                customCreatureActionAttacks.customCreatureActionId,
+                customActionIds,
+              ),
+              isNull(customCreatureActionAttacks.deletedAt),
             ),
           )
       : [],
@@ -412,10 +452,7 @@ const loadMonsterCombatants = async (
       });
       usedNames.push(...names);
 
-      const anchorPosition: GridCell | null =
-        entry.positionX !== null && entry.positionY !== null
-          ? { x: entry.positionX, y: entry.positionY }
-          : null;
+      const anchorPosition = toGridPosition(entry.positionX, entry.positionY);
 
       for (const name of names) {
         result.push({
@@ -501,10 +538,7 @@ const loadMonsterCombatants = async (
       });
       usedNames.push(...names);
 
-      const anchorPosition: GridCell | null =
-        entry.positionX !== null && entry.positionY !== null
-          ? { x: entry.positionX, y: entry.positionY }
-          : null;
+      const anchorPosition = toGridPosition(entry.positionX, entry.positionY);
 
       for (const name of names) {
         result.push({

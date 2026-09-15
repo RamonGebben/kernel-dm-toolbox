@@ -30,6 +30,26 @@ const withoutUnconscious = (
     condition => condition.conditionKey !== UNCONSCIOUS_CONDITION_KEY,
   );
 
+/** Every death-save event (a rolled save or an automatic failure from damage
+ * taken at 0 HP) carries the same six fields — factored out since both
+ * `applyDamageForDeathSaves` and `rollDeathSave` build several of these. */
+const buildDeathSaveEvent = (
+  combatantId: string,
+  roll: number | null,
+  failuresAdded: 0 | 1 | 2,
+  isNatural20: boolean,
+  successes: number,
+  failures: number,
+): TurnLogEntry => ({
+  kind: 'death-save',
+  combatantId,
+  roll,
+  failuresAdded,
+  isNatural20,
+  successes,
+  failures,
+});
+
 /**
  * 5e's own "damage remaining after HP hits 0 equals or exceeds your hit
  * point maximum" instant-death rule. Identical whether `preHp` was still
@@ -135,15 +155,14 @@ export const applyDamageForDeathSaves = (
           : updated.activeConditions,
       },
       events: [
-        {
-          kind: 'death-save',
-          combatantId: updated.id,
-          roll: null,
+        buildDeathSaveEvent(
+          updated.id,
+          null,
           failuresAdded,
-          isNatural20: false,
-          successes: dies ? 0 : updated.deathSaveSuccesses,
-          failures: dies ? 3 : failures,
-        },
+          false,
+          dies ? 0 : updated.deathSaveSuccesses,
+          dies ? 3 : failures,
+        ),
       ],
     };
   }
@@ -205,15 +224,14 @@ export const rollDeathSave = (
         activeConditions: withoutUnconscious(combatant.activeConditions),
       },
       events: [
-        {
-          kind: 'death-save',
-          combatantId: combatant.id,
+        buildDeathSaveEvent(
+          combatant.id,
           roll,
-          failuresAdded: 0,
-          isNatural20: true,
-          successes: combatant.deathSaveSuccesses,
-          failures: combatant.deathSaveFailures,
-        },
+          0,
+          true,
+          combatant.deathSaveSuccesses,
+          combatant.deathSaveFailures,
+        ),
         { kind: 'revived', combatantId: combatant.id, hitPoints: 1 },
       ],
     };
@@ -230,15 +248,14 @@ export const rollDeathSave = (
           deathSaveFailures: 0,
         },
         events: [
-          {
-            kind: 'death-save',
-            combatantId: combatant.id,
+          buildDeathSaveEvent(
+            combatant.id,
             roll,
-            failuresAdded: 0,
-            isNatural20: false,
-            successes: 3,
-            failures: combatant.deathSaveFailures,
-          },
+            0,
+            false,
+            3,
+            combatant.deathSaveFailures,
+          ),
           { kind: 'stabilized', combatantId: combatant.id },
         ],
       };
@@ -247,15 +264,14 @@ export const rollDeathSave = (
     return {
       combatant: { ...combatant, deathSaveSuccesses: successes },
       events: [
-        {
-          kind: 'death-save',
-          combatantId: combatant.id,
+        buildDeathSaveEvent(
+          combatant.id,
           roll,
-          failuresAdded: 0,
-          isNatural20: false,
+          0,
+          false,
           successes,
-          failures: combatant.deathSaveFailures,
-        },
+          combatant.deathSaveFailures,
+        ),
       ],
     };
   }
@@ -273,15 +289,14 @@ export const rollDeathSave = (
         activeConditions: withoutUnconscious(combatant.activeConditions),
       },
       events: [
-        {
-          kind: 'death-save',
-          combatantId: combatant.id,
+        buildDeathSaveEvent(
+          combatant.id,
           roll,
           failuresAdded,
-          isNatural20: false,
-          successes: combatant.deathSaveSuccesses,
-          failures: 3,
-        },
+          false,
+          combatant.deathSaveSuccesses,
+          3,
+        ),
       ],
     };
   }
@@ -289,15 +304,14 @@ export const rollDeathSave = (
   return {
     combatant: { ...combatant, deathSaveFailures: failures },
     events: [
-      {
-        kind: 'death-save',
-        combatantId: combatant.id,
+      buildDeathSaveEvent(
+        combatant.id,
         roll,
         failuresAdded,
-        isNatural20: false,
-        successes: combatant.deathSaveSuccesses,
+        false,
+        combatant.deathSaveSuccesses,
         failures,
-      },
+      ),
     ],
   };
 };

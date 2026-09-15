@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { getDb } from '~/server/db';
 import { loadScenarioCombatants } from '~/server/simulator/loadScenarioCombatants';
 import { runEncounter } from '~/server/simulator/engine/runEncounter';
+import { isScenarioRunnable } from '~/utils/isScenarioRunnable';
 import type {
   BattleStartCombatant,
   BattleStreamFrame,
@@ -73,10 +74,12 @@ export const GET = async (
       try {
         const combatants = await loadScenarioCombatants(getDb(), scenarioId);
 
-        const hasParty = combatants.some(c => c.side === 'party');
-        const hasMonsters = combatants.some(c => c.side === 'monsters');
+        const partyCount = combatants.filter(c => c.side === 'party').length;
+        const monsterCount = combatants.filter(
+          c => c.side === 'monsters',
+        ).length;
 
-        if (!hasParty || !hasMonsters) {
+        if (!isScenarioRunnable(partyCount, monsterCount)) {
           send({
             kind: 'error',
             message:

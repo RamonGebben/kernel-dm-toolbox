@@ -5,6 +5,7 @@ import { useTRPC } from '~/trpc/react';
 import { useScenarioSelectionStore } from '~/stores/scenarioSelection';
 import { useBattleRunStream } from '~/organisms/BattleViewer/hooks/useBattleRunStream';
 import { usePlaybackClock } from '~/organisms/BattleViewer/hooks/usePlaybackClock';
+import { isScenarioRunnable } from '~/utils/isScenarioRunnable';
 
 /**
  * Assembles everything `BattleViewerView` needs: the selected scenario's
@@ -38,9 +39,10 @@ export const useBattleViewer = () => {
 
   const clock = usePlaybackClock(totalEntries, runSeed);
 
-  const canRun =
-    (detail.data?.party.length ?? 0) > 0 &&
-    (detail.data?.monsters.length ?? 0) > 0;
+  const canRun = isScenarioRunnable(
+    detail.data?.party.length ?? 0,
+    detail.data?.monsters.length ?? 0,
+  );
 
   return {
     hasScenario: selectedScenarioId !== null,

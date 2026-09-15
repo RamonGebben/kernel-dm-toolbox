@@ -80,7 +80,10 @@ const EMPTY_EFFECTS: ConditionEffects = {
  * defines once and reuses across all four. */
 const HELPLESS: Pick<
   ConditionEffects,
-  'incapacitates' | 'speedZero' | 'autoFailSaveAbilities' | 'advantageOnAttacksAgainst'
+  | 'incapacitates'
+  | 'speedZero'
+  | 'autoFailSaveAbilities'
+  | 'advantageOnAttacksAgainst'
 > = {
   incapacitates: true,
   speedZero: true,
@@ -176,6 +179,44 @@ const union = (a: readonly string[], b: readonly string[]): string[] => [
   ...new Set([...a, ...b]),
 ];
 
+/** Every `ConditionEffects` field but the two ability-name lists is a flat
+ * boolean lever — OR-merged generically here instead of by hand per field,
+ * so a new boolean effect only needs adding to this list, not to a second
+ * hand-written merge clause. */
+const BOOLEAN_EFFECT_KEYS = [
+  'incapacitates',
+  'speedZero',
+  'disadvantageOnOwnAttacks',
+  'advantageOnOwnAttacks',
+  'advantageOnAttacksAgainst',
+  'disadvantageOnAttacksAgainst',
+  'advantageOnMeleeAttacksAgainst',
+  'disadvantageOnRangedAttacksAgainst',
+  'meleeHitsAreCritical',
+  'resistAllDamage',
+] as const satisfies readonly (keyof ConditionEffects)[];
+
+const mergeConditionEffects = (
+  a: ConditionEffects,
+  b: ConditionEffects,
+): ConditionEffects => {
+  const merged = { ...a };
+  for (const key of BOOLEAN_EFFECT_KEYS) {
+    merged[key] = a[key] || b[key];
+  }
+  return {
+    ...merged,
+    autoFailSaveAbilities: union(
+      a.autoFailSaveAbilities,
+      b.autoFailSaveAbilities,
+    ),
+    disadvantageOnSaveAbilities: union(
+      a.disadvantageOnSaveAbilities,
+      b.disadvantageOnSaveAbilities,
+    ),
+  };
+};
+
 /** Folds every active condition on one combatant into one effective set —
  * any single condition granting a boolean effect is enough to grant it
  * overall (conditions never cancel each other out in 5e; advantage/
@@ -184,41 +225,15 @@ const union = (a: readonly string[], b: readonly string[]): string[] => [
 export const combineConditionEffects = (
   activeConditions: readonly EngineActiveCondition[],
 ): ConditionEffects =>
-  activeConditions.reduce((acc, condition) => {
-    const effects =
-      CONDITION_EFFECTS[condition.conditionKey as ConditionKey] ??
-      EMPTY_EFFECTS;
-    return {
-      incapacitates: acc.incapacitates || effects.incapacitates,
-      speedZero: acc.speedZero || effects.speedZero,
-      disadvantageOnOwnAttacks:
-        acc.disadvantageOnOwnAttacks || effects.disadvantageOnOwnAttacks,
-      advantageOnOwnAttacks:
-        acc.advantageOnOwnAttacks || effects.advantageOnOwnAttacks,
-      advantageOnAttacksAgainst:
-        acc.advantageOnAttacksAgainst || effects.advantageOnAttacksAgainst,
-      disadvantageOnAttacksAgainst:
-        acc.disadvantageOnAttacksAgainst ||
-        effects.disadvantageOnAttacksAgainst,
-      advantageOnMeleeAttacksAgainst:
-        acc.advantageOnMeleeAttacksAgainst ||
-        effects.advantageOnMeleeAttacksAgainst,
-      disadvantageOnRangedAttacksAgainst:
-        acc.disadvantageOnRangedAttacksAgainst ||
-        effects.disadvantageOnRangedAttacksAgainst,
-      meleeHitsAreCritical:
-        acc.meleeHitsAreCritical || effects.meleeHitsAreCritical,
-      resistAllDamage: acc.resistAllDamage || effects.resistAllDamage,
-      autoFailSaveAbilities: union(
-        acc.autoFailSaveAbilities,
-        effects.autoFailSaveAbilities,
+  activeConditions.reduce(
+    (acc, condition) =>
+      mergeConditionEffects(
+        acc,
+        CONDITION_EFFECTS[condition.conditionKey as ConditionKey] ??
+          EMPTY_EFFECTS,
       ),
-      disadvantageOnSaveAbilities: union(
-        acc.disadvantageOnSaveAbilities,
-        effects.disadvantageOnSaveAbilities,
-      ),
-    };
-  }, EMPTY_EFFECTS);
+    EMPTY_EFFECTS,
+  );
 
 /** Advantage and disadvantage from different sources cancel out to a
  * `'normal'` roll — 5e's own rule for combining multiple d20-roll

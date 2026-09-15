@@ -226,18 +226,19 @@ export const aggregateBatchResults = (
       combatantAcc.set(finalState.templateKey, existing);
     }
 
-    for (const [templateKey, amount] of damageDealt) {
-      const existing = combatantAcc.get(templateKey);
-      if (existing) existing.totalDamageDealt += amount;
-    }
-    for (const [templateKey, amount] of damageTaken) {
-      const existing = combatantAcc.get(templateKey);
-      if (existing) existing.totalDamageTaken += amount;
-    }
-    for (const [templateKey, amount] of kills) {
-      const existing = combatantAcc.get(templateKey);
-      if (existing) existing.totalKills += amount;
-    }
+    const addTallyTo = (
+      tally: Map<string, number>,
+      field: 'totalDamageDealt' | 'totalDamageTaken' | 'totalKills',
+    ) => {
+      for (const [templateKey, amount] of tally) {
+        const existing = combatantAcc.get(templateKey);
+        if (existing) existing[field] += amount;
+      }
+    };
+
+    addTallyTo(damageDealt, 'totalDamageDealt');
+    addTallyTo(damageTaken, 'totalDamageTaken');
+    addTallyTo(kills, 'totalKills');
   }
 
   const combatants: CombatantBatchStats[] = [...combatantAcc.values()]

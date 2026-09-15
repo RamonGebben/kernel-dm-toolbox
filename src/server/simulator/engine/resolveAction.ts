@@ -39,27 +39,36 @@ const rollAttackDamage = (
 ): number => {
   const dieMultiplier = isCritical ? 2 : 1;
 
-  const primaryRaw = rollDice(rng, {
-    count: attack.damageDieCount * dieMultiplier,
-    sides: attack.damageDieType,
-    bonus: attack.damageBonus,
-  });
-  const primary = mitigateDamage(
-    primaryRaw,
-    attack.damageType,
-    target,
-    hasResistAll,
-  );
+  const rollComponent = (
+    dieCount: number,
+    dieType: EngineAttack['damageDieType'],
+    bonus: number,
+    damageType: EngineAttack['damageType'],
+  ): number => {
+    const raw = rollDice(rng, {
+      count: dieCount * dieMultiplier,
+      sides: dieType,
+      bonus,
+    });
+    return mitigateDamage(raw, damageType, target, hasResistAll);
+  };
 
-  const extraRaw = attack.extraDamageDieCount
-    ? rollDice(rng, {
-        count: attack.extraDamageDieCount * dieMultiplier,
-        sides: attack.extraDamageDieType,
-        bonus: attack.extraDamageBonus,
-      })
-    : 0;
+  // Primary damage always rolls, even at 0 dice (a flat `damageBonus` alone
+  // is still damage); extra damage only exists — and only rolls — when the
+  // attack actually carries a bonus die.
+  const primary = rollComponent(
+    attack.damageDieCount,
+    attack.damageDieType,
+    attack.damageBonus,
+    attack.damageType,
+  );
   const extra = attack.extraDamageDieCount
-    ? mitigateDamage(extraRaw, attack.extraDamageType, target, hasResistAll)
+    ? rollComponent(
+        attack.extraDamageDieCount,
+        attack.extraDamageDieType,
+        attack.extraDamageBonus,
+        attack.extraDamageType,
+      )
     : 0;
 
   return Math.max(0, primary + extra);
@@ -115,7 +124,13 @@ export const resolveAttack = (
     hit && (isNatural20 || (melee && targetEffects.meleeHitsAreCritical));
 
   const damage = hit
-    ? rollAttackDamage(rng, attack, isCritical, target, targetEffects.resistAllDamage)
+    ? rollAttackDamage(
+        rng,
+        attack,
+        isCritical,
+        target,
+        targetEffects.resistAllDamage,
+      )
     : 0;
 
   return {
@@ -188,7 +203,8 @@ export const resolveSaveAction = (
     );
 
     const rawRoll = rollD20WithMode(rng, mode);
-    const roll = rawRoll + saveModifierFor(target.saveModifiers, save.saveAbility);
+    const roll =
+      rawRoll + saveModifierFor(target.saveModifiers, save.saveAbility);
     const naturallyFailed = autoFail || roll < save.saveDc;
     // A creature can spend one Legendary Resistance use to turn a failed
     // save into a success (5e SRD rule) — modeled as automatic since this
@@ -216,7 +232,8 @@ export const resolveSaveAction = (
     updated = usedLegendaryResistance
       ? {
           ...updated,
-          legendaryResistancesRemaining: updated.legendaryResistancesRemaining - 1,
+          legendaryResistancesRemaining:
+            updated.legendaryResistancesRemaining - 1,
         }
       : updated;
 

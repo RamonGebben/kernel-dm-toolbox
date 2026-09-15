@@ -1,12 +1,8 @@
 import type { TurnLogEntry } from '~/server/simulator/engine/types';
+import { slugToTitle } from '~/utils/slugToTitle';
 
 const nameOf = (namesById: ReadonlyMap<string, string>, id: string): string =>
   namesById.get(id) ?? 'Unknown combatant';
-
-/** `conditionKey`s are short SRD slugs (`frightened`, `save-ends`-agnostic) —
- * capitalize for a readable log line rather than printing the raw key. */
-const capitalize = (word: string): string =>
-  word.length ? word[0]!.toUpperCase() + word.slice(1) : word;
 
 /** "(save ends)" / "(2 rounds)" / "" (no fixed end — persists until removed
  * some other way, e.g. concentration breaking) — the same three durations
@@ -101,7 +97,7 @@ export const formatBattleLogEntry = (
         entry.roundsRemaining,
         entry.saveEndsEachTurn,
       );
-      return `${nameOf(namesById, entry.combatantId)} is now ${capitalize(
+      return `${nameOf(namesById, entry.combatantId)} is now ${slugToTitle(
         entry.conditionKey,
       )}${suffix} (caused by ${nameOf(namesById, entry.sourceCombatantId)}).`;
     }
@@ -113,7 +109,7 @@ export const formatBattleLogEntry = (
           : entry.reason === 'save-succeeded'
             ? 'is shaken off'
             : 'ends (concentration broken)';
-      return `${nameOf(namesById, entry.combatantId)}'s ${capitalize(
+      return `${nameOf(namesById, entry.combatantId)}'s ${slugToTitle(
         entry.conditionKey,
       )} ${reason}.`;
     }
