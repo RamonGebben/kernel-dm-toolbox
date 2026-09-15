@@ -39,6 +39,10 @@ import type { Database } from '~/server/db';
  * how large `baseSeed`/the trial index get. */
 const SEED_MODULUS = 2 ** 31;
 
+/** How many synchronous `runEncounter` trials `runBatch` runs before
+ * yielding back to the event loop once — see `runBatch`'s own doc comment. */
+const TRIALS_PER_TICK = 100;
+
 const isLiveScenario = isNull(simulatorScenarios.deletedAt);
 const isLiveMember = isNull(simulatorScenarioPartyMembers.deletedAt);
 const isLiveEntry = isNull(simulatorScenarioMonsterEntries.deletedAt);
@@ -88,6 +92,28 @@ const loadLiveMonsterEntry = async (db: Database, id: string) => {
   }
 
   return entry;
+};
+
+/**
+ * Clears a scenario's last-run result whenever its composition or starting
+ * positions change. A saved Monte Carlo summary is only meaningful for the
+ * exact roster it was computed from — without this, `saveAsPreset`'s "has
+ * this scenario actually been run" gate would keep passing on a stale
+ * `lastRunAt` after the DM adds/removes/recounts/repositions a combatant,
+ * letting an untested composition get saved as if it were balance-checked.
+ */
+const clearLastRunResult = async (db: Database, scenarioId: string) => {
+  const scenario = await loadLiveScenario(db, scenarioId);
+  if (!scenario.lastRunAt) return;
+
+  await db
+    .update(simulatorScenarios)
+    .set({
+      lastRunAt: null,
+      lastRunSummary: null,
+      ...touchSyncMeta({ version: scenario.version, now: new Date() }),
+    })
+    .where(eq(simulatorScenarios.id, scenarioId));
 };
 
 /**
@@ -385,6 +411,8 @@ export const simulatorRouter = createTRPCRouter({
         })
         .returning();
 
+      await clearLastRunResult(ctx.db, scenario.id);
+
       return created;
     }),
 
@@ -397,6 +425,8 @@ export const simulatorRouter = createTRPCRouter({
         .update(simulatorScenarioPartyMembers)
         .set(tombstoneSyncMeta({ version: member.version, now: new Date() }))
         .where(eq(simulatorScenarioPartyMembers.id, member.id));
+
+      await clearLastRunResult(ctx.db, member.scenarioId);
 
       return { id: member.id };
     }),
@@ -415,6 +445,8 @@ export const simulatorRouter = createTRPCRouter({
         })
         .where(eq(simulatorScenarioPartyMembers.id, member.id))
         .returning();
+
+      await clearLastRunResult(ctx.db, member.scenarioId);
 
       return updated;
     }),
@@ -477,6 +509,8 @@ export const simulatorRouter = createTRPCRouter({
         })
         .returning();
 
+      await clearLastRunResult(ctx.db, scenario.id);
+
       return created;
     }),
 
@@ -494,6 +528,8 @@ export const simulatorRouter = createTRPCRouter({
         .where(eq(simulatorScenarioMonsterEntries.id, entry.id))
         .returning();
 
+      await clearLastRunResult(ctx.db, entry.scenarioId);
+
       return updated;
     }),
 
@@ -506,6 +542,8 @@ export const simulatorRouter = createTRPCRouter({
         .update(simulatorScenarioMonsterEntries)
         .set(tombstoneSyncMeta({ version: entry.version, now: new Date() }))
         .where(eq(simulatorScenarioMonsterEntries.id, entry.id));
+
+      await clearLastRunResult(ctx.db, entry.scenarioId);
 
       return { id: entry.id };
     }),
@@ -524,6 +562,8 @@ export const simulatorRouter = createTRPCRouter({
         })
         .where(eq(simulatorScenarioMonsterEntries.id, entry.id))
         .returning();
+
+      await clearLastRunResult(ctx.db, entry.scenarioId);
 
       return updated;
     }),
@@ -563,11 +603,22 @@ export const simulatorRouter = createTRPCRouter({
         });
       }
 
-      const results: EngineResult[] = Array.from(
-        { length: trialCount },
-        (_, index) =>
+      // A batch can run up to `MAX_TRIAL_COUNT` trials; `runEncounter` itself
+      // is synchronous, so without a periodic yield a large batch would run
+      // as one uninterrupted stretch on Node's single thread — stalling
+      // every other in-flight request against this one-container-per-
+      // campaign app (including the live SSE battle-viewer stream) for the
+      // whole batch. Yielding back to the event loop every
+      // `TRIALS_PER_TICK` trials keeps each individual stall short.
+      const results: EngineResult[] = [];
+      for (let index = 0; index < trialCount; index += 1) {
+        results.push(
           runEncounter({ combatants }, (baseSeed + index) % SEED_MODULUS),
-      );
+        );
+        if ((index + 1) % TRIALS_PER_TICK === 0) {
+          await new Promise(resolve => setImmediate(resolve));
+        }
+      }
 
       const summary = aggregateBatchResults(baseSeed, results);
       const now = new Date();

@@ -233,6 +233,89 @@ const replaceCombatDataRows = async (
   }
 };
 
+/**
+ * Regenerates just a PC's spell-slot and resource rows for a new level,
+ * leaving actions and spells untouched — those may carry a DM's manual
+ * edits that `applyClassTemplate`'s doc comment explicitly says not to
+ * guess at. Spell slots and resources are both pure functions of class +
+ * level (`buildClassTemplateMaterialization`), so they're safe to recompute
+ * on their own whenever level changes, without a full class-template
+ * re-apply.
+ */
+const replaceSpellSlotsAndResources = async (
+  db: Database,
+  playerCharacterId: string,
+  spellSlots: readonly CharacterSpellSlotInput[],
+  resources: readonly ResourceRowInput[],
+) => {
+  const now = new Date();
+
+  const [doomedSlots, doomedResources] = await Promise.all([
+    db
+      .select({
+        id: playerCharacterSpellSlots.id,
+        version: playerCharacterSpellSlots.version,
+      })
+      .from(playerCharacterSpellSlots)
+      .where(
+        and(
+          eq(playerCharacterSpellSlots.playerCharacterId, playerCharacterId),
+          isLiveSlot,
+        ),
+      ),
+    db
+      .select({
+        id: playerCharacterResources.id,
+        version: playerCharacterResources.version,
+      })
+      .from(playerCharacterResources)
+      .where(
+        and(
+          eq(playerCharacterResources.playerCharacterId, playerCharacterId),
+          isLiveResource,
+        ),
+      ),
+  ]);
+
+  await Promise.all([
+    ...doomedSlots.map(row =>
+      db
+        .update(playerCharacterSpellSlots)
+        .set(tombstoneSyncMeta({ version: row.version, now }))
+        .where(eq(playerCharacterSpellSlots.id, row.id)),
+    ),
+    ...doomedResources.map(row =>
+      db
+        .update(playerCharacterResources)
+        .set(tombstoneSyncMeta({ version: row.version, now }))
+        .where(eq(playerCharacterResources.id, row.id)),
+    ),
+  ]);
+
+  if (spellSlots.length) {
+    await db.insert(playerCharacterSpellSlots).values(
+      spellSlots.map(slot => ({
+        playerCharacterId,
+        spellLevel: slot.spellLevel,
+        maxSlots: slot.maxSlots,
+      })),
+    );
+  }
+
+  if (resources.length) {
+    await db.insert(playerCharacterResources).values(
+      resources.map(resource => ({
+        playerCharacterId,
+        resourceKey: resource.resourceKey,
+        name: resource.name,
+        maxUses: resource.isUnlimited ? null : (resource.maxUses ?? null),
+        isUnlimited: resource.isUnlimited,
+        resetsOn: resource.resetsOn,
+      })),
+    );
+  }
+};
+
 export const charactersRouter = createTRPCRouter({
   list: publicProcedure.query(({ ctx }) =>
     ctx.db
@@ -288,6 +371,30 @@ export const charactersRouter = createTRPCRouter({
         .where(eq(playerCharacters.id, input.id))
         .returning();
 
+      // A level change on a character that already has a class applied
+      // would otherwise leave its materialized spell slots/resources stale
+      // for the new level until the DM manually re-runs the class wizard —
+      // regenerate them here too, since both are pure functions of class +
+      // level. Actions/spells are deliberately left untouched (may carry a
+      // DM's manual edits `applyClassTemplate` doesn't know about).
+      if (existing.characterClassSlug && input.level !== existing.level) {
+        const characterClass = await ctx.db.query.characterClasses.findFirst({
+          where: eq(characterClasses.slug, existing.characterClassSlug),
+        });
+        if (characterClass) {
+          const materialization = buildClassTemplateMaterialization(
+            characterClass,
+            input.level,
+          );
+          await replaceSpellSlotsAndResources(
+            ctx.db,
+            input.id,
+            materialization.spellSlots,
+            materialization.resources,
+          );
+        }
+      }
+
       return updated;
     }),
 
@@ -306,10 +413,95 @@ export const charactersRouter = createTRPCRouter({
         });
       }
 
+      const now = new Date();
+
       await ctx.db
         .update(playerCharacters)
-        .set(tombstoneSyncMeta({ version: existing.version, now: new Date() }))
+        .set(tombstoneSyncMeta({ version: existing.version, now }))
         .where(eq(playerCharacters.id, input.id));
+
+      // Tombstone the character's own combat-data child rows too, so they
+      // don't outlive their parent as orphaned "live" rows — mirrors
+      // `replaceCombatDataRows`' own tombstone step, just with nothing to
+      // re-insert afterward.
+      const [doomedActions, doomedSpells, doomedSlots, doomedResources] =
+        await Promise.all([
+          ctx.db
+            .select({
+              id: playerCharacterActions.id,
+              version: playerCharacterActions.version,
+            })
+            .from(playerCharacterActions)
+            .where(
+              and(
+                eq(playerCharacterActions.playerCharacterId, input.id),
+                isLiveAction,
+              ),
+            ),
+          ctx.db
+            .select({
+              id: playerCharacterSpells.id,
+              version: playerCharacterSpells.version,
+            })
+            .from(playerCharacterSpells)
+            .where(
+              and(
+                eq(playerCharacterSpells.playerCharacterId, input.id),
+                isLiveSpell,
+              ),
+            ),
+          ctx.db
+            .select({
+              id: playerCharacterSpellSlots.id,
+              version: playerCharacterSpellSlots.version,
+            })
+            .from(playerCharacterSpellSlots)
+            .where(
+              and(
+                eq(playerCharacterSpellSlots.playerCharacterId, input.id),
+                isLiveSlot,
+              ),
+            ),
+          ctx.db
+            .select({
+              id: playerCharacterResources.id,
+              version: playerCharacterResources.version,
+            })
+            .from(playerCharacterResources)
+            .where(
+              and(
+                eq(playerCharacterResources.playerCharacterId, input.id),
+                isLiveResource,
+              ),
+            ),
+        ]);
+
+      await Promise.all([
+        ...doomedActions.map(row =>
+          ctx.db
+            .update(playerCharacterActions)
+            .set(tombstoneSyncMeta({ version: row.version, now }))
+            .where(eq(playerCharacterActions.id, row.id)),
+        ),
+        ...doomedSpells.map(row =>
+          ctx.db
+            .update(playerCharacterSpells)
+            .set(tombstoneSyncMeta({ version: row.version, now }))
+            .where(eq(playerCharacterSpells.id, row.id)),
+        ),
+        ...doomedSlots.map(row =>
+          ctx.db
+            .update(playerCharacterSpellSlots)
+            .set(tombstoneSyncMeta({ version: row.version, now }))
+            .where(eq(playerCharacterSpellSlots.id, row.id)),
+        ),
+        ...doomedResources.map(row =>
+          ctx.db
+            .update(playerCharacterResources)
+            .set(tombstoneSyncMeta({ version: row.version, now }))
+            .where(eq(playerCharacterResources.id, row.id)),
+        ),
+      ]);
 
       return { id: input.id };
     }),

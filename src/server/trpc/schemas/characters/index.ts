@@ -59,13 +59,22 @@ const characterSpellSlotSchema = z.object({
   maxSlots: z.number().int().min(0).max(20),
 });
 
-const characterResourceSchema = z.object({
-  resourceKey: z.string().trim().min(1),
-  name: z.string().trim().min(1).max(80),
-  maxUses: z.number().int().min(0).max(999).optional(),
-  isUnlimited: z.boolean().default(false),
-  resetsOn: z.enum(RESOURCE_RESET_TIMINGS),
-});
+const characterResourceSchema = z
+  .object({
+    resourceKey: z.string().trim().min(1),
+    name: z.string().trim().min(1).max(80),
+    maxUses: z.number().int().min(0).max(999).optional(),
+    isUnlimited: z.boolean().default(false),
+    resetsOn: z.enum(RESOURCE_RESET_TIMINGS),
+  })
+  // `isUnlimited` and `maxUses` would otherwise be two independent
+  // optional/defaulted fields, so a contradictory `{isUnlimited: true,
+  // maxUses: 5}` was representable and type-valid — reject it here instead
+  // of leaving every consumer to re-derive which one wins.
+  .refine(resource => !resource.isUnlimited || resource.maxUses === undefined, {
+    message: 'An unlimited resource cannot also have a maximum use count.',
+    path: ['maxUses'],
+  });
 
 /**
  * Replaces every materialized action/spell/slot/resource row for a PC in one

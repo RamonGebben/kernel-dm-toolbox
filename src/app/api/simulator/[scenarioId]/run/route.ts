@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { getDb } from '~/server/db';
 import { loadScenarioCombatants } from '~/server/simulator/loadScenarioCombatants';
 import { runEncounter } from '~/server/simulator/engine/runEncounter';
@@ -33,9 +34,13 @@ export const GET = async (
 ) => {
   const { scenarioId } = await params;
   const seedParam = new URL(request.url).searchParams.get('seed');
+  const parsedSeed = seedParam === null ? null : Number(seedParam);
   const seed =
-    seedParam !== null && Number.isFinite(Number(seedParam))
-      ? Number(seedParam)
+    parsedSeed !== null &&
+    Number.isInteger(parsedSeed) &&
+    parsedSeed >= 0 &&
+    parsedSeed <= 2 ** 31 - 1
+      ? parsedSeed
       : Math.floor(Math.random() * 2 ** 31);
 
   const encoder = new TextEncoder();
@@ -59,48 +64,65 @@ export const GET = async (
 
       request.signal.addEventListener('abort', close);
 
-      const combatants = await loadScenarioCombatants(getDb(), scenarioId);
+      // Loading the scenario and running the encounter can both throw (e.g.
+      // the scenario was deleted between the client opening this connection
+      // and the request landing) — caught here so the failure reaches the
+      // client as a proper `error` frame (per `battleStreamTypes.ts`,
+      // consumed by `useBattleRunStream`) instead of an unhandled rejection
+      // that just errors the stream at the transport level with no message.
+      try {
+        const combatants = await loadScenarioCombatants(getDb(), scenarioId);
 
-      const hasParty = combatants.some(c => c.side === 'party');
-      const hasMonsters = combatants.some(c => c.side === 'monsters');
+        const hasParty = combatants.some(c => c.side === 'party');
+        const hasMonsters = combatants.some(c => c.side === 'monsters');
 
-      if (!hasParty || !hasMonsters) {
+        if (!hasParty || !hasMonsters) {
+          send({
+            kind: 'error',
+            message:
+              'This scenario needs at least one party member and one monster before it can run.',
+          });
+          close();
+          return;
+        }
+
+        const result = runEncounter({ combatants }, seed);
+
+        const startCombatants: BattleStartCombatant[] = combatants.map(c => ({
+          id: c.id,
+          name: c.name,
+          side: c.side,
+          position: c.position,
+          maxHitPoints: c.maxHitPoints,
+        }));
+
+        send({ kind: 'start', seed, combatants: startCombatants });
+
+        for (const entry of result.log) {
+          if (isClosed) break;
+          send({ kind: 'entry', entry });
+          // Yields back to the event loop between frames so a long log goes
+          // out as a real sequence of chunks, not one synchronous burst.
+          await Promise.resolve();
+        }
+
+        send({
+          kind: 'complete',
+          winner: result.winner,
+          rounds: result.rounds,
+          combatants: result.combatants,
+        });
+      } catch (error) {
         send({
           kind: 'error',
           message:
-            'This scenario needs at least one party member and one monster before it can run.',
+            error instanceof TRPCError
+              ? error.message
+              : 'Something went wrong running this encounter.',
         });
+      } finally {
         close();
-        return;
       }
-
-      const result = runEncounter({ combatants }, seed);
-
-      const startCombatants: BattleStartCombatant[] = combatants.map(c => ({
-        id: c.id,
-        name: c.name,
-        side: c.side,
-        position: c.position,
-        maxHitPoints: c.maxHitPoints,
-      }));
-
-      send({ kind: 'start', seed, combatants: startCombatants });
-
-      for (const entry of result.log) {
-        if (isClosed) break;
-        send({ kind: 'entry', entry });
-        // Yields back to the event loop between frames so a long log goes
-        // out as a real sequence of chunks, not one synchronous burst.
-        await Promise.resolve();
-      }
-
-      send({
-        kind: 'complete',
-        winner: result.winner,
-        rounds: result.rounds,
-        combatants: result.combatants,
-      });
-      close();
     },
   });
 

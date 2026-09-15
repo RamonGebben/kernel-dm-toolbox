@@ -315,6 +315,13 @@ export const runEncounter = (
     }
 
     if (choice.action.attack) {
+      // Same rule as the save branch below: casting a new concentration
+      // action always ends whatever this actor was concentrating on before,
+      // success or failure — an attack-roll concentration spell (e.g. Witch
+      // Bolt) reaches this branch, not the save branch, so it needs the same
+      // handling.
+      if (choice.action.requiresConcentration) breakConcentration(actorId);
+
       const { updatedTarget, logEntry } = resolveAttack(
         rng,
         byId.get(actorId)!,
@@ -328,6 +335,23 @@ export const runEncounter = (
         logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
         logEntry.kind === 'attack' && logEntry.critical,
       );
+
+      // Concentration begins the moment the spell is cast, independent of
+      // whether the attack roll actually hits — unless the actor didn't
+      // survive resolving its own attack somehow (not currently possible,
+      // but `isLiving` keeps this consistent with the save branch).
+      if (choice.action.requiresConcentration) {
+        const actorNow = byId.get(actorId)!;
+        if (isLiving(actorNow)) {
+          byId.set(actorId, {
+            ...actorNow,
+            concentratingOn: {
+              actionId: choice.action.id,
+              actionName: choice.action.name,
+            },
+          });
+        }
+      }
       return;
     }
 
@@ -403,6 +427,16 @@ export const runEncounter = (
       const meleeAction = meleeAttackAction(enemy);
       if (!meleeAction?.attack) continue;
 
+      // A limited-use melee action (e.g. a recharge ability) is just as
+      // capped when triggered as an opportunity attack as it is on the
+      // combatant's own turn — gate on the same per-encounter use tracking
+      // `availableActionIds` already enforces everywhere else.
+      const available = availableActionIds(
+        enemy,
+        usesSoFar.get(enemy.id) ?? new Map(),
+      );
+      if (!available.has(meleeAction.id)) continue;
+
       const reach = meleeAction.attack.reach ?? DEFAULT_MELEE_REACH_FEET;
       const wasInReach = chebyshevDistanceFeet(enemy.position, from) <= reach;
       const stillInReach = chebyshevDistanceFeet(enemy.position, to) <= reach;
@@ -412,6 +446,7 @@ export const runEncounter = (
       const target = byId.get(moverId);
       if (!target || !isLiving(target)) continue;
 
+      recordUse(enemy.id, meleeAction.id);
       const { updatedTarget, logEntry } = resolveAttack(
         rng,
         enemy,
@@ -469,6 +504,18 @@ export const runEncounter = (
       for (let i = 0; i < count; i += 1) {
         if (!isLiving(byId.get(combatantId)!)) return;
 
+        // A sub-action inside a Multiattack sequence is still subject to its
+        // own per-encounter use cap, the same as every other action-
+        // selection path in this engine — stop repeating this sub-action
+        // (but let the rest of the sequence continue) once it's exhausted.
+        if (
+          action.maxUsesPerEncounter !== null &&
+          (usesSoFar.get(combatantId)?.get(actionId) ?? 0) >=
+            action.maxUsesPerEncounter
+        ) {
+          break;
+        }
+
         const enemies = livingOnSide(opposingSide(byId.get(combatantId)!.side));
         if (!enemies.length) return;
 
@@ -490,6 +537,7 @@ export const runEncounter = (
         applyUpdate(
           updatedTarget,
           logEntry.kind === 'attack' && logEntry.hit ? logEntry.damage : 0,
+          logEntry.kind === 'attack' && logEntry.critical,
         );
       }
     }
