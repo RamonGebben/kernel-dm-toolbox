@@ -14,6 +14,7 @@ export type CharacterRowProps = {
   /** True once they are already in the encounter — they cannot be added twice. */
   isInEncounter: boolean;
   onAddToEncounter: () => void;
+  onOpenClass: () => void;
   onEdit: () => void;
   onRemove: () => void;
 };
@@ -27,6 +28,7 @@ export const CharacterRow = ({
   initiativeModifier,
   isInEncounter,
   onAddToEncounter,
+  onOpenClass,
   onEdit,
   onRemove,
 }: CharacterRowProps) => (
@@ -47,6 +49,9 @@ export const CharacterRow = ({
         aria-label={`Add ${name} to the encounter`}
       >
         {isInEncounter ? 'In fight' : 'Add'}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onOpenClass}>
+        Class
       </Button>
       <Button variant="ghost" size="sm" onClick={onEdit}>
         Edit

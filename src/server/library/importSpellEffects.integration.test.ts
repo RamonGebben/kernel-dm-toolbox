@@ -123,6 +123,8 @@ const payloads: Record<string, unknown> = {
   ConditionDescription: [],
   Spell: [fireball, delayedBlastFireball, shield],
   SpellCastingOption: [],
+  CharacterClass: [],
+  ClassFeature: [],
 };
 
 const stubFetchJson: FetchJson = async url => {

@@ -6,6 +6,8 @@ import {
   real,
   check,
 } from 'drizzle-orm/sqlite-core';
+import type { BatchSummary } from '~/server/simulator/engine/aggregateBatchResults';
+import type { MultiattackSequenceEntry } from '~/server/library/parseMultiattackSequence';
 
 /**
  * Every table in this app spreads `syncMeta`.
@@ -178,6 +180,61 @@ export const creatures = sqliteTable('creatures', {
   languagesDesc: text('languages_desc'),
 });
 
+/**
+ * Save/area data for an action, backfilled at import time by parsing
+ * `desc`'s prose (`~/server/library/parseCreatureActionSaveArea`) — Open5e
+ * has no structured fields for this, unlike a spell. Left null wherever the
+ * prose doesn't match the parser's template; the engine falls back to
+ * treating the action as a basic attack when these are null.
+ */
+/**
+ * Condition applied on a failed save. Read together by the simulator engine
+ * (issue #5, milestone 10):
+ * - `appliesConditionSlug` null: this action/spell never applies a condition.
+ * - `conditionSaveEndsEachTurn` true: the affected creature repeats the
+ *   triggering save (the bundle's own `saveAbility`/`saveDc` — there is no
+ *   separate "condition save") at the end of each of its turns, removing the
+ *   condition on a success — the common "Hold Person" shape.
+ * - `conditionDurationRounds` set: a hard cap in rounds from application,
+ *   e.g. a dragon breath's "after 1 minute, it succeeds automatically" (10
+ *   rounds). Can coexist with `conditionSaveEndsEachTurn` — whichever ends
+ *   the condition first wins.
+ * - Both null/false: no fixed short duration and no repeat save — the
+ *   condition persists until removed by some other means the engine doesn't
+ *   model (matches how `combatant_conditions.roundsRemaining` already
+ *   treats an indefinite condition like Prone in the live tracker).
+ *
+ * Left null wherever `desc`'s prose doesn't parse cleanly, or describes a
+ * multi-stage escalating effect (e.g. "First Failure ... Second Failure
+ * ...") that can't be reduced to one condition + duration — see
+ * `parseConditionApplication`'s own doc comment.
+ */
+const conditionApplicationColumns = {
+  appliesConditionSlug: text('applies_condition_slug').references(
+    () => conditions.slug,
+  ),
+  conditionDurationRounds: integer('condition_duration_rounds'),
+  conditionSaveEndsEachTurn: integer('condition_save_ends_each_turn', {
+    mode: 'boolean',
+  })
+    .notNull()
+    .default(false),
+};
+
+const saveAreaColumns = {
+  saveAbility: text('save_ability'),
+  saveDc: integer('save_dc'),
+  areaType: text('area_type'),
+  areaSize: real('area_size'),
+  areaSizeUnit: text('area_size_unit'),
+  damageOnFailRoll: text('damage_on_fail_roll'),
+  damageOnFailType: text('damage_on_fail_type'),
+  halfDamageOnSave: integer('half_damage_on_save', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  ...conditionApplicationColumns,
+};
+
 /** ACTION | BONUS_ACTION | REACTION | LEGENDARY_ACTION, ordered for display. */
 export const creatureActions = sqliteTable('creature_actions', {
   slug: text('slug').primaryKey(),
@@ -192,6 +249,21 @@ export const creatureActions = sqliteTable('creature_actions', {
   legendaryActionCost: integer('legendary_action_cost'),
   usesType: text('uses_type'),
   usesParam: integer('uses_param'),
+  ...saveAreaColumns,
+  /**
+   * Only set on a "Multiattack" action, parsed from its own `desc` prose
+   * (`~/server/library/parseMultiattackSequence`) into which other named
+   * actions on this creature it triggers and how many times each. Null for
+   * every other action, and null on a Multiattack whose prose doesn't match
+   * a recognized pattern (a choice like "using X or Y in any combination",
+   * or an optional "it can replace one attack with..." clause, isn't
+   * modeled — see the parser's own doc comment). The engine falls back to a
+   * single basic attack when this is null, same fallback `saveAreaColumns`
+   * already uses.
+   */
+  multiattackSequence: text('multiattack_sequence', {
+    mode: 'json',
+  }).$type<MultiattackSequenceEntry[] | null>(),
 });
 
 /** Structured attack rolls hanging off an action. */
@@ -259,6 +331,8 @@ export const importRuns = sqliteTable('import_runs', {
   conditionCount: integer('condition_count').notNull().default(0),
   spellCount: integer('spell_count').notNull().default(0),
   castingOptionCount: integer('casting_option_count').notNull().default(0),
+  characterClassCount: integer('character_class_count').notNull().default(0),
+  classFeatureCount: integer('class_feature_count').notNull().default(0),
   /** How many spells matched an animated effect this run — see
    * `spellEffects`. Not how many *files* were downloaded: several spells
    * commonly share one deduplicated clip. */
@@ -321,6 +395,7 @@ export const spells = sqliteTable('spells', {
     .$type<string[]>()
     .notNull()
     .default([]),
+  ...conditionApplicationColumns,
 
   shapeType: text('shape_type'),
   shapeSize: real('shape_size'),
@@ -356,6 +431,60 @@ export const spellCastingOptions = sqliteTable('spell_casting_options', {
   shapeSize: real('shape_size'),
   concentration: integer('concentration', { mode: 'boolean' }),
 });
+
+/**
+ * A PC class or subclass, imported from Open5e's `CharacterClass.json`
+ * (issue #5). Library-style: read-only, keyed by the upstream slug, exempt
+ * from `syncMeta` — same treatment as `creatures`/`spells`.
+ *
+ * Both a base class (`subclassOfSlug` null) and its subclasses are rows in
+ * this one table, distinguished by the self-referencing FK — matching
+ * upstream, which models a subclass as just another `CharacterClass` record
+ * rather than a separate model.
+ */
+export const characterClasses = sqliteTable('character_classes', {
+  /** The upstream primary key, e.g. `srd-2024_barbarian`. */
+  slug: text('slug').primaryKey(),
+  document: text('document').notNull(),
+  name: text('name').notNull(),
+  /** Only present upstream for a subclass — flavor text, not mechanics. */
+  desc: text('desc'),
+  /** Null for most subclasses, which inherit the parent class's hit dice. */
+  hitDice: text('hit_dice'),
+  casterType: text('caster_type').notNull(),
+  primaryAbilities: text('primary_abilities', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  savingThrows: text('saving_throws', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  /** Null for a base class; the parent class's slug for a subclass. */
+  subclassOfSlug: text('subclass_of_slug'),
+});
+
+export type CharacterClass = typeof characterClasses.$inferSelect;
+export type NewCharacterClass = typeof characterClasses.$inferInsert;
+
+/**
+ * Reference text for a class/subclass feature — prose only, no level gating
+ * or numeric grants upstream. Shown alongside a granted action/resource, not
+ * consumed mechanically by the simulator engine; the mechanical numbers live
+ * in the hand-authored `src/content/classProgression` instead.
+ */
+export const characterClassFeatures = sqliteTable('character_class_features', {
+  slug: text('slug').primaryKey(),
+  classSlug: text('class_slug')
+    .notNull()
+    .references(() => characterClasses.slug, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  desc: text('desc').notNull(),
+});
+
+export type CharacterClassFeature = typeof characterClassFeatures.$inferSelect;
+export type NewCharacterClassFeature =
+  typeof characterClassFeatures.$inferInsert;
 
 export type Creature = typeof creatures.$inferSelect;
 export type NewCreature = typeof creatures.$inferInsert;
@@ -424,6 +553,15 @@ export const playerCharacters = sqliteTable('player_characters', {
   /** Added to a d20 when the DM types in what the player rolled. */
   initiativeModifier: integer('initiative_modifier').notNull().default(0),
   level: integer('level').notNull().default(1),
+  /**
+   * Nullable so an existing PC (or a DM who doesn't care about the
+   * simulator) is never broken by this pair — set together by
+   * `characters.applyClassTemplate` (issue #5, milestone 2).
+   */
+  characterClassSlug: text('character_class_slug').references(
+    () => characterClasses.slug,
+  ),
+  subclassSlug: text('subclass_slug').references(() => characterClasses.slug),
 });
 
 export type PlayerCharacter = typeof playerCharacters.$inferSelect;
@@ -548,6 +686,14 @@ export const customCreatureActions = sqliteTable('custom_creature_actions', {
   legendaryActionCost: integer('legendary_action_cost'),
   usesType: text('uses_type'),
   usesParam: integer('uses_param'),
+  /** Same shape as `creatureActions`' own save/area columns — always
+   * hand-authored here via the custom-creature wizard, never parsed. */
+  ...saveAreaColumns,
+  /** Same shape as `creatureActions.multiattackSequence` — always
+   * hand-authored, never parsed (there is no prose to parse). */
+  multiattackSequence: text('multiattack_sequence', {
+    mode: 'json',
+  }).$type<MultiattackSequenceEntry[] | null>(),
 });
 
 export type CustomCreatureAction = typeof customCreatureActions.$inferSelect;
@@ -585,6 +731,157 @@ export type CustomCreatureActionAttack =
   typeof customCreatureActionAttacks.$inferSelect;
 export type NewCustomCreatureActionAttack =
   typeof customCreatureActionAttacks.$inferInsert;
+
+/* ---------------------------------------------------------------------------
+ * Encounter simulator: PC class materialization (issue #5, milestone 2)
+ *
+ * Picking a class/subclass/level on a `player_characters` row (via
+ * `characters.applyClassTemplate`) writes a snapshot into the four tables
+ * below, then leaves it fully DM-editable — same spirit as `custom_creatures`
+ * being hand-authored once and edited freely afterward. A re-apply (a level
+ * up, a respec) wipes and recreates every row here; it is an explicit,
+ * confirmed overwrite in the UI, not a silent resync, so nothing tries to
+ * diff/merge a DM's manual edits against a new template.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Mirrors `custom_creature_actions` field-for-field (including the save/area
+ * columns, for parity, even though `applyClassTemplate` never populates them
+ * itself — a DM adding a homebrew AoE ability to a PC gets the same fields a
+ * monster's would have).
+ */
+export const playerCharacterActions = sqliteTable('player_character_actions', {
+  ...syncMeta,
+  playerCharacterId: text('player_character_id')
+    .notNull()
+    .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  desc: text('desc').notNull(),
+  actionType: text('action_type').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  legendaryActionCost: integer('legendary_action_cost'),
+  usesType: text('uses_type'),
+  usesParam: integer('uses_param'),
+  ...saveAreaColumns,
+});
+
+export type PlayerCharacterAction = typeof playerCharacterActions.$inferSelect;
+export type NewPlayerCharacterAction =
+  typeof playerCharacterActions.$inferInsert;
+
+/**
+ * Mirrors `custom_creature_action_attacks` field-for-field. Per the issue,
+ * this is also where a PC's weapon lives — same as a monster, there is no
+ * separate "weapon" concept, just an attack row hanging off an action.
+ */
+export const playerCharacterActionAttacks = sqliteTable(
+  'player_character_action_attacks',
+  {
+    ...syncMeta,
+    playerCharacterActionId: text('player_character_action_id')
+      .notNull()
+      .references(() => playerCharacterActions.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    attackType: text('attack_type'),
+    toHitMod: integer('to_hit_mod'),
+    reach: integer('reach'),
+    range: integer('range'),
+    longRange: integer('long_range'),
+    targetCreatureOnly: integer('target_creature_only', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    damageDieCount: integer('damage_die_count'),
+    damageDieType: text('damage_die_type'),
+    damageBonus: integer('damage_bonus'),
+    damageType: text('damage_type'),
+    extraDamageDieCount: integer('extra_damage_die_count'),
+    extraDamageDieType: text('extra_damage_die_type'),
+    extraDamageBonus: integer('extra_damage_bonus'),
+    extraDamageType: text('extra_damage_type'),
+  },
+);
+
+export type PlayerCharacterActionAttack =
+  typeof playerCharacterActionAttacks.$inferSelect;
+export type NewPlayerCharacterActionAttack =
+  typeof playerCharacterActionAttacks.$inferInsert;
+
+/**
+ * A spell a PC knows or has prepared. `isPrepared` does double duty for both
+ * casting styles the issue calls out — a "known" caster (Sorcerer, Bard)
+ * just always has it prepared; a "prepared" caster (Cleric, Wizard, Druid)
+ * toggles it. `isAlwaysAvailable` is the cantrip flag: a cantrip is never
+ * affected by the prepared list.
+ */
+export const playerCharacterSpells = sqliteTable('player_character_spells', {
+  ...syncMeta,
+  playerCharacterId: text('player_character_id')
+    .notNull()
+    .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+  spellSlug: text('spell_slug')
+    .notNull()
+    .references(() => spells.slug),
+  isPrepared: integer('is_prepared', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  isAlwaysAvailable: integer('is_always_available', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+});
+
+export type PlayerCharacterSpell = typeof playerCharacterSpells.$inferSelect;
+export type NewPlayerCharacterSpell = typeof playerCharacterSpells.$inferInsert;
+
+/**
+ * One row per spell level (1-9) with slots at the PC's current level, from
+ * `~/content/spellSlotsByCasterType`. A Warlock's Pact Magic slots (all cast
+ * at one elevated level) still fit this shape as a single row.
+ */
+export const playerCharacterSpellSlots = sqliteTable(
+  'player_character_spell_slots',
+  {
+    ...syncMeta,
+    playerCharacterId: text('player_character_id')
+      .notNull()
+      .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+    spellLevel: integer('spell_level').notNull(),
+    maxSlots: integer('max_slots').notNull(),
+  },
+);
+
+export type PlayerCharacterSpellSlot =
+  typeof playerCharacterSpellSlots.$inferSelect;
+export type NewPlayerCharacterSpellSlot =
+  typeof playerCharacterSpellSlots.$inferInsert;
+
+/**
+ * A class resource pool (Rage, Ki, Channel Divinity, …) from
+ * `~/content/classProgression`. `resourceKey` carries that module's stable
+ * `key` so a future re-apply/level-up can recognize "this is still Rage"
+ * rather than only matching on the display name. `maxUses` is null when
+ * `isUnlimited` is set (Barbarian's level-20 Rage) — SQLite has no `Infinity`.
+ */
+export const playerCharacterResources = sqliteTable(
+  'player_character_resources',
+  {
+    ...syncMeta,
+    playerCharacterId: text('player_character_id')
+      .notNull()
+      .references(() => playerCharacters.id, { onDelete: 'cascade' }),
+    resourceKey: text('resource_key').notNull(),
+    name: text('name').notNull(),
+    maxUses: integer('max_uses'),
+    isUnlimited: integer('is_unlimited', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    resetsOn: text('resets_on').notNull(),
+  },
+);
+
+export type PlayerCharacterResource =
+  typeof playerCharacterResources.$inferSelect;
+export type NewPlayerCharacterResource =
+  typeof playerCharacterResources.$inferInsert;
 
 /**
  * The encounter. There is exactly one (DECISIONS #14), held as a single row
@@ -1077,4 +1374,98 @@ export const mapMeasurementShapes = sqliteTable(
 );
 
 export type MapMeasurementShape = typeof mapMeasurementShapes.$inferSelect;
+
+/* ---------------------------------------------------------------------------
+ * Encounter simulator: scenarios (issue #5, milestone 3)
+ *
+ * A scenario is a workspace for iterating on a fight before running it — ours,
+ * all `syncMeta`, not library data. It is not itself the tracker's preset
+ * format: "save as preset" (milestone 7) reads a scenario's monster entries
+ * and creates a normal `encounter_presets` row through the existing creation
+ * path — no PC data ever gets baked into a preset, matching
+ * `encounter_presets`' own monster-composition-only shape (DECISIONS #14).
+ * ------------------------------------------------------------------------- */
+
+/** A grid-cell anchor the DM placed a token at. Null means "let the engine
+ * (milestone 4) auto-place this one" rather than requiring every combatant
+ * to be positioned by hand before a scenario can run. */
+export type SimulatorDeploymentPosition = { x: number; y: number };
+
+export const simulatorScenarios = sqliteTable('simulator_scenarios', {
+  ...syncMeta,
+  name: text('name').notNull(),
+  note: text('note'),
+  trialCount: integer('trial_count').notNull().default(100),
+  lastRunAt: integer('last_run_at', { mode: 'timestamp_ms' }),
+  /**
+   * Aggregate Monte Carlo stats from the most recent `simulator.runBatch`
+   * call — win rate, round distribution, per-combatant survival/damage/kill
+   * stats. Null until a scenario has been run at least once.
+   */
+  lastRunSummary: text('last_run_summary', {
+    mode: 'json',
+  }).$type<BatchSummary | null>(),
+});
+
+export type SimulatorScenario = typeof simulatorScenarios.$inferSelect;
+export type NewSimulatorScenario = typeof simulatorScenarios.$inferInsert;
+
+/** One PC in a scenario's party. */
+export const simulatorScenarioPartyMembers = sqliteTable(
+  'simulator_scenario_party_members',
+  {
+    ...syncMeta,
+    scenarioId: text('scenario_id')
+      .notNull()
+      .references(() => simulatorScenarios.id, { onDelete: 'cascade' }),
+    playerCharacterId: text('player_character_id')
+      .notNull()
+      .references(() => playerCharacters.id),
+    positionX: integer('position_x'),
+    positionY: integer('position_y'),
+  },
+);
+
+export type SimulatorScenarioPartyMember =
+  typeof simulatorScenarioPartyMembers.$inferSelect;
+export type NewSimulatorScenarioPartyMember =
+  typeof simulatorScenarioPartyMembers.$inferInsert;
+
+/**
+ * One creature line of a scenario's monster group — a count rather than one
+ * row per monster, same reasoning as `encounter_preset_entries`. Exactly one
+ * of `creatureSlug`/`customCreatureId` is set, the same XOR shape
+ * `encounter_preset_entries`/`combatants` already use. `position` here
+ * anchors the whole group; the engine (milestone 4) spreads `count`
+ * individuals out from it when a trial actually runs.
+ */
+export const simulatorScenarioMonsterEntries = sqliteTable(
+  'simulator_scenario_monster_entries',
+  {
+    ...syncMeta,
+    scenarioId: text('scenario_id')
+      .notNull()
+      .references(() => simulatorScenarios.id, { onDelete: 'cascade' }),
+    creatureSlug: text('creature_slug').references(() => creatures.slug),
+    customCreatureId: text('custom_creature_id').references(
+      () => customCreatures.id,
+    ),
+    count: integer('count').notNull().default(1),
+    /** Display order within the scenario. Never `order` — reserved word. */
+    sortOrder: integer('sort_order').notNull().default(0),
+    positionX: integer('position_x'),
+    positionY: integer('position_y'),
+  },
+  table => [
+    check(
+      'simulator_scenario_monster_entry_has_exactly_one_source',
+      sql`(${table.creatureSlug} is not null) <> (${table.customCreatureId} is not null)`,
+    ),
+  ],
+);
+
+export type SimulatorScenarioMonsterEntry =
+  typeof simulatorScenarioMonsterEntries.$inferSelect;
+export type NewSimulatorScenarioMonsterEntry =
+  typeof simulatorScenarioMonsterEntries.$inferInsert;
 export type NewMapMeasurementShape = typeof mapMeasurementShapes.$inferInsert;

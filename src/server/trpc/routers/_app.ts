@@ -6,6 +6,7 @@ import { customCreaturesRouter } from '~/server/trpc/routers/customCreatures';
 import { encounterRouter } from '~/server/trpc/routers/encounter';
 import { presetsRouter } from '~/server/trpc/routers/presets';
 import { mapsRouter } from '~/server/trpc/routers/maps';
+import { simulatorRouter } from '~/server/trpc/routers/simulator';
 
 /**
  * The root router. One domain router per file beside this one; register it
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   encounter: encounterRouter,
   presets: presetsRouter,
   maps: mapsRouter,
+  simulator: simulatorRouter,
 });
 
 /**

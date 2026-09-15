@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
+  characterClassFeatures,
+  characterClasses,
   conditions,
   creatureActionAttacks,
   creatureActions,
@@ -23,6 +25,8 @@ import { toTraitRow } from '~/server/library/mappers/toTraitRow';
 import { toConditionRow } from '~/server/library/mappers/toConditionRow';
 import { toSpellRow } from '~/server/library/mappers/toSpellRow';
 import { toSpellCastingOptionRow } from '~/server/library/mappers/toSpellCastingOptionRow';
+import { toCharacterClassRow } from '~/server/library/mappers/toCharacterClassRow';
+import { toClassFeatureRow } from '~/server/library/mappers/toClassFeatureRow';
 import { partitionByParent } from '~/server/library/mappers/partitionByParent';
 import { chunk } from '~/utils/chunk';
 import { importSpellEffects } from '~/server/library/importSpellEffects';
@@ -41,6 +45,7 @@ const CHUNK_SIZES = {
   conditions: 120,
   spells: 20,
   castingOptions: 60,
+  classFeatures: 120,
 } as const;
 
 export type ImportProgress = (message: string) => void;
@@ -68,10 +73,13 @@ export type ImportLibraryResult = {
   conditionCount: number;
   spellCount: number;
   castingOptionCount: number;
+  characterClassCount: number;
+  classFeatureCount: number;
   orphanedActions: number;
   orphanedAttacks: number;
   orphanedTraits: number;
   orphanedCastingOptions: number;
+  orphanedClassFeatures: number;
   /** How many spells matched an animated effect — 0 when `effectsStorageDir`
    * was not given. */
   effectCount: number;
@@ -127,6 +135,8 @@ export const importLibrary = async ({
       conditionFixtures,
       spellFixtures,
       castingOptionFixtures,
+      characterClassFixtures,
+      classFeatureFixtures,
     ] = await Promise.all([
       loadFixture('Creature', { gitRef, fetchJson }),
       loadFixture('CreatureAction', { gitRef, fetchJson }),
@@ -135,13 +145,24 @@ export const importLibrary = async ({
       loadFixture('ConditionDescription', { gitRef, fetchJson }),
       loadFixture('Spell', { gitRef, fetchJson }),
       loadFixture('SpellCastingOption', { gitRef, fetchJson }),
+      loadFixture('CharacterClass', { gitRef, fetchJson }),
+      loadFixture('ClassFeature', { gitRef, fetchJson }),
     ]);
 
     const creatureRows = creatureFixtures.map(toCreatureRow);
     const creatureSlugs = new Set(creatureRows.map(row => row.slug));
 
+    // Computed before actions/spells (not after, as a plain reading order
+    // would suggest) because both `toActionRow` and `toSpellRow` resolve a
+    // parsed condition key (e.g. "paralyzed") to its full `conditions.slug`
+    // through this map — a pure parser has no DB access of its own.
+    const conditionRows = conditionFixtures.map(toConditionRow);
+    const conditionSlugByKey = new Map(
+      conditionRows.map(row => [row.key, row.slug]),
+    );
+
     const actionPartition = partitionByParent(
-      actionFixtures.map(toActionRow),
+      actionFixtures.map(fixture => toActionRow(fixture, conditionSlugByKey)),
       'creatureSlug',
       creatureSlugs,
     );
@@ -157,14 +178,25 @@ export const importLibrary = async ({
       'creatureSlug',
       creatureSlugs,
     );
-    const conditionRows = conditionFixtures.map(toConditionRow);
 
-    const spellRows = spellFixtures.map(toSpellRow);
+    const spellRows = spellFixtures.map(fixture =>
+      toSpellRow(fixture, conditionSlugByKey),
+    );
     const spellSlugs = new Set(spellRows.map(row => row.slug));
     const castingOptionPartition = partitionByParent(
       castingOptionFixtures.map(toSpellCastingOptionRow),
       'spellSlug',
       spellSlugs,
+    );
+
+    const characterClassRows = characterClassFixtures.map(toCharacterClassRow);
+    const characterClassSlugs = new Set(
+      characterClassRows.map(row => row.slug),
+    );
+    const classFeaturePartition = partitionByParent(
+      classFeatureFixtures.map(toClassFeatureRow),
+      'classSlug',
+      characterClassSlugs,
     );
 
     // Parents before children, so a foreign key is never briefly unsatisfied.
@@ -176,6 +208,19 @@ export const importLibrary = async ({
         .onConflictDoUpdate({
           target: creatures.slug,
           set: conflictUpdateSet(creatures, rows[0]),
+        });
+    }
+
+    // Conditions before actions/spells: both now carry an
+    // `appliesConditionSlug` FK onto this table (issue #5, milestone 9).
+    onProgress(`Writing ${conditionRows.length} conditions`);
+    for (const rows of chunk(conditionRows, CHUNK_SIZES.conditions)) {
+      await db
+        .insert(conditions)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: conditions.slug,
+          set: conflictUpdateSet(conditions, rows[0]),
         });
     }
 
@@ -212,17 +257,6 @@ export const importLibrary = async ({
         });
     }
 
-    onProgress(`Writing ${conditionRows.length} conditions`);
-    for (const rows of chunk(conditionRows, CHUNK_SIZES.conditions)) {
-      await db
-        .insert(conditions)
-        .values(rows)
-        .onConflictDoUpdate({
-          target: conditions.slug,
-          set: conflictUpdateSet(conditions, rows[0]),
-        });
-    }
-
     onProgress(`Writing ${spellRows.length} spells`);
     for (const rows of chunk(spellRows, CHUNK_SIZES.spells)) {
       await db
@@ -247,6 +281,39 @@ export const importLibrary = async ({
         .onConflictDoUpdate({
           target: spellCastingOptions.id,
           set: conflictUpdateSet(spellCastingOptions, rows[0]),
+        });
+    }
+
+    // A single, unchunked insert: `character_classes` self-references
+    // (`subclassOfSlug`) within this same set, so every row must land in one
+    // statement — SQLite only checks a deferred-by-statement foreign key once
+    // the whole statement finishes, and splitting into chunks could insert a
+    // subclass before the base class it points to. At 24 rows today this is
+    // nowhere near the variable-count ceiling that motivates chunking above.
+    onProgress(`Writing ${characterClassRows.length} character classes`);
+    if (characterClassRows.length > 0) {
+      await db
+        .insert(characterClasses)
+        .values(characterClassRows)
+        .onConflictDoUpdate({
+          target: characterClasses.slug,
+          set: conflictUpdateSet(characterClasses, characterClassRows[0]),
+        });
+    }
+
+    onProgress(
+      `Writing ${classFeaturePartition.kept.length} character class features`,
+    );
+    for (const rows of chunk(
+      classFeaturePartition.kept,
+      CHUNK_SIZES.classFeatures,
+    )) {
+      await db
+        .insert(characterClassFeatures)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: characterClassFeatures.slug,
+          set: conflictUpdateSet(characterClassFeatures, rows[0]),
         });
     }
 
@@ -286,10 +353,13 @@ export const importLibrary = async ({
       conditionCount: conditionRows.length,
       spellCount: spellRows.length,
       castingOptionCount: castingOptionPartition.kept.length,
+      characterClassCount: characterClassRows.length,
+      classFeatureCount: classFeaturePartition.kept.length,
       orphanedActions: actionPartition.orphaned.length,
       orphanedAttacks: attackPartition.orphaned.length,
       orphanedTraits: traitPartition.orphaned.length,
       orphanedCastingOptions: castingOptionPartition.orphaned.length,
+      orphanedClassFeatures: classFeaturePartition.orphaned.length,
       effectCount,
     };
 
@@ -304,6 +374,8 @@ export const importLibrary = async ({
         conditionCount: result.conditionCount,
         spellCount: result.spellCount,
         castingOptionCount: result.castingOptionCount,
+        characterClassCount: result.characterClassCount,
+        classFeatureCount: result.classFeatureCount,
         effectCount: result.effectCount,
       })
       .where(sql`${importRuns.id} = ${run.id}`);

@@ -27,7 +27,13 @@ export const CUSTOM_CREATURE_ACTION_TYPES = [
   'LEGENDARY_ACTION',
 ] as const;
 
-const attackSchema = z.object({
+/**
+ * Exported so `~/server/trpc/schemas/characters` can reuse the identical
+ * action/attack shape for `player_character_actions` — the two tables mirror
+ * each other field-for-field (issue #5), so there is no reason to duplicate
+ * the validation.
+ */
+export const attackSchema = z.object({
   name: z.string().trim().min(1).max(80),
   attackType: z.string().trim().max(40).optional(),
   toHitMod: modifierSchema,
@@ -45,7 +51,7 @@ const attackSchema = z.object({
   extraDamageType: z.string().trim().max(40).optional(),
 });
 
-const actionSchema = z.object({
+export const actionSchema = z.object({
   name: z.string().trim().min(1).max(80),
   desc: z.string().trim().min(1).max(4000),
   actionType: z.enum(CUSTOM_CREATURE_ACTION_TYPES),

@@ -234,6 +234,37 @@ export const spellCastingOptionFixtureSchema = numericPkFixtureRecord(
   }),
 );
 
+/**
+ * A PC class or subclass. `desc` is only present upstream for a subclass;
+ * `hit_dice` is null for most subclasses, which inherit the parent's.
+ */
+export const characterClassFixtureSchema = fixtureRecord(
+  z.object({
+    name: z.string(),
+    document: z.string(),
+    desc: z.string().nullable().default(null),
+    hit_dice: z.string().nullable().default(null),
+    caster_type: z.string(),
+    primary_abilities: slugList,
+    saving_throws: slugList,
+    subclass_of: z.string().nullable().default(null),
+  }),
+);
+
+/** Prose-only reference text for a class/subclass feature. */
+export const classFeatureFixtureSchema = fixtureRecord(
+  z.object({
+    name: z.string(),
+    desc: z.string(),
+    document: z.string(),
+    /** `parent` is the class's (or subclass's) pk. */
+    parent: z.string(),
+  }),
+);
+
+export type CharacterClassFixture = z.infer<typeof characterClassFixtureSchema>;
+export type ClassFeatureFixture = z.infer<typeof classFeatureFixtureSchema>;
+
 export type CreatureFixture = z.infer<typeof creatureFixtureSchema>;
 export type CreatureActionFixture = z.infer<typeof creatureActionFixtureSchema>;
 export type CreatureActionAttackFixture = z.infer<
@@ -255,6 +286,8 @@ export const fixtureFiles = {
   ConditionDescription: conditionFixtureSchema,
   Spell: spellFixtureSchema,
   SpellCastingOption: spellCastingOptionFixtureSchema,
+  CharacterClass: characterClassFixtureSchema,
+  ClassFeature: classFeatureFixtureSchema,
 } as const;
 
 export type FixtureFileName = keyof typeof fixtureFiles;

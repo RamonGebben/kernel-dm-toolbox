@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { toSpellRow } from '~/server/library/mappers/toSpellRow';
 import { spellFixtureSchema } from '~/server/library/fixtures';
 
+const NO_CONDITIONS = new Map<string, string>();
+
 const acidArrow = spellFixtureSchema.parse({
   model: 'api_v2.spell',
   pk: 'srd-2024_acid-arrow',
@@ -40,22 +42,24 @@ const acidArrow = spellFixtureSchema.parse({
 
 describe('toSpellRow', () => {
   it('keys the row on the upstream slug', () => {
-    expect(toSpellRow(acidArrow).slug).toBe('srd-2024_acid-arrow');
+    expect(toSpellRow(acidArrow, NO_CONDITIONS).slug).toBe(
+      'srd-2024_acid-arrow',
+    );
   });
 
   it('keeps the numeric range and the prose upstream renders', () => {
-    const row = toSpellRow(acidArrow);
+    const row = toSpellRow(acidArrow, NO_CONDITIONS);
 
     expect(row.range).toBe(90);
     expect(row.rangeText).toBe('90 feet');
   });
 
   it('turns an empty saving throw into null, not an empty string', () => {
-    expect(toSpellRow(acidArrow).savingThrowAbility).toBeNull();
+    expect(toSpellRow(acidArrow, NO_CONDITIONS).savingThrowAbility).toBeNull();
   });
 
   it('keeps the class and damage type lists queryable', () => {
-    const row = toSpellRow(acidArrow);
+    const row = toSpellRow(acidArrow, NO_CONDITIONS);
 
     expect(row.classes).toEqual(['srd-2024_wizard']);
     expect(row.damageTypes).toEqual(['acid']);
@@ -68,8 +72,35 @@ describe('toSpellRow', () => {
       fields: { ...acidArrow.fields, level: 0, higher_level: '' },
     });
 
-    const row = toSpellRow(cantrip);
+    const row = toSpellRow(cantrip, NO_CONDITIONS);
     expect(row.level).toBe(0);
     expect(row.higherLevel).toBeNull();
+  });
+
+  it('leaves condition application null for a spell that applies no condition', () => {
+    expect(
+      toSpellRow(acidArrow, NO_CONDITIONS).appliesConditionSlug,
+    ).toBeNull();
+  });
+
+  it('resolves appliesConditionSlug through the passed-in condition lookup', () => {
+    const holdPerson = spellFixtureSchema.parse({
+      ...acidArrow,
+      pk: 'srd-2024_hold-person',
+      fields: {
+        ...acidArrow.fields,
+        name: 'Hold Person',
+        desc: 'Choose a Humanoid that you can see within range. The target must succeed on a Wisdom saving throw or have the Paralyzed condition for the duration. At the end of each of its turns, the target repeats the save, ending the spell on itself on a success.',
+        saving_throw_ability: 'wisdom',
+        concentration: true,
+      },
+    });
+
+    const conditionSlugByKey = new Map([['paralyzed', 'srd-2024_paralyzed']]);
+    const row = toSpellRow(holdPerson, conditionSlugByKey);
+
+    expect(row.appliesConditionSlug).toBe('srd-2024_paralyzed');
+    expect(row.conditionSaveEndsEachTurn).toBe(true);
+    expect(row.concentration).toBe(true);
   });
 });

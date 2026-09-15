@@ -49,7 +49,7 @@ const tentacleAction = {
   pk: 'srd-2024_aboleth_tentacle',
   fields: {
     name: 'Tentacle',
-    desc: 'Melee attack.',
+    desc: "Melee attack, and the target has the Blinded condition until the start of the aboleth's next turn.",
     parent: 'srd-2024_aboleth',
     action_type: 'ACTION',
     order_in_statblock: 1,
@@ -173,6 +173,58 @@ const orphanCastingOption = {
   },
 };
 
+const barbarian = {
+  model: 'api_v2.characterclass',
+  pk: 'srd-2024_barbarian',
+  fields: {
+    name: 'Barbarian',
+    document: 'srd-2024',
+    hit_dice: 'D12',
+    caster_type: 'NONE',
+    primary_abilities: [],
+    saving_throws: ['con', 'str'],
+    subclass_of: null,
+  },
+};
+
+const pathOfTheBerserker = {
+  model: 'api_v2.characterclass',
+  pk: 'srd-2024_path-of-the-berserker',
+  fields: {
+    name: 'Path of the Berserker',
+    document: 'srd-2024',
+    desc: 'For some barbarians, rage is a means to an end.',
+    hit_dice: null,
+    caster_type: 'NONE',
+    primary_abilities: [],
+    saving_throws: [],
+    subclass_of: 'srd-2024_barbarian',
+  },
+};
+
+const abilityScoreImprovement = {
+  model: 'api_v2.classfeature',
+  pk: 'srd-2024_barbarian_ability-score-improvement',
+  fields: {
+    name: 'Ability Score Improvement',
+    desc: 'You gain the Ability Score Improvement feat...',
+    document: 'srd-2024',
+    parent: 'srd-2024_barbarian',
+  },
+};
+
+/** Deliberately references a class that is not in the payload. */
+const orphanClassFeature = {
+  model: 'api_v2.classfeature',
+  pk: 'other-doc_wizard_spellcasting',
+  fields: {
+    name: 'Spellcasting',
+    desc: 'You can cast spells.',
+    document: 'other-doc',
+    parent: 'other-doc_wizard',
+  },
+};
+
 const payloads: Record<string, unknown[]> = {
   Creature: [aboleth],
   CreatureAction: [tentacleAction, orphanAction],
@@ -181,6 +233,8 @@ const payloads: Record<string, unknown[]> = {
   ConditionDescription: [blindedCondition],
   Spell: [acidArrow],
   SpellCastingOption: [acidArrowAtThird, orphanCastingOption],
+  CharacterClass: [barbarian, pathOfTheBerserker],
+  ClassFeature: [abilityScoreImprovement, orphanClassFeature],
 };
 
 const stubFetch: FetchJson = async url => {
@@ -217,6 +271,8 @@ describe('importLibrary', () => {
     expect(result.conditionCount).toBe(1);
     expect(result.spellCount).toBe(1);
     expect(result.castingOptionCount).toBe(1);
+    expect(result.characterClassCount).toBe(2);
+    expect(result.classFeatureCount).toBe(1);
   });
 
   it('skips rows whose parent is outside the imported document', async () => {
@@ -224,8 +280,10 @@ describe('importLibrary', () => {
 
     expect(result.orphanedActions).toBe(1);
     expect(result.orphanedCastingOptions).toBe(1);
+    expect(result.orphanedClassFeatures).toBe(1);
     expect(await countRows(db, 'creature_actions')).toBe(1);
     expect(await countRows(db, 'spell_casting_options')).toBe(1);
+    expect(await countRows(db, 'character_class_features')).toBe(1);
   });
 
   it('is idempotent — a second run changes no row counts', async () => {
@@ -239,6 +297,8 @@ describe('importLibrary', () => {
     expect(await countRows(db, 'conditions')).toBe(1);
     expect(await countRows(db, 'spells')).toBe(1);
     expect(await countRows(db, 'spell_casting_options')).toBe(1);
+    expect(await countRows(db, 'character_classes')).toBe(2);
+    expect(await countRows(db, 'character_class_features')).toBe(1);
   });
 
   it('refreshes changed fields on re-import rather than ignoring them', async () => {
@@ -277,6 +337,19 @@ describe('importLibrary', () => {
     expect(condition?.key).toBe('blinded');
   });
 
+  it('resolves a creature action’s condition application through the imported conditions table', async () => {
+    await importLibrary({ db, fetchJson: stubFetch });
+
+    const action = await db.query.creatureActions.findFirst({
+      where: (creatureActions, { eq }) =>
+        eq(creatureActions.slug, 'srd-2024_aboleth_tentacle'),
+    });
+
+    expect(action?.appliesConditionSlug).toBe('srd-2024_blinded');
+    expect(action?.conditionDurationRounds).toBe(1);
+    expect(action?.conditionSaveEndsEachTurn).toBe(false);
+  });
+
   it('imports spells with their higher-slot options attached', async () => {
     await importLibrary({ db, fetchJson: stubFetch });
 
@@ -299,8 +372,21 @@ describe('importLibrary', () => {
     expect(run?.gitRef).toBe('abc123');
     expect(run?.creatureCount).toBe(1);
     expect(run?.spellCount).toBe(1);
+    expect(run?.characterClassCount).toBe(2);
+    expect(run?.classFeatureCount).toBe(1);
     expect(run?.finishedAt).toBeInstanceOf(Date);
     expect(run?.error).toBeNull();
+  });
+
+  it('links a subclass to its parent class through a self-referencing FK', async () => {
+    await importLibrary({ db, fetchJson: stubFetch });
+
+    const subclass = await db.query.characterClasses.findFirst({
+      where: (row, { eq }) => eq(row.slug, 'srd-2024_path-of-the-berserker'),
+    });
+
+    expect(subclass?.subclassOfSlug).toBe('srd-2024_barbarian');
+    expect(subclass?.hitDice).toBeNull();
   });
 
   it('records the failure on the run and rethrows when the fetch fails', async () => {

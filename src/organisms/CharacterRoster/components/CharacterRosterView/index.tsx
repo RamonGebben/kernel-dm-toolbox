@@ -28,6 +28,7 @@ export type CharacterRosterViewProps = {
   /** Ids already in the encounter, so they cannot be added a second time. */
   combatantCharacterIds: readonly string[];
   onAddToEncounter: (character: RosterCharacter) => void;
+  onOpenClass: (character: RosterCharacter) => void;
   onStartCreate: () => void;
   onStartEdit: (character: RosterCharacter) => void;
   onCancelEdit: () => void;
@@ -52,6 +53,7 @@ export const CharacterRosterView = ({
   editing,
   combatantCharacterIds,
   onAddToEncounter,
+  onOpenClass,
   onStartCreate,
   onStartEdit,
   onCancelEdit,
@@ -80,6 +82,7 @@ export const CharacterRosterView = ({
         characters={characters}
         combatantCharacterIds={combatantCharacterIds}
         onAddToEncounter={onAddToEncounter}
+        onOpenClass={onOpenClass}
         onStartEdit={onStartEdit}
         onRemove={onRemove}
       />
@@ -93,6 +96,7 @@ type RosterBodyProps = Pick<
   | 'characters'
   | 'combatantCharacterIds'
   | 'onAddToEncounter'
+  | 'onOpenClass'
   | 'onStartEdit'
   | 'onRemove'
 >;
@@ -103,6 +107,7 @@ const RosterBody = ({
   characters,
   combatantCharacterIds,
   onAddToEncounter,
+  onOpenClass,
   onStartEdit,
   onRemove,
 }: RosterBodyProps) => {
@@ -131,6 +136,7 @@ const RosterBody = ({
             initiativeModifier={character.initiativeModifier}
             isInEncounter={combatantCharacterIds.includes(character.id)}
             onAddToEncounter={() => onAddToEncounter(character)}
+            onOpenClass={() => onOpenClass(character)}
             onEdit={() => onStartEdit(character)}
             onRemove={() => onRemove(character.id)}
           />

@@ -97,6 +97,18 @@ const action = (
   legendaryActionCost: null,
   usesType: null,
   usesParam: null,
+  saveAbility: null,
+  saveDc: null,
+  areaType: null,
+  areaSize: null,
+  areaSizeUnit: null,
+  damageOnFailRoll: null,
+  damageOnFailType: null,
+  halfDamageOnSave: true,
+  appliesConditionSlug: null,
+  conditionDurationRounds: null,
+  conditionSaveEndsEachTurn: false,
+  multiattackSequence: null,
   ...overrides,
 });
 
