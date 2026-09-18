@@ -145,13 +145,30 @@ export const fixtureUrl = (
 /** Injected so the import can be tested without touching the network. */
 export type FetchJson = (url: string) => Promise<unknown>;
 
+/** A fetch failure with the numeric HTTP status attached, so a caller that
+ * cares about a specific status (`loadFixture`'s 404 tolerance) doesn't have
+ * to recover it by pattern-matching the message text. Plain data grafted
+ * onto a real `Error` (not a subclass — this codebase has no classes), same
+ * as any other tagged-error convention here. */
+export type FetchStatusError = Error & { status: number };
+
+const isFetchStatusError = (error: unknown): error is FetchStatusError =>
+  error instanceof Error && 'status' in error;
+
+const toFetchStatusError = (
+  url: string,
+  status: number,
+  statusText: string,
+): FetchStatusError =>
+  Object.assign(new Error(`Failed to fetch ${url}: ${status} ${statusText}`), {
+    status,
+  });
+
 export const fetchJson: FetchJson = async url => {
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch ${url}: ${response.status} ${response.statusText}`,
-    );
+    throw toFetchStatusError(url, response.status, response.statusText);
   }
 
   return response.json();
@@ -190,7 +207,7 @@ export const loadFixture = async <TName extends FixtureFileName>(
   try {
     payload = await fetchImpl(url);
   } catch (error) {
-    if (optional && error instanceof Error && /\b404\b/.test(error.message)) {
+    if (optional && isFetchStatusError(error) && error.status === 404) {
       return [];
     }
     throw error;

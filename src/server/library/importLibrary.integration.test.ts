@@ -366,7 +366,11 @@ describe('importLibrary', () => {
       const missingAttackFile: FetchJson = async url =>
         url.includes('/kobold-press/tob3/') &&
         url.includes('CreatureActionAttack.json')
-          ? Promise.reject(new Error(`Failed to fetch ${url}: 404 Not Found`))
+          ? Promise.reject(
+              Object.assign(new Error(`Failed to fetch ${url}: 404 Not Found`), {
+                status: 404,
+              }),
+            )
           : stubFetch(url);
 
       const result = await importLibrary({ db, fetchJson: missingAttackFile });
