@@ -289,7 +289,7 @@ export const libraryRouter = createTRPCRouter({
    */
   listCreatureDocuments: publicProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db
-      .select({ document: creatures.document })
+      .selectDistinct({ document: creatures.document })
       .from(creatures);
 
     return buildCreatureDocumentOptions(rows.map(row => row.document));
