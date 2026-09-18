@@ -116,12 +116,20 @@ export const useCreatureLibrary = () => {
   const status = useQuery(trpc.library.status.queryOptions());
   const types = useQuery(trpc.library.listCreatureTypes.queryOptions());
   const documents = useQuery(trpc.library.listCreatureDocuments.queryOptions());
+  const source = toCreatureSourceInput(selectedSources);
+  // A Book filter has no custom-creature equivalent — the server treats any
+  // non-empty `documents` as "not a match" for source: 'custom' (mirroring
+  // `category`, see library.ts's listCreatures). The Book control is only
+  // *disabled* while narrowed to Custom, not cleared, so a selection made
+  // before narrowing would otherwise still be sent and silently zero out the
+  // custom-creature list — dropping it here keeps the query honest regardless
+  // of whether the UI remembered to clear it.
   const list = useQuery(
     trpc.library.listCreatures.queryOptions({
       search,
-      source: toCreatureSourceInput(selectedSources),
+      source,
       types: selectedTypes,
-      documents: selectedDocuments,
+      documents: source === 'custom' ? [] : selectedDocuments,
     }),
   );
 
