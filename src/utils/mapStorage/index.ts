@@ -34,7 +34,7 @@ export const validateMapUpload = ({
 }: {
   filename: string;
   byteSize: number;
-  maxBytes: number;
+  maxBytes?: number;
 }): MapUploadValidation => {
   const extension = extname(filename).toLowerCase();
   const fileType = MAP_FILE_TYPE_BY_EXTENSION[extension];
@@ -50,7 +50,7 @@ export const validateMapUpload = ({
     return { ok: false, reason: 'File is empty.' };
   }
 
-  if (byteSize > maxBytes) {
+  if (maxBytes !== undefined && byteSize > maxBytes) {
     const limitMb = Math.floor(maxBytes / (1024 * 1024));
     return {
       ok: false,
