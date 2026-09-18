@@ -57,7 +57,7 @@ export const CombatantRow = ({
 
   return (
     <Row $isSelected={isSelected} $isActive={isActive} $isDown={isDown}>
-      <Initiative $isDown={isDown}>{initiative}</Initiative>
+      <Initiative>{initiative}</Initiative>
       <SelectButton
         type="button"
         onClick={onSelect}
@@ -163,13 +163,12 @@ const Row = styled.div<{
   }
 `;
 
-const Initiative = styled.span<{ $isDown: boolean }>`
+/* Colour is deliberately not repeated here — it inherits from `Row`'s own
+ * `$isDown` ternary, so the two can never drift out of sync with each
+ * other. */
+const Initiative = styled.span`
   font-family: ${props => props.theme.font.mono};
   font-weight: 700;
-  color: ${props =>
-    props.$isDown
-      ? props.theme.color.textMuted
-      : props.theme.color.textPrimary};
 `;
 
 const SelectButton = styled.button`
