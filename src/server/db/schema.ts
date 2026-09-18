@@ -760,6 +760,21 @@ export type MapFogState = {
   opacityDm: number;
   /** What the player screen actually renders at. */
   opacityTable: number;
+  /**
+   * A rasterized snapshot of `baseState` plus every stroke committed before
+   * it was taken (a data URL, painted by the client's own offscreen mask
+   * canvas — see `useFogMask`), or null before the first compaction. Without
+   * this, `strokes` grows for the life of the map: every individual brush
+   * dab from every gesture, forever, replayed from scratch on every redraw
+   * and resent in full on every SSE push — the mechanism behind the player
+   * screen's lag growing over a long session of heavy painting. Once
+   * `strokes.length` crosses `FOG_COMPACTION_STROKE_THRESHOLD`
+   * (`~/utils/fogMask`), the client bakes the mask into this field and the
+   * server clears `strokes`, so both stay bounded regardless of how much
+   * more painting happens. `resetFog`/`revealFog` clear it back to null —
+   * it must never outlive the strokes it was captured from.
+   */
+  baselineImage: string | null;
   strokes: MapFogStroke[];
 };
 
@@ -768,6 +783,7 @@ export const DEFAULT_MAP_FOG_STATE: MapFogState = {
   baseState: 'covered',
   opacityDm: 0.6,
   opacityTable: 0.9,
+  baselineImage: null,
   strokes: [],
 };
 

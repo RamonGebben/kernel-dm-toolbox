@@ -17,7 +17,12 @@ const EXAMPLE_MAP = {
     originY: 0,
   },
   backgroundColor: '#0c0d11',
-  fog: { enabled: false, baseState: 'covered' as const, strokes: [] },
+  fog: {
+    enabled: false,
+    baseState: 'covered' as const,
+    baselineImage: null,
+    strokes: [],
+  },
   fogOpacity: 0.9,
   measurementShapes: [],
   measurementLabelScale: 1,

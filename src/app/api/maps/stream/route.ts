@@ -4,6 +4,7 @@ import { mapMeasurementShapes, maps } from '~/server/db/schema';
 import { ensureMapSession } from '~/server/maps/session';
 import { subscribeToMapsChanges } from '~/server/maps/events';
 import { toPlayerMapView } from '~/server/maps/toPlayerMapView';
+import { createCoalescedPusher } from '~/utils/createCoalescedPusher';
 
 /**
  * Server-Sent Events: the live feed the player screen reads for the map
@@ -58,9 +59,11 @@ export const GET = async (request: Request) => {
 
       await push();
 
-      const unsubscribe = subscribeToMapsChanges(() => {
-        void push();
-      });
+      // A burst of change events (a lens drag or an "aim" cursor broadcasts
+      // up to once per animation frame) must not launch an overlapping
+      // `push()` per event — see `createCoalescedPusher`.
+      const pusher = createCoalescedPusher(push);
+      const unsubscribe = subscribeToMapsChanges(pusher.requestPush);
 
       const heartbeat = setInterval(() => {
         if (isClosed) return;

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   compositeOperationForMode,
+  FOG_COMPACTION_STROKE_THRESHOLD,
   innerRadiusForStroke,
+  shouldCompactFog,
 } from '~/utils/fogMask';
 
 describe('innerRadiusForStroke', () => {
@@ -29,5 +31,19 @@ describe('compositeOperationForMode', () => {
 
   it('paints the mask for a cover stroke', () => {
     expect(compositeOperationForMode('cover')).toBe('source-over');
+  });
+});
+
+describe('shouldCompactFog', () => {
+  it('does not compact below the threshold', () => {
+    expect(shouldCompactFog(FOG_COMPACTION_STROKE_THRESHOLD - 1)).toBe(false);
+  });
+
+  it('compacts once the threshold is reached', () => {
+    expect(shouldCompactFog(FOG_COMPACTION_STROKE_THRESHOLD)).toBe(true);
+  });
+
+  it('stays true past the threshold, so a client that missed one check still catches up', () => {
+    expect(shouldCompactFog(FOG_COMPACTION_STROKE_THRESHOLD + 500)).toBe(true);
   });
 });

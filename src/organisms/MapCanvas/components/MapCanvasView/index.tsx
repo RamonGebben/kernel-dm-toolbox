@@ -39,6 +39,10 @@ export type MapCanvasFogStroke = {
 export type MapCanvasFogState = {
   enabled: boolean;
   baseState: 'covered' | 'revealed';
+  /** A rasterized snapshot everything up to some earlier point was baked
+   * into — see `MapFogState.baselineImage` on the schema for why. Null
+   * before the first compaction. */
+  baselineImage: string | null;
   strokes: MapCanvasFogStroke[];
 };
 
@@ -116,6 +120,11 @@ export type MapCanvasViewProps = {
   fogOpacity?: number;
   fogTool?: MapCanvasFogTool;
   onFogStrokeBatch?: (strokes: MapCanvasFogStroke[]) => void;
+  /** Fired with a freshly-rasterized data URL once `fog.strokes` crosses
+   * `FOG_COMPACTION_STROKE_THRESHOLD` — undefined on a non-interactive
+   * (player) canvas, which has nothing to write it with and skips the
+   * rasterize entirely rather than compute one nobody reads. */
+  onFogCompactionNeeded?: (baselineImage: string) => void;
   calibrationActive?: boolean;
   calibrationStart?: CalibrationPoint | null;
   onCalibrateClick?: (point: CalibrationPoint) => void;
@@ -224,6 +233,7 @@ export const MapCanvasView = ({
   fogOpacity,
   fogTool,
   onFogStrokeBatch,
+  onFogCompactionNeeded,
   calibrationActive = false,
   calibrationStart = null,
   onCalibrateClick,
@@ -579,6 +589,7 @@ export const MapCanvasView = ({
     mapWidth: mapSize.width,
     mapHeight: mapSize.height,
     onScheduleDraw: scheduleDraw,
+    onCompactionNeeded: onFogCompactionNeeded,
   });
 
   const drawGrid = useGridOverlay();

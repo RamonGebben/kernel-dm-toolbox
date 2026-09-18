@@ -181,7 +181,12 @@ export const CalibratingTheGrid: Story = {
 
 export const PaintingFog: Story = {
   args: {
-    fog: { enabled: true, baseState: 'covered', strokes: [] },
+    fog: {
+      enabled: true,
+      baseState: 'covered',
+      baselineImage: null,
+      strokes: [],
+    },
     fogTool: {
       enabled: true,
       mode: 'reveal',
@@ -211,7 +216,12 @@ export const PaintingFog: Story = {
 
 export const FogDisabledIgnoresTheBrush: Story = {
   args: {
-    fog: { enabled: false, baseState: 'covered', strokes: [] },
+    fog: {
+      enabled: false,
+      baseState: 'covered',
+      baselineImage: null,
+      strokes: [],
+    },
     fogTool: {
       enabled: true,
       mode: 'reveal',
@@ -339,7 +349,12 @@ export const LensLockedIgnoresDrags: Story = {
 export const FogBrushInsideTheLensPaintsInsteadOfDragging: Story = {
   args: {
     lensRect,
-    fog: { enabled: true, baseState: 'covered', strokes: [] },
+    fog: {
+      enabled: true,
+      baseState: 'covered',
+      baselineImage: null,
+      strokes: [],
+    },
     fogTool: {
       enabled: true,
       mode: 'reveal',
@@ -443,7 +458,12 @@ export const FogBrushInsideTheLensIgnoresTheWheel: Story = {
   args: {
     lensRect,
     lensScreenSize,
-    fog: { enabled: true, baseState: 'covered', strokes: [] },
+    fog: {
+      enabled: true,
+      baseState: 'covered',
+      baselineImage: null,
+      strokes: [],
+    },
     fogTool: {
       enabled: true,
       mode: 'reveal',

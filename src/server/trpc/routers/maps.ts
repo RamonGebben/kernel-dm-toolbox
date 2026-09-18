@@ -11,6 +11,7 @@ import {
 } from '~/server/db/schema';
 import {
   applyFogStrokesInputSchema,
+  compactFogInputSchema,
   createFolderInputSchema,
   createMeasurementShapeInputSchema,
   folderIdInputSchema,
@@ -298,7 +299,15 @@ export const mapsRouter = createTRPCRouter({
       const [updated] = await ctx.db
         .update(maps)
         .set({
-          fog: { ...existing.fog, baseState: 'covered', strokes: [] },
+          // A baked-in baseline is a snapshot of strokes this reset just
+          // discarded — it must not outlive them and resurface under
+          // whatever gets painted next.
+          fog: {
+            ...existing.fog,
+            baseState: 'covered',
+            baselineImage: null,
+            strokes: [],
+          },
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))
@@ -317,7 +326,12 @@ export const mapsRouter = createTRPCRouter({
       const [updated] = await ctx.db
         .update(maps)
         .set({
-          fog: { ...existing.fog, baseState: 'revealed', strokes: [] },
+          fog: {
+            ...existing.fog,
+            baseState: 'revealed',
+            baselineImage: null,
+            strokes: [],
+          },
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))
@@ -358,6 +372,37 @@ export const mapsRouter = createTRPCRouter({
         .update(maps)
         .set({
           fog: applyFogStrokeBatch(existing.fog, input.strokes),
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(maps.id, input.id))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /**
+   * Bakes `strokes` into `baselineImage` and clears the list — the client
+   * decides when (`FOG_COMPACTION_STROKE_THRESHOLD`, `~/utils/fogMask`) and
+   * rasterizes its own offscreen mask canvas to produce the image, since
+   * only the client has a canvas to paint with. This is what keeps a long
+   * session's fog payload bounded instead of growing with every dab ever
+   * painted — see the field's own comment on `MapFogState`.
+   */
+  compactFog: publicProcedure
+    .input(compactFogInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await loadMap(ctx.db, input.id);
+
+      const [updated] = await ctx.db
+        .update(maps)
+        .set({
+          fog: {
+            ...existing.fog,
+            baselineImage: input.baselineImage,
+            strokes: [],
+          },
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))

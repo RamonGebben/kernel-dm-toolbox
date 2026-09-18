@@ -113,6 +113,9 @@ export const useMapCanvas = () => {
   const applyFogStrokes = useMutation(
     trpc.maps.applyFogStrokes.mutationOptions({ onSuccess: invalidateMap }),
   );
+  const compactFog = useMutation(
+    trpc.maps.compactFog.mutationOptions({ onSuccess: invalidateMap }),
+  );
   const setDmViewport = useMutation(trpc.maps.setDmViewport.mutationOptions());
   const setPlayerViewport = useMutation(
     trpc.maps.setPlayerViewport.mutationOptions({
@@ -188,6 +191,20 @@ export const useMapCanvas = () => {
       if (mapId) applyFogStrokes.mutate({ id: mapId, strokes });
     },
     [mapId, applyFogStrokes],
+  );
+
+  // Client-triggered because only the client has a canvas to rasterize the
+  // mask with — see `useFogMask`'s own comment. Guarded on `isPending` so a
+  // burst of stroke commits arriving while `strokes.length` is already past
+  // the threshold can't fire overlapping compactions; any still-oversized
+  // request that lands after this one settles just fires again — capturing
+  // the mask a second time is harmless — until `strokes` actually resets.
+  const onFogCompactionNeeded = useCallback(
+    (baselineImage: string) => {
+      if (!mapId || compactFog.isPending) return;
+      compactFog.mutate({ id: mapId, baselineImage });
+    },
+    [mapId, compactFog],
   );
 
   const onMediaDimensions = useCallback(
@@ -450,6 +467,7 @@ export const useMapCanvas = () => {
     fogOpacity: map.data?.fog.opacityDm,
     fogTool: fogBrush,
     onFogStrokeBatch,
+    onFogCompactionNeeded,
     calibrationActive,
     calibrationStart,
     onCalibrateClick: handleCalibrateClick,

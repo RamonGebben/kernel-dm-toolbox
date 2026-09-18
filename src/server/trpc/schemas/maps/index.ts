@@ -53,6 +53,14 @@ export const applyFogStrokesInputSchema = z.object({
   strokes: z.array(fogStrokeSchema).min(1).max(500),
 });
 
+/** Baking the mask into a bitmap once `strokes` crosses
+ * `FOG_COMPACTION_STROKE_THRESHOLD` (`~/utils/fogMask`) — a data URL PNG,
+ * capped well above what a full-map mask realistically compresses to. */
+export const compactFogInputSchema = z.object({
+  id: z.uuid(),
+  baselineImage: z.string().min(1).max(8_000_000),
+});
+
 export const toggleFogInputSchema = z.object({
   id: z.uuid(),
   enabled: z.boolean(),

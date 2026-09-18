@@ -47,7 +47,12 @@ export const Loaded: Story = {
         originY: 0,
       },
       backgroundColor: '#0c0d11',
-      fog: { enabled: false, baseState: 'covered', strokes: [] },
+      fog: {
+        enabled: false,
+        baseState: 'covered',
+        baselineImage: null,
+        strokes: [],
+      },
       fogOpacity: 0.9,
       measurementShapes: [],
       measurementLabelScale: 1,

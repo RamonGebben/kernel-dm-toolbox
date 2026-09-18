@@ -4,6 +4,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import {
   compositeOperationForMode,
   innerRadiusForStroke,
+  shouldCompactFog,
 } from '~/utils/fogMask';
 import type {
   MapCanvasFogState,
@@ -56,27 +57,47 @@ const drawFogStroke = (
 
 /**
  * Owns the offscreen fog mask: an alpha canvas at the map's native
- * resolution, rebuilt from committed strokes whenever the fog state or map
- * size changes, drawn onto the main canvas with `globalCompositeOperation`
- * doing the reveal/cover work.
+ * resolution, rebuilt whenever the fog state or map size changes, drawn onto
+ * the main canvas with `globalCompositeOperation` doing the reveal/cover
+ * work.
  *
  * Strokes still in progress (before the gesture's batched write commits) are
  * painted directly via `paintStroke`, so the brush feels live rather than
  * waiting on a round trip.
+ *
+ * The rebuild draws `baselineImage` (if any) first, then replays only the
+ * strokes on top of it — never `baseState`'s full-canvas fill once a
+ * baseline exists, since the baseline is itself a snapshot of that fill plus
+ * every earlier stroke (see `MapFogState.baselineImage`). The decoded image
+ * is cached by its own data URL so a stroke-only change (the common case
+ * between compactions) never re-decodes it.
  */
 export const useFogMask = ({
   fog,
   mapWidth,
   mapHeight,
   onScheduleDraw,
+  onCompactionNeeded,
 }: {
   fog: MapCanvasFogState | undefined;
   mapWidth: number;
   mapHeight: number;
   onScheduleDraw: () => void;
+  /** Undefined on a non-interactive (player) canvas — see the prop's own
+   * comment on `MapCanvasViewProps`. */
+  onCompactionNeeded?: (baselineImage: string) => void;
 }): FogMaskHandle => {
   const maskRef = useRef<HTMLCanvasElement | null>(null);
   const maskCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const baselineImageRef = useRef<{
+    src: string;
+    image: HTMLImageElement;
+  } | null>(null);
+
+  const onCompactionNeededRef = useRef(onCompactionNeeded);
+  useEffect(() => {
+    onCompactionNeededRef.current = onCompactionNeeded;
+  }, [onCompactionNeeded]);
 
   useEffect(() => {
     if (!fog?.enabled || mapWidth <= 0 || mapHeight <= 0) {
@@ -101,15 +122,60 @@ export const useFogMask = ({
     const ctx = maskCtxRef.current;
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, mapWidth, mapHeight);
-    if (fog.baseState === 'covered') {
-      ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-      ctx.fillRect(0, 0, mapWidth, mapHeight);
+    const strokes = fog.strokes;
+    const baseState = fog.baseState;
+
+    const render = (baseImage: HTMLImageElement | null) => {
+      ctx.clearRect(0, 0, mapWidth, mapHeight);
+
+      if (baseImage) {
+        ctx.drawImage(baseImage, 0, 0, mapWidth, mapHeight);
+      } else if (baseState === 'covered') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+        ctx.fillRect(0, 0, mapWidth, mapHeight);
+      }
+
+      for (const stroke of strokes) drawFogStroke(ctx, stroke);
+
+      onScheduleDraw();
+
+      if (onCompactionNeededRef.current && shouldCompactFog(strokes.length)) {
+        onCompactionNeededRef.current(canvas.toDataURL('image/png'));
+      }
+    };
+
+    const baselineSrc = fog.baselineImage;
+    if (!baselineSrc) {
+      baselineImageRef.current = null;
+      render(null);
+      return;
     }
 
-    for (const stroke of fog.strokes) drawFogStroke(ctx, stroke);
+    const cached = baselineImageRef.current;
+    if (cached && cached.src === baselineSrc) {
+      render(cached.image);
+      return;
+    }
 
-    onScheduleDraw();
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      baselineImageRef.current = { src: baselineSrc, image };
+      render(image);
+    };
+    image.onerror = () => {
+      // A failed decode falls back to strokes-only rather than blocking the
+      // mask forever — the same "degrade, don't break" spirit as a missing
+      // spell-effect clip elsewhere on this canvas.
+      if (cancelled) return;
+      render(null);
+    };
+    image.src = baselineSrc;
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fog, mapWidth, mapHeight]);
 

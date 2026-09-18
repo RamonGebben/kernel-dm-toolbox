@@ -1,5 +1,6 @@
 import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
 import { buildSpellEffectUrl } from '~/utils/mapMeasurement';
+import { normalizeMapFogState } from '~/utils/normalizeMapFogState';
 import type {
   MapAsset,
   MapFogStroke,
@@ -52,6 +53,7 @@ export type PlayerMapViewMap = {
   fog: {
     enabled: boolean;
     baseState: 'covered' | 'revealed';
+    baselineImage: string | null;
     strokes: MapFogStroke[];
   };
   fogOpacity: number;
@@ -96,6 +98,54 @@ export type PlayerMapView = {
   measurementCursor: MapMeasurementCursor | null;
 };
 
+const toPlayerMapViewMap = (
+  map: MapAsset,
+  session: MapSession,
+  measurementShapes: readonly MapMeasurementShape[],
+): PlayerMapViewMap => {
+  const fog = normalizeMapFogState(map.fog);
+
+  return {
+    fileUrl: toMapDetail(map).fileUrl,
+    kind: map.kind as 'image' | 'video',
+    nativeWidth: map.nativeWidth,
+    nativeHeight: map.nativeHeight,
+    grid: {
+      visible: session.gridVisible,
+      color: session.gridColor,
+      opacity: session.gridOpacity,
+      cellSize: map.gridCellSize ?? 0,
+      originX: map.gridOriginX,
+      originY: map.gridOriginY,
+    },
+    backgroundColor: session.gridBackgroundColor,
+    fog: {
+      enabled: fog.enabled,
+      baseState: fog.baseState,
+      baselineImage: fog.baselineImage,
+      strokes: fog.strokes,
+    },
+    fogOpacity: fog.opacityTable,
+    measurementShapes: measurementShapes.map(shape => ({
+      id: shape.id,
+      shapeType: shape.shapeType,
+      originX: shape.originX,
+      originY: shape.originY,
+      extentFeet: shape.extentFeet,
+      orientation: shape.orientation,
+      label: shape.label,
+      color: shape.color,
+      effectUrl: shape.sourceSpellSlug
+        ? buildSpellEffectUrl(shape.sourceSpellSlug)
+        : null,
+      effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
+      effectLoops: shape.effectLoops,
+    })),
+    measurementLabelScale: session.measurementLabelScale,
+    measurementCursorScale: session.measurementCursorScale,
+  };
+};
+
 /**
  * What the table is allowed to see of the live map session.
  *
@@ -117,46 +167,7 @@ export const toPlayerMapView = (args: {
   return {
     mode: session.playerScreenMode,
     orientation: session.playerScreenOrientation,
-    map: map
-      ? {
-          fileUrl: toMapDetail(map).fileUrl,
-          kind: map.kind as 'image' | 'video',
-          nativeWidth: map.nativeWidth,
-          nativeHeight: map.nativeHeight,
-          grid: {
-            visible: session.gridVisible,
-            color: session.gridColor,
-            opacity: session.gridOpacity,
-            cellSize: map.gridCellSize ?? 0,
-            originX: map.gridOriginX,
-            originY: map.gridOriginY,
-          },
-          backgroundColor: session.gridBackgroundColor,
-          fog: {
-            enabled: map.fog.enabled,
-            baseState: map.fog.baseState,
-            strokes: map.fog.strokes,
-          },
-          fogOpacity: map.fog.opacityTable,
-          measurementShapes: measurementShapes.map(shape => ({
-            id: shape.id,
-            shapeType: shape.shapeType,
-            originX: shape.originX,
-            originY: shape.originY,
-            extentFeet: shape.extentFeet,
-            orientation: shape.orientation,
-            label: shape.label,
-            color: shape.color,
-            effectUrl: shape.sourceSpellSlug
-              ? buildSpellEffectUrl(shape.sourceSpellSlug)
-              : null,
-            effectStartedAtMs: shape.effectPlaybackStartedAt?.getTime() ?? null,
-            effectLoops: shape.effectLoops,
-          })),
-          measurementLabelScale: session.measurementLabelScale,
-          measurementCursorScale: session.measurementCursorScale,
-        }
-      : null,
+    map: map ? toPlayerMapViewMap(map, session, measurementShapes) : null,
     viewport: {
       x: session.playerViewportX,
       y: session.playerViewportY,
