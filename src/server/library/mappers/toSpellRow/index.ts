@@ -1,5 +1,6 @@
 import type { SpellFixture } from '~/server/library/fixtures';
 import type { NewSpell } from '~/server/db/schema';
+import { applySelfEmanationShape } from '~/server/library/selfEmanationSpellShapes';
 
 /**
  * Upstream uses the empty string where a value is absent — no saving throw, no
@@ -8,41 +9,49 @@ import type { NewSpell } from '~/server/db/schema';
  */
 const emptyToNull = (value: string): string | null => value.trim() || null;
 
-export const toSpellRow = (fixture: SpellFixture): NewSpell => ({
-  slug: fixture.pk,
-  document: fixture.fields.document,
-  name: fixture.fields.name,
-  desc: fixture.fields.desc,
-  level: fixture.fields.level,
-  school: fixture.fields.school,
-  higherLevel: emptyToNull(fixture.fields.higher_level),
+export const toSpellRow = (fixture: SpellFixture): NewSpell => {
+  const shape = applySelfEmanationShape(fixture.pk, {
+    shapeType: fixture.fields.shape_type,
+    shapeSize: fixture.fields.shape_size,
+    shapeSizeUnit: fixture.fields.shape_size_unit,
+  });
 
-  targetType: emptyToNull(fixture.fields.target_type),
-  rangeText: emptyToNull(fixture.fields.range_text),
-  range: fixture.fields.range,
-  rangeUnit: fixture.fields.range_unit,
-  targetCount: fixture.fields.target_count,
+  return {
+    slug: fixture.pk,
+    document: fixture.fields.document,
+    name: fixture.fields.name,
+    desc: fixture.fields.desc,
+    level: fixture.fields.level,
+    school: fixture.fields.school,
+    higherLevel: emptyToNull(fixture.fields.higher_level),
 
-  castingTime: fixture.fields.casting_time,
-  reactionCondition: fixture.fields.reaction_condition,
-  ritual: fixture.fields.ritual,
-  concentration: fixture.fields.concentration,
-  duration: fixture.fields.duration,
+    targetType: emptyToNull(fixture.fields.target_type),
+    rangeText: emptyToNull(fixture.fields.range_text),
+    range: fixture.fields.range,
+    rangeUnit: fixture.fields.range_unit,
+    targetCount: fixture.fields.target_count,
 
-  verbal: fixture.fields.verbal,
-  somatic: fixture.fields.somatic,
-  material: fixture.fields.material,
-  materialSpecified: emptyToNull(fixture.fields.material_specified),
-  materialConsumed: fixture.fields.material_consumed,
+    castingTime: fixture.fields.casting_time,
+    reactionCondition: fixture.fields.reaction_condition,
+    ritual: fixture.fields.ritual,
+    concentration: fixture.fields.concentration,
+    duration: fixture.fields.duration,
 
-  savingThrowAbility: emptyToNull(fixture.fields.saving_throw_ability),
-  attackRoll: fixture.fields.attack_roll,
-  damageRoll: emptyToNull(fixture.fields.damage_roll),
-  damageTypes: fixture.fields.damage_types,
+    verbal: fixture.fields.verbal,
+    somatic: fixture.fields.somatic,
+    material: fixture.fields.material,
+    materialSpecified: emptyToNull(fixture.fields.material_specified),
+    materialConsumed: fixture.fields.material_consumed,
 
-  shapeType: fixture.fields.shape_type,
-  shapeSize: fixture.fields.shape_size,
-  shapeSizeUnit: fixture.fields.shape_size_unit,
+    savingThrowAbility: emptyToNull(fixture.fields.saving_throw_ability),
+    attackRoll: fixture.fields.attack_roll,
+    damageRoll: emptyToNull(fixture.fields.damage_roll),
+    damageTypes: fixture.fields.damage_types,
 
-  classes: fixture.fields.classes,
-});
+    shapeType: shape.shapeType,
+    shapeSize: shape.shapeSize,
+    shapeSizeUnit: shape.shapeSizeUnit,
+
+    classes: fixture.fields.classes,
+  };
+};

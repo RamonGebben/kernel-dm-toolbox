@@ -824,3 +824,40 @@ edition-stable in practice (attack bonuses, hit points and saves don't move
 much between 2014 and 2024 5e), and a DM reading a slightly-off-edition stat
 block at the table can adjust it on the fly far more easily than they can
 work with no stat block at all.
+
+---
+
+## 31. Self-centered spells get a shape override; following the caster stays manual
+
+**Decision.** `~/server/library/selfEmanationSpellShapes` hand-curates a
+shape/size for eleven SRD spells — Spirit Guardians among them — that
+Open5e's `Spell.json` leaves shapeless, applied in `toSpellRow` at import
+time. The measurement tool gets no new "attach to a moving anchor" concept:
+a DM places one of these the same way as any other spell template, then
+drags it (the existing drag-to-move gesture) to keep it over their token as
+it moves.
+
+**Why the shape needed curating at all.** Every "Self"-range spell whose
+area is only described in prose — "flit around you in a 15-foot Emanation"
+— has `shape_type: null, shape_size: null` upstream. `useMeasurementControls`
+already drops any spell missing either from its picker, so Spirit Guardians
+was never merely unsupported — it was invisible. Found by grepping the
+SRD's own `desc` text for "N-foot Emanation" on every spell upstream left
+shapeless: eleven matches, spot-checked against their full description to
+rule out an incidental mention. `mapSpellShapeType` already mapped
+`'emanation'` onto the tool's `circle` (nothing upstream had ever set that
+value, so it was an untested branch) — filling in the shape at the source
+was enough to make the picker, placement, and `importSpellEffects`'s
+animation matching all work unchanged.
+
+**Why manual dragging instead of building "follow the caster."** There is
+no token or per-combatant position anywhere on the map — the tracker overlay
+is a read-only UI panel, not a positioned pog, and nothing in
+`map_measurement_shapes` references a combatant. Automatic following needs
+something to follow, and building that (a token layer: schema, drag/hit-test
+on both canvases, live broadcast, tracker-to-map linking) is a project on
+the scale of everything else in this document combined, not a measurement-
+tool tweak. Asked directly rather than assumed either way: ship the
+placeable, animated shape now: with drag-to-move already built, "the DM
+nudges it each round" costs nothing new to support, and revisit true
+token-following if a real token layer gets built for its own sake.

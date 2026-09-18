@@ -654,6 +654,16 @@ Open5e library, none of this is read-only reference data.
   effect) leaves whatever colour was already set untouched rather than
   overwriting it with a guess. The first listed damage type wins for a spell
   with more than one (`listSpells` now selects `damageTypes` for this).
+- **A self-centered spell (Spirit Guardians and ten others) is placed and
+  dragged like any other template — it does not follow the caster on its
+  own.** Open5e's SRD data leaves `shape_type`/`shape_size` null for every
+  "Self"-range spell whose area is only prose ("a 15-foot Emanation"); the
+  picker drops anything missing either, so these spells were invisible
+  there until `~/server/library/selfEmanationSpellShapes` filled the gap at
+  import time (DECISIONS #31). There is no token/position system on the map
+  to attach a shape to yet, so "follows around" means the DM re-centers it
+  by dragging — the drag-to-move gesture already covers this, nothing new
+  was needed for it.
 - **The live-drag preview reuses the lens's exact broadcast pattern.**
   `map_sessions.livePreviewShape` (nullable JSON) is written from the same
   RAF-notify scheduler as `onLensChange`, at most once per animation frame,

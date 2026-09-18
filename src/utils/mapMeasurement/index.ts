@@ -505,10 +505,13 @@ export const mapDamageTypesToColor = (
 
 /**
  * Best-effort mapping from Open5e's `shapeType` vocabulary onto this
- * feature's shape enum. Only `sphere` is confirmed against real imported
- * data (see issue #1); the rest are reasonable guesses at the SRD's other
- * area-effect shapes. An unrecognised value returns `null` — the spell just
- * isn't offered for shape/size auto-fill, rather than guessing wrong.
+ * feature's shape enum. `sphere` and `emanation` are confirmed against real
+ * imported data (see issue #1 and `~/server/library/selfEmanationSpellShapes`
+ * — upstream itself never sets `shape_type: 'emanation'`, but the override
+ * that fills in self-centered spells like Spirit Guardians uses exactly this
+ * value); the rest are reasonable guesses at the SRD's other area-effect
+ * shapes. An unrecognised value returns `null` — the spell just isn't
+ * offered for shape/size auto-fill, rather than guessing wrong.
  */
 export const mapSpellShapeType = (
   upstreamShapeType: string | null,
