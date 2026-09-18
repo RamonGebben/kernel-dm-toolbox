@@ -89,6 +89,12 @@ const meta = {
     onNextTurn: fn(),
     onPreviousTurn: fn(),
     onClearMonsters: fn(),
+    hitPointsCombatant: null,
+    isAdjustingHitPoints: false,
+    onCloseHitPoints: fn(),
+    onDamage: fn(),
+    onHeal: fn(),
+    onGrantTemporary: fn(),
   },
 } satisfies Meta<typeof EncounterView>;
 
@@ -173,6 +179,33 @@ export const RollingForInitiative: Story = {
       { id: 'sigrid', initiative: 14 },
       { id: 'hammie', initiative: 5 },
     ]);
+  },
+};
+
+/** Opened from a combatant row's HP readout — the dialog this diff moved
+ * into `EncounterView` itself, so it stays reachable from a story rather
+ * than living only in the connected `EncounterPanel`. */
+export const EditingHitPoints: Story = {
+  args: {
+    hitPointsCombatant: {
+      displayName: 'Meat',
+      currentHitPoints: 35,
+      maxHitPoints: 52,
+      temporaryHitPoints: 0,
+    },
+  },
+  play: async ({ args }) => {
+    // `Modal` is portalled to `document.body` — see `RollingForInitiative`.
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Hit points — Meat' }),
+    );
+
+    await expect(dialog.getByText('35/52')).toBeVisible();
+
+    await userEvent.type(dialog.getByLabelText('Amount'), '10');
+    await userEvent.click(dialog.getByRole('button', { name: 'Damage' }));
+
+    await expect(args.onDamage).toHaveBeenCalledWith(10);
   },
 };
 

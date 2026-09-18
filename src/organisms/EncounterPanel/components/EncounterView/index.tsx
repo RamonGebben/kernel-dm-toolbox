@@ -6,6 +6,7 @@ import { EmptyState } from '~/atoms/EmptyState';
 import { Modal } from '~/atoms/Modal';
 import { CombatantRow } from '~/molecules/CombatantRow';
 import { DifficultyReadout } from '~/molecules/DifficultyReadout';
+import { HitPointControls } from '~/molecules/HitPointControls';
 import { InitiativeRollForm } from '~/molecules/InitiativeRollForm';
 import type { EncounterDifficulty } from '~/content/encounterDifficulty';
 
@@ -57,6 +58,19 @@ export type EncounterViewProps = {
   onNextTurn: () => void;
   onPreviousTurn: () => void;
   onClearMonsters: () => void;
+  /** The combatant whose HP dialog is open, or null when it's closed —
+   * opened by clicking the HP readout in that combatant's own row. */
+  hitPointsCombatant: {
+    displayName: string;
+    currentHitPoints: number;
+    maxHitPoints: number;
+    temporaryHitPoints: number;
+  } | null;
+  isAdjustingHitPoints: boolean;
+  onCloseHitPoints: () => void;
+  onDamage: (amount: number) => void;
+  onHeal: (amount: number) => void;
+  onGrantTemporary: (amount: number) => void;
 };
 
 /** Presentational: the centre column of the tracker. */
@@ -80,6 +94,12 @@ export const EncounterView = ({
   onNextTurn,
   onPreviousTurn,
   onClearMonsters,
+  hitPointsCombatant,
+  isAdjustingHitPoints,
+  onCloseHitPoints,
+  onDamage,
+  onHeal,
+  onGrantTemporary,
 }: EncounterViewProps) => {
   const monsterCount = combatants.filter(
     combatant => !combatant.isPlayerCharacter,
@@ -147,6 +167,24 @@ export const EncounterView = ({
           onSubmit={onStart}
           onCancel={onCloseInitiativeRoll}
         />
+      </Modal>
+
+      <Modal
+        title={`Hit points — ${hitPointsCombatant?.displayName ?? ''}`}
+        isOpen={hitPointsCombatant !== null}
+        onClose={onCloseHitPoints}
+      >
+        {hitPointsCombatant && (
+          <HitPointControls
+            currentHitPoints={hitPointsCombatant.currentHitPoints}
+            maxHitPoints={hitPointsCombatant.maxHitPoints}
+            temporaryHitPoints={hitPointsCombatant.temporaryHitPoints}
+            isPending={isAdjustingHitPoints}
+            onDamage={onDamage}
+            onHeal={onHeal}
+            onGrantTemporary={onGrantTemporary}
+          />
+        )}
       </Modal>
     </Wrapper>
   );
