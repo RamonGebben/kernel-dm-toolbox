@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import styled from 'styled-components';
+import { Portal } from '~/atoms/Portal';
 
 export type ModalSize = 'default' | 'wide';
 
@@ -22,10 +23,12 @@ export type ModalProps = {
 /**
  * A centred dialog over a scrim.
  *
- * Rendered inline rather than through a portal on purpose: a portal to
- * `document.body` puts the dialog outside the Storybook canvas element, which
- * is exactly the subtree the story tests query. Inline keeps every state
- * reachable from a story.
+ * Rendered through `Portal`, to `document.body` — otherwise it sits wherever
+ * its caller mounted it in the DOM, which for `EncounterView`'s initiative
+ * dialog and `NewCreatureWizard` is inside a `Panel` whose body scrolls; a
+ * `Panel` clips overflow, so an unportalled dialog on a short viewport could
+ * be cut off by its own ancestor instead of scrolling into view. Its stories
+ * query the portalled content via `screen`, not `within(canvasElement)`.
  *
  * It is not a `<dialog>` element either — `showModal()` is imperative state
  * that would have to be kept in sync with the `isOpen` prop, and the two
@@ -64,25 +67,27 @@ export const Modal = ({
   if (!isOpen) return null;
 
   return (
-    <Scrim onClick={onClose}>
-      <Panel
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        $isWide={size === 'wide'}
-        onClick={event => event.stopPropagation()}
-      >
-        <Header>
-          <Title id={titleId}>{title}</Title>
-          <CloseButton type="button" onClick={onClose} aria-label="Close">
-            ✕
-          </CloseButton>
-        </Header>
-        <Body>{children}</Body>
-      </Panel>
-    </Scrim>
+    <Portal>
+      <Scrim onClick={onClose}>
+        <Panel
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          tabIndex={-1}
+          $isWide={size === 'wide'}
+          onClick={event => event.stopPropagation()}
+        >
+          <Header>
+            <Title id={titleId}>{title}</Title>
+            <CloseButton type="button" onClick={onClose} aria-label="Close">
+              ✕
+            </CloseButton>
+          </Header>
+          <Body>{children}</Body>
+        </Panel>
+      </Scrim>
+    </Portal>
   );
 };
 

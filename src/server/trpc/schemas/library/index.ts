@@ -12,6 +12,9 @@ export const listCreaturesInputSchema = z.object({
   maxChallengeRating: z.number().min(0).max(30).optional(),
   /** Which table(s) to browse — the library, the DM's own creatures, or both. */
   source: z.enum(['library', 'custom', 'all']).default('all'),
+  /** Upstream document slugs (`srd-2024`, `a5e-mm`, …); empty means any.
+   * Custom creatures have no document, same as `category`. */
+  documents: z.array(z.string().max(120)).default([]),
   limit: z.number().int().min(1).max(500).default(500),
 });
 

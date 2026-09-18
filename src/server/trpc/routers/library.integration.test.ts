@@ -110,6 +110,24 @@ describe('library.listCreatures source merge', () => {
     expect(rows.map(row => row.source)).toEqual(['library']);
   });
 
+  it('filters by document', async () => {
+    const rows = await caller.library.listCreatures({
+      search: '',
+      documents: ['srd-2024'],
+    });
+
+    expect(rows.map(row => row.source)).toEqual(['library']);
+  });
+
+  it('excludes custom creatures when a document filter is active', async () => {
+    const rows = await caller.library.listCreatures({
+      search: '',
+      documents: ['a5e-mm'],
+    });
+
+    expect(rows).toEqual([]);
+  });
+
   it('excludes a removed custom creature', async () => {
     const [customRow] = await caller.library.listCreatures({
       search: '',
@@ -125,5 +143,13 @@ describe('library.listCreatures source merge', () => {
     expect(
       await caller.library.listCreatures({ search: '', source: 'custom' }),
     ).toEqual([]);
+  });
+});
+
+describe('library.listCreatureDocuments', () => {
+  it('returns the distinct documents present in the library, labeled', async () => {
+    expect(await caller.library.listCreatureDocuments()).toEqual([
+      { value: 'srd-2024', label: 'System Reference Document 5.2' },
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, within } from 'storybook/test';
+import { expect, fn, screen } from 'storybook/test';
 import { NewCreatureWizardView } from '~/organisms/NewCreatureWizard/components/NewCreatureWizardView';
 import { emptyCustomCreatureForm } from '~/molecules/CustomCreatureForm';
 import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
@@ -38,35 +38,33 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const PickBaseStep: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+// `NewCreatureWizardView` renders entirely inside `Modal`, which is
+// portalled to `document.body` — every query below goes through `screen`,
+// not `within(canvasElement)`. See `Modal`'s own doc comment.
 
-    await expect(canvas.getByText('New Creature')).toBeVisible();
+export const PickBaseStep: Story = {
+  play: async () => {
+    await expect(screen.getByText('New Creature')).toBeVisible();
     await expect(
-      canvas.getByRole('button', { name: 'Start blank' }),
+      screen.getByRole('button', { name: 'Start blank' }),
     ).toBeVisible();
   },
 };
 
 export const FormStepBlank: Story = {
   args: { step: 'form', initialValues: emptyCustomCreatureForm },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
+  play: async () => {
     await expect(
-      canvas.getByLabelText('Name', { selector: '#custom-creature-name' }),
+      screen.getByLabelText('Name', { selector: '#custom-creature-name' }),
     ).toBeVisible();
   },
 };
 
 export const FormStepLoadingCopySource: Story = {
   args: { step: 'form', isBasePending: true, initialValues: null },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
+  play: async () => {
     await expect(
-      canvas.getByLabelText('Loading creature to copy'),
+      screen.getByLabelText('Loading creature to copy'),
     ).toBeVisible();
   },
 };

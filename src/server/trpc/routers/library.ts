@@ -32,6 +32,7 @@ import { buildStatblock } from '~/server/trpc/helpers/buildStatblock';
 import { buildSpellDetail } from '~/server/trpc/helpers/buildSpellDetail';
 import { buildSpellClassOptions } from '~/server/trpc/helpers/buildSpellClassOptions';
 import { buildCreatureTypeOptions } from '~/server/trpc/helpers/buildCreatureTypeOptions';
+import { buildCreatureDocumentOptions } from '~/server/trpc/helpers/buildCreatureDocumentOptions';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
 import { LIBRARY_ATTRIBUTIONS } from '~/server/library/source';
 
@@ -96,6 +97,9 @@ export const libraryRouter = createTRPCRouter({
         input.maxChallengeRating != null
           ? lte(creatures.challengeRating, input.maxChallengeRating)
           : undefined,
+        input.documents.length
+          ? inArray(creatures.document, input.documents)
+          : undefined,
       ].filter(filter => filter !== undefined);
 
       const customFilters = [
@@ -138,9 +142,9 @@ export const libraryRouter = createTRPCRouter({
               // here keeps a broad/unfiltered browse from pulling the
               // entire table into memory just to discard most of it.
               .limit(input.limit),
-        // A category filter has no custom-creature equivalent — treat it as
-        // "not a match" rather than ignoring it.
-        input.source === 'library' || input.category
+        // A category or document filter has no custom-creature equivalent —
+        // treat it as "not a match" rather than ignoring it.
+        input.source === 'library' || input.category || input.documents.length
           ? []
           : ctx.db
               .select({
@@ -275,6 +279,20 @@ export const libraryRouter = createTRPCRouter({
       ...libraryTypes.map(row => row.type),
       ...customTypes.map(row => row.type),
     ]);
+  }),
+
+  /**
+   * The upstream documents (SRD, Monstrous Menagerie, Tome of Beasts, …)
+   * actually present in the imported library, for the "Book" filter's
+   * checkbox list. Library-only — a custom creature has no `document`, the
+   * same reason `category` excludes them.
+   */
+  listCreatureDocuments: publicProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db
+      .select({ document: creatures.document })
+      .from(creatures);
+
+    return buildCreatureDocumentOptions(rows.map(row => row.document));
   }),
 
   /**

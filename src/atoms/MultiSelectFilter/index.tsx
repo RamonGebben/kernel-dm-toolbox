@@ -2,7 +2,9 @@
 
 import { useId, useState } from 'react';
 import styled from 'styled-components';
+import { Portal } from '~/atoms/Portal';
 import { useDismissableMenu } from '~/hooks/useDismissableMenu';
+import { useFloatingPosition } from '~/hooks/useFloatingPosition';
 
 export type MultiSelectFilterOption = {
   value: string;
@@ -22,9 +24,12 @@ export type MultiSelectFilterProps = {
  * values can apply at once — several spell levels, several classes — unlike
  * the single-choice `<select>` `ConditionPicker` uses.
  *
- * Not rendered through a portal, for the same reason as `Modal`: a portal
- * would put the dropdown outside the Storybook canvas element a play function
- * queries.
+ * The checkbox list renders through `Portal`, positioned against the trigger
+ * by `useFloatingPosition`, rather than as a `position: absolute` child of
+ * the trigger — this used to sit inside `Panel`'s scrolling body, where an
+ * ancestor's `overflow-y: auto` gets its `overflow-x` promoted to `auto` too
+ * (per the CSS overflow spec), so an overflowing dropdown forced a real
+ * horizontal scrollbar onto the panel rather than just getting clipped.
  */
 export const MultiSelectFilter = ({
   label,
@@ -35,7 +40,10 @@ export const MultiSelectFilter = ({
 }: MultiSelectFilterProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const listId = useId();
-  const wrapperRef = useDismissableMenu(isOpen, () => setIsOpen(false));
+  const { triggerRef, menuRef } = useDismissableMenu(isOpen, () =>
+    setIsOpen(false),
+  );
+  const position = useFloatingPosition(isOpen, triggerRef, menuRef, 'start');
 
   const toggleValue = (value: string) => {
     onChange(
@@ -46,7 +54,7 @@ export const MultiSelectFilter = ({
   };
 
   return (
-    <Wrapper ref={wrapperRef}>
+    <Wrapper ref={triggerRef}>
       <Trigger
         type="button"
         aria-haspopup="true"
@@ -61,25 +69,36 @@ export const MultiSelectFilter = ({
         <Caret aria-hidden="true">▾</Caret>
       </Trigger>
       {isOpen && (
-        <Dropdown id={listId} role="group" aria-label={label}>
-          {options.map(option => (
-            <Option key={option.value}>
-              <input
-                type="checkbox"
-                checked={selectedValues.includes(option.value)}
-                onChange={() => toggleValue(option.value)}
-              />
-              {option.label}
-            </Option>
-          ))}
-        </Dropdown>
+        <Portal>
+          <Dropdown
+            ref={menuRef}
+            id={listId}
+            role="group"
+            aria-label={label}
+            style={
+              position
+                ? { top: `${position.top}px`, left: `${position.left}px` }
+                : undefined
+            }
+          >
+            {options.map(option => (
+              <Option key={option.value}>
+                <input
+                  type="checkbox"
+                  checked={selectedValues.includes(option.value)}
+                  onChange={() => toggleValue(option.value)}
+                />
+                {option.label}
+              </Option>
+            ))}
+          </Dropdown>
+        </Portal>
       )}
     </Wrapper>
   );
 };
 
 const Wrapper = styled.div`
-  position: relative;
   display: inline-flex;
 `;
 
@@ -114,10 +133,12 @@ const Caret = styled.span`
   font-size: ${props => props.theme.fontSize.sm};
 `;
 
+/** Positioned off-screen until `useFloatingPosition` measures the trigger,
+ * so there is nothing to flash before its first real `top`/`left` commits. */
 const Dropdown = styled.div`
-  position: absolute;
-  top: calc(100% + ${props => props.theme.space.xs});
-  left: 0;
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
   z-index: 10;
   display: flex;
   flex-direction: column;

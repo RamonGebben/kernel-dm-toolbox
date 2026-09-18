@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent } from 'storybook/test';
 import { DiceRollModalView } from '~/organisms/DiceRollModal/components/DiceRollModalView';
 
 const combatants = [
@@ -47,34 +47,34 @@ export const CreatureRollWithNoCombatants: Story = {
   args: { canApplyToCombatants: true, combatants: [] },
 };
 
+// `DiceRollModalView` renders entirely inside `Modal`, which is portalled to
+// `document.body` — every query below goes through `screen`, not
+// `within(canvasElement)`. See `Modal`'s own doc comment.
+
 export const RollingShowsTheBreakdownAndTotal: Story = {
   args: { canApplyToCombatants: true, combatants },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+  play: async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Roll' }));
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Roll' }));
-
-    await expect(canvas.getByText(/^Rolls: /)).toBeInTheDocument();
-    await expect(canvas.getByText(/^Total: \d+$/)).toBeInTheDocument();
+    await expect(screen.getByText(/^Rolls: /)).toBeInTheDocument();
+    await expect(screen.getByText(/^Total: \d+$/)).toBeInTheDocument();
   },
 };
 
 export const ApplyingToACheckedTargetUsesTheFullTotal: Story = {
   args: { canApplyToCombatants: true, combatants },
-  play: async ({ args, canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await userEvent.click(canvas.getByRole('button', { name: 'Roll' }));
-    const totalText = canvas.getByText(/^Total: \d+$/).textContent ?? '';
+  play: async ({ args }) => {
+    await userEvent.click(screen.getByRole('button', { name: 'Roll' }));
+    const totalText = screen.getByText(/^Total: \d+$/).textContent ?? '';
     const total = Number.parseInt(totalText.replace('Total: ', ''), 10);
 
-    const checkbox = canvas.getByRole('checkbox', {
+    const checkbox = screen.getByRole('checkbox', {
       name: /Adult Black Dragon/,
     });
     await userEvent.click(checkbox);
 
     await userEvent.click(
-      canvas.getByRole('button', { name: 'Apply as Damage' }),
+      screen.getByRole('button', { name: 'Apply as Damage' }),
     );
 
     await expect(args.onApply).toHaveBeenCalledWith('damage', [
@@ -85,16 +85,14 @@ export const ApplyingToACheckedTargetUsesTheFullTotal: Story = {
 
 export const ApplyIsDisabledWithNoTargetChecked: Story = {
   args: { canApplyToCombatants: true, combatants },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await userEvent.click(canvas.getByRole('button', { name: 'Roll' }));
+  play: async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'Roll' }));
 
     await expect(
-      canvas.getByRole('button', { name: 'Apply as Damage' }),
+      screen.getByRole('button', { name: 'Apply as Damage' }),
     ).toBeDisabled();
     await expect(
-      canvas.getByRole('button', { name: 'Apply as Heal' }),
+      screen.getByRole('button', { name: 'Apply as Heal' }),
     ).toBeDisabled();
   },
 };

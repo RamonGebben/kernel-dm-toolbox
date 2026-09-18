@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, within } from 'storybook/test';
 import { EncounterView } from '~/organisms/EncounterPanel/components/EncounterView';
 
 /** The exact order from the reference screenshot. */
@@ -151,11 +151,13 @@ export const NotStarted: Story = {
 /** The dialog is where the party's physical rolls get typed in. */
 export const RollingForInitiative: Story = {
   args: { isRollingInitiative: true },
-  play: async ({ args, canvasElement }) => {
-    const canvas = within(canvasElement);
-    // Scoped to the dialog: the order behind it labels its rows by name too.
+  play: async ({ args }) => {
+    // `Modal` is portalled to `document.body`, so the dialog is found via
+    // `screen`, not `canvas` — see `Modal`'s own doc comment. Scoped to the
+    // dialog itself from there: the order behind it labels its rows by name
+    // too.
     const dialog = within(
-      canvas.getByRole('dialog', { name: 'Roll for initiative' }),
+      screen.getByRole('dialog', { name: 'Roll for initiative' }),
     );
 
     // Monsters are prefilled with the roll the tool already made for them.

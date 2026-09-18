@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, within } from 'storybook/test';
 import { MapGalleryView } from '~/organisms/MapGalleryPanel/components/MapGalleryView';
 
 const folders = [
@@ -140,7 +140,9 @@ export const RemovingAMap: Story = {
     await userEvent.click(
       canvas.getByRole('button', { name: 'More actions for Tavern Brawl' }),
     );
-    await userEvent.click(canvas.getByRole('button', { name: 'Remove' }));
+    // `MapRowMenu` is portalled to `document.body`, so it's found via
+    // `screen`, not `canvas` — see `MapRowMenu`'s own doc comment.
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     await expect(args.onRemoveMap).toHaveBeenCalledWith('m2');
   },

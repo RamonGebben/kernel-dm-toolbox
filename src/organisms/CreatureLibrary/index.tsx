@@ -41,11 +41,14 @@ export const CreatureLibrary = () => {
         selectedSources={library.selectedSources}
         typeOptions={library.typeOptions}
         selectedTypes={library.selectedTypes}
+        documentOptions={library.documentOptions}
+        selectedDocuments={library.selectedDocuments}
         selectedSlug={selectedCreatureSlug}
         selectedCustomCreatureId={selectedCustomCreatureId}
         onSearchChange={library.setSearch}
         onSourcesChange={library.setSelectedSources}
         onTypesChange={library.setSelectedTypes}
+        onDocumentsChange={library.setSelectedDocuments}
         onSelect={handleSelect}
         onAdd={library.addCreature}
         onNewCreature={() => setIsWizardOpen(true)}

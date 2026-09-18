@@ -4,8 +4,10 @@ import { useId, useState, type KeyboardEvent } from 'react';
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { Icon } from '~/atoms/Icon';
+import { Portal } from '~/atoms/Portal';
 import { TextInput } from '~/atoms/TextInput';
 import { useDismissableMenu } from '~/hooks/useDismissableMenu';
+import { useFloatingPosition } from '~/hooks/useFloatingPosition';
 
 export type MapRowFolderOption = {
   id: string;
@@ -107,7 +109,13 @@ type MapRowMenuProps = {
   onRemove: () => void;
 };
 
-/** The kebab menu: move to folder, rename, and remove, collapsed behind one trigger. */
+/**
+ * The kebab menu: move to folder, rename, and remove, collapsed behind one
+ * trigger. The menu itself renders through `Portal`, positioned against the
+ * trigger by `useFloatingPosition` — see `MultiSelectFilter` for why a
+ * `position: absolute` child stopped being safe once this sat inside a
+ * scrolling gallery.
+ */
 const MapRowMenu = ({
   name,
   folderOptions,
@@ -118,10 +126,13 @@ const MapRowMenu = ({
 }: MapRowMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuId = useId();
-  const wrapperRef = useDismissableMenu(isOpen, () => setIsOpen(false));
+  const { triggerRef, menuRef } = useDismissableMenu(isOpen, () =>
+    setIsOpen(false),
+  );
+  const position = useFloatingPosition(isOpen, triggerRef, menuRef, 'end');
 
   return (
-    <MenuWrapper ref={wrapperRef}>
+    <MenuWrapper ref={triggerRef}>
       <MenuTrigger
         type="button"
         variant="ghost"
@@ -135,52 +146,64 @@ const MapRowMenu = ({
         <Icon name="more" size="1.25rem" />
       </MenuTrigger>
       {isOpen && (
-        <Menu id={menuId} role="group" aria-label={`Actions for ${name}`}>
-          <MenuLabel>Move to folder</MenuLabel>
-          <MenuItem
-            type="button"
-            aria-pressed={currentFolderId === null}
-            onClick={() => {
-              onMove(null);
-              setIsOpen(false);
-            }}
+        <Portal>
+          <Menu
+            ref={menuRef}
+            id={menuId}
+            role="group"
+            aria-label={`Actions for ${name}`}
+            style={
+              position
+                ? { top: `${position.top}px`, left: `${position.left}px` }
+                : undefined
+            }
           >
-            No folder
-          </MenuItem>
-          {folderOptions.map(folder => (
+            <MenuLabel>Move to folder</MenuLabel>
             <MenuItem
-              key={folder.id}
               type="button"
-              aria-pressed={currentFolderId === folder.id}
+              aria-pressed={currentFolderId === null}
               onClick={() => {
-                onMove(folder.id);
+                onMove(null);
                 setIsOpen(false);
               }}
             >
-              {folder.name}
+              No folder
             </MenuItem>
-          ))}
-          <MenuDivider />
-          <MenuItem
-            type="button"
-            onClick={() => {
-              onRename();
-              setIsOpen(false);
-            }}
-          >
-            Rename
-          </MenuItem>
-          <MenuItem
-            type="button"
-            $isDanger
-            onClick={() => {
-              onRemove();
-              setIsOpen(false);
-            }}
-          >
-            Remove
-          </MenuItem>
-        </Menu>
+            {folderOptions.map(folder => (
+              <MenuItem
+                key={folder.id}
+                type="button"
+                aria-pressed={currentFolderId === folder.id}
+                onClick={() => {
+                  onMove(folder.id);
+                  setIsOpen(false);
+                }}
+              >
+                {folder.name}
+              </MenuItem>
+            ))}
+            <MenuDivider />
+            <MenuItem
+              type="button"
+              onClick={() => {
+                onRename();
+                setIsOpen(false);
+              }}
+            >
+              Rename
+            </MenuItem>
+            <MenuItem
+              type="button"
+              $isDanger
+              onClick={() => {
+                onRemove();
+                setIsOpen(false);
+              }}
+            >
+              Remove
+            </MenuItem>
+          </Menu>
+        </Portal>
       )}
     </MenuWrapper>
   );
@@ -224,7 +247,6 @@ const Footer = styled.div`
 `;
 
 const MenuWrapper = styled.div`
-  position: relative;
   display: inline-flex;
 `;
 
@@ -232,10 +254,12 @@ const MenuTrigger = styled(Button)`
   padding: ${props => props.theme.space.xs};
 `;
 
+/** Positioned off-screen until `useFloatingPosition` measures the trigger,
+ * so there is nothing to flash before its first real `top`/`left` commits. */
 const Menu = styled.div`
-  position: absolute;
-  top: calc(100% + ${props => props.theme.space.xs});
-  right: 0;
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
   z-index: 10;
   display: flex;
   flex-direction: column;

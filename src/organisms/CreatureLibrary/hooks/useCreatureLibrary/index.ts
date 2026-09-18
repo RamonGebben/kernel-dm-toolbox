@@ -25,6 +25,9 @@ export type CreatureLibraryState = {
   typeOptions: MultiSelectFilterOption[];
   selectedTypes: string[];
   setSelectedTypes: (types: string[]) => void;
+  documentOptions: MultiSelectFilterOption[];
+  selectedDocuments: string[];
+  setSelectedDocuments: (documents: string[]) => void;
 };
 
 /**
@@ -84,6 +87,9 @@ export const toLibraryState = ({
   | 'typeOptions'
   | 'selectedTypes'
   | 'setSelectedTypes'
+  | 'documentOptions'
+  | 'selectedDocuments'
+  | 'setSelectedDocuments'
 > => ({
   ...toLibraryImportState({ isStatusPending, isListPending, status }),
   creatures: creatures ?? [],
@@ -105,14 +111,17 @@ export const useCreatureLibrary = () => {
   const [search, setSearch] = useState('');
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
 
   const status = useQuery(trpc.library.status.queryOptions());
   const types = useQuery(trpc.library.listCreatureTypes.queryOptions());
+  const documents = useQuery(trpc.library.listCreatureDocuments.queryOptions());
   const list = useQuery(
     trpc.library.listCreatures.queryOptions({
       search,
       source: toCreatureSourceInput(selectedSources),
       types: selectedTypes,
+      documents: selectedDocuments,
     }),
   );
 
@@ -140,6 +149,9 @@ export const useCreatureLibrary = () => {
     typeOptions: types.data ?? [],
     selectedTypes,
     setSelectedTypes,
+    documentOptions: documents.data ?? [],
+    selectedDocuments,
+    setSelectedDocuments,
     addCreature: (creature: CreatureSummary) =>
       addCreature.mutate(toAddCreatureInput(creature)),
   };
