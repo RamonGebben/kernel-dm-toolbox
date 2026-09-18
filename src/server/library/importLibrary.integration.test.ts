@@ -183,10 +183,19 @@ const payloads: Record<string, unknown[]> = {
   SpellCastingOption: [acidArrowAtThird, orphanCastingOption],
 };
 
+/**
+ * Only serves fixtures for the SRD path — every other configured source
+ * (see `CREATURE_LIBRARY_SOURCES`) gets an empty list, the same as a real
+ * document with nothing relevant in this test's fixtures. The multi-source
+ * merge itself (several sources each contributing real creatures) has its
+ * own dedicated tests below.
+ */
 const stubFetch: FetchJson = async url => {
   const fileName = url.split('/').pop()?.replace('.json', '') ?? '';
-  const payload = payloads[fileName];
 
+  if (!url.includes('/wizards-of-the-coast/srd-2024/')) return [];
+
+  const payload = payloads[fileName];
   if (!payload) throw new Error(`Unexpected fixture request: ${url}`);
   return payload;
 };
@@ -326,5 +335,60 @@ describe('importLibrary', () => {
     await expect(importLibrary({ db, fetchJson: malformed })).rejects.toThrow(
       /Creature\.json record 0/,
     );
+  });
+
+  describe('multiple sources', () => {
+    const banshee = {
+      model: 'api_v2.creature',
+      pk: 'a5e-mm_banshee',
+      fields: { ...aboleth.fields, name: 'Banshee', document: 'a5e-mm' },
+    };
+
+    it('merges creatures contributed by every configured source', async () => {
+      const multiSource: FetchJson = async url =>
+        url.includes('/en-publishing/a5e-mm/') && url.includes('Creature.json')
+          ? [banshee]
+          : stubFetch(url);
+
+      const result = await importLibrary({ db, fetchJson: multiSource });
+
+      expect(result.creatureCount).toBe(2);
+      const rows = await db.query.creatures.findMany();
+      expect(rows.map(row => row.slug).sort()).toEqual([
+        'a5e-mm_banshee',
+        'srd-2024_aboleth',
+      ]);
+    });
+
+    it('tolerates a source with no CreatureActionAttack.json of its own', async () => {
+      // Tome of Beasts 3 genuinely has no attacks file upstream — a plain
+      // 404, not a broken import.
+      const missingAttackFile: FetchJson = async url =>
+        url.includes('/kobold-press/tob3/') &&
+        url.includes('CreatureActionAttack.json')
+          ? Promise.reject(new Error(`Failed to fetch ${url}: 404 Not Found`))
+          : stubFetch(url);
+
+      const result = await importLibrary({ db, fetchJson: missingAttackFile });
+
+      // The SRD's own attack still made it in; tob3 just contributed none.
+      expect(result.attackCount).toBe(1);
+    });
+
+    it('never asks a supplementary source for conditions or spells', async () => {
+      // Only the SRD is fetched for these two files — if a future change
+      // started looping them per-source the way creatures are, this stub
+      // would reject and fail the import.
+      const guarded: FetchJson = async url =>
+        url.includes('/en-publishing/a5e-mm/') &&
+        (url.includes('ConditionDescription.json') ||
+          url.includes('Spell.json'))
+          ? Promise.reject(new Error(`Unexpected fixture request: ${url}`))
+          : stubFetch(url);
+
+      await expect(
+        importLibrary({ db, fetchJson: guarded }),
+      ).resolves.toMatchObject({ conditionCount: 1, spellCount: 1 });
+    });
   });
 });

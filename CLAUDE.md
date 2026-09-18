@@ -376,7 +376,7 @@ ones easy to get wrong.
 Two groups of tables, with different rules.
 
 **Library** — imported from Open5e, read-only, keyed by the upstream slug
-(`srd-2024_aboleth`):
+(`srd-2024_aboleth`, `a5e-mm_banshee`, `tob2_a-mi-kuk`, …):
 
 ```
 creatures                ~70 scalar columns, mirrors Creature.json
@@ -384,11 +384,25 @@ creature_actions         action_type: ACTION | BONUS_ACTION | REACTION |
                          LEGENDARY_ACTION; ordered by order_in_statblock
 creature_action_attacks  to-hit, damage dice, reach/range
 creature_traits          name + desc
-conditions               from ConditionDescription.json
+conditions               from ConditionDescription.json — SRD only
 spells                   from Spell.json; no UI yet, read by library.listSpells
+                         — SRD only
 spell_casting_options    what changes at a higher slot; parented to a spell
+                         — SRD only
 import_runs              which git ref was imported, when, row counts
 ```
+
+Creatures/actions/attacks/traits are pulled from **every** source in
+`~/server/library/source.ts`'s `CREATURE_LIBRARY_SOURCES` — the SRD plus
+seven supplementary OGL 1.0a bestiaries (DECISIONS #30) — merged before
+writing. Conditions and spells stay SRD-only: `loadFixture` fetches those
+three files from `SRD_SOURCE.path` specifically, never looped per-source.
+Adding another creature source is a new `CreatureLibrarySource` entry in
+`SUPPLEMENTARY_CREATURE_SOURCES` plus a README attribution update — nothing
+in `fixtures.ts` or a mapper needs to change unless the new document's field
+shape actually differs. `loadFixture`'s `optional` flag tolerates a source
+missing a file entirely (a 404, not a broken document — Tome of Beasts 3 has
+no `CreatureActionAttack.json`).
 
 `spell_casting_options` is keyed by the stringified upstream **integer** pk —
 one of the few Open5e models with no slug. `fixtures.ts` has a

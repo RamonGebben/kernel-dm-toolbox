@@ -118,6 +118,42 @@ Wizards of the Coast, as published in the
 [Open5e API](https://github.com/open5e/open5e-api) fixtures, and is licensed
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
+### Open Game License content
+
+The creature library also pulls from several supplementary bestiaries — see
+`DECISIONS.md` #30 for why and which ones (`~/server/library/source.ts`'s
+`SUPPLEMENTARY_CREATURE_SOURCES` is the definitive list). Each is licensed
+under the [Open Game License v1.0a](https://en.wikipedia.org/wiki/Open_Game_License)
+via the same Open5e API fixtures, not the SRD's CC BY 4.0 above, and
+contributes creatures/actions/attacks/traits only — no conditions or spells.
+
+**Section 15 Copyright Notice**
+
+Open Game License v 1.0a Copyright 2000, Wizards of the Coast, Inc.
+
+Monstrous Menagerie. Copyright 2021, EN Publishing; Author: Paul Hughes.
+
+Tome of Beasts. Copyright 2016, Open Design LLC; Authors: Wolfgang Baur, Chris
+Harris, Dan Dillon, Rodrigo Garcia Carmona.
+
+Tome of Beasts 1 (2023 Edition). Copyright 2024, Kobold Press; Authors: Dan
+Dillon, Chris Harris, Rodrigo Garcia Carmona, Wolfgang Baur.
+
+Tome of Beasts 2. Copyright 2020, Kobold Press; Authors: Wolfgang Baur,
+Celeste Conowitch, Darrin Drader, James Introcaso, Philip Larwood, Jeff Lee,
+Kelly Pawlik, Brian Suskind, Mike Welham.
+
+Tome of Beasts 3. Copyright 2022, Kobold Press; Authors: Wolfgang Baur,
+Celeste Conowitch, Darrin Drader, James Introcaso, Philip Larwood, Jeff Lee,
+Kelly Pawlik, Brian Suskind, Mike Welham.
+
+Creature Codex. Copyright 2018, Kobold Press; Authors: Wolfgang Baur, Dan
+Dillon, Richard Green, James Haeck, Chris Harris, Jeremy Hochhalter, James
+Introcaso, Chris Lockey, Shawn Merwin, and Jon Sawatsky.
+
+Tal'Dorei Campaign Setting. Copyright 2017, Green Ronin Publishing; Authors:
+Matthew Mercer, James Haeck.
+
 Animated spell-effect clips for the Maps tool's measurement templates come
 from Jack Kerouac's
 [Animated Spell Effects](https://github.com/jackkerouac/animated-spell-effects)
@@ -126,8 +162,8 @@ and are licensed under
 A curated subset is fetched at library-import time, not bundled with this
 project — see `DECISIONS.md` #29.
 
-This project is not affiliated with or endorsed by Wizards of the Coast or
-Jack Kerouac.
+This project is not affiliated with or endorsed by Wizards of the Coast, EN
+Publishing, Kobold Press, Green Ronin, or Jack Kerouac.
 
 ## Roadmap
 

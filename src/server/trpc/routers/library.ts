@@ -33,7 +33,7 @@ import { buildSpellDetail } from '~/server/trpc/helpers/buildSpellDetail';
 import { buildSpellClassOptions } from '~/server/trpc/helpers/buildSpellClassOptions';
 import { buildCreatureTypeOptions } from '~/server/trpc/helpers/buildCreatureTypeOptions';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
-import { LIBRARY_ATTRIBUTION } from '~/server/library/source';
+import { LIBRARY_ATTRIBUTIONS } from '~/server/library/source';
 
 /**
  * Read-only access to the imported Open5e library.
@@ -69,7 +69,7 @@ export const libraryRouter = createTRPCRouter({
       lastImportedAt: lastRun?.finishedAt ?? null,
       lastImportRef: lastRun?.gitRef ?? null,
       lastImportError: lastRun?.error ?? null,
-      attribution: LIBRARY_ATTRIBUTION,
+      attributions: LIBRARY_ATTRIBUTIONS,
     };
   }),
 
