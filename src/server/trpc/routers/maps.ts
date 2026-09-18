@@ -40,6 +40,7 @@ import {
 } from '~/server/trpc/schemas/maps';
 import { buildMapGallery } from '~/server/trpc/helpers/buildMapGallery';
 import { applyFogStrokeBatch } from '~/server/trpc/helpers/applyFogStrokeBatch';
+import { resetFogState } from '~/server/trpc/helpers/resetFogState';
 import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
 import {
   tombstoneSyncMeta,
@@ -299,15 +300,7 @@ export const mapsRouter = createTRPCRouter({
       const [updated] = await ctx.db
         .update(maps)
         .set({
-          // A baked-in baseline is a snapshot of strokes this reset just
-          // discarded — it must not outlive them and resurface under
-          // whatever gets painted next.
-          fog: {
-            ...existing.fog,
-            baseState: 'covered',
-            baselineImage: null,
-            strokes: [],
-          },
+          fog: resetFogState(existing.fog, 'covered'),
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))
@@ -326,12 +319,7 @@ export const mapsRouter = createTRPCRouter({
       const [updated] = await ctx.db
         .update(maps)
         .set({
-          fog: {
-            ...existing.fog,
-            baseState: 'revealed',
-            baselineImage: null,
-            strokes: [],
-          },
+          fog: resetFogState(existing.fog, 'revealed'),
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))
@@ -383,12 +371,20 @@ export const mapsRouter = createTRPCRouter({
     }),
 
   /**
-   * Bakes `strokes` into `baselineImage` and clears the list — the client
-   * decides when (`FOG_COMPACTION_STROKE_THRESHOLD`, `~/utils/fogMask`) and
-   * rasterizes its own offscreen mask canvas to produce the image, since
-   * only the client has a canvas to paint with. This is what keeps a long
-   * session's fog payload bounded instead of growing with every dab ever
-   * painted — see the field's own comment on `MapFogState`.
+   * Bakes `strokes` into `baselineImage` and drops only the strokes that
+   * snapshot actually captured — the client decides when
+   * (`FOG_COMPACTION_STROKE_THRESHOLD`, `~/utils/fogMask`) and rasterizes its
+   * own offscreen mask canvas to produce the image, since only the client has
+   * a canvas to paint with. This is what keeps a long session's fog payload
+   * bounded instead of growing with every dab ever painted — see the field's
+   * own comment on `MapFogState`.
+   *
+   * `existing` is read fresh here (not trusted from the client), and only
+   * `input.compactedStrokeCount` leading strokes are dropped from it —
+   * `applyFogStrokeBatch` always appends, so any stroke committed by a
+   * concurrent `applyFogStrokes` call after the client's snapshot was taken
+   * sorts after that prefix and survives the compaction untouched, instead of
+   * being wiped by an unconditional `strokes: []`.
    */
   compactFog: publicProcedure
     .input(compactFogInputSchema)
@@ -401,7 +397,7 @@ export const mapsRouter = createTRPCRouter({
           fog: {
             ...existing.fog,
             baselineImage: input.baselineImage,
-            strokes: [],
+            strokes: existing.fog.strokes.slice(input.compactedStrokeCount),
           },
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
