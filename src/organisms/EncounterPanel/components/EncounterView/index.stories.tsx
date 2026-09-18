@@ -81,6 +81,7 @@ const meta = {
     onSelect: fn(),
     onRemove: fn(),
     onToggleDelay: fn(),
+    onOpenHitPoints: fn(),
     onOpenInitiativeRoll: fn(),
     onCloseInitiativeRoll: fn(),
     onStart: fn(),
@@ -106,6 +107,11 @@ export const Loaded: Story = {
       canvas.getByRole('button', { name: 'Select Sigrid' }),
     );
     await expect(args.onSelect).toHaveBeenCalledWith('sigrid');
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Edit hit points for Meat' }),
+    );
+    await expect(args.onOpenHitPoints).toHaveBeenCalledWith('meat');
   },
 };
 

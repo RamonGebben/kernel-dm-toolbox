@@ -7,9 +7,6 @@ const meta = {
   component: CombatantControls,
   args: {
     displayName: 'Meat',
-    currentHitPoints: 35,
-    maxHitPoints: 52,
-    temporaryHitPoints: 0,
     isHidden: false,
     isPending: false,
     conditions: [],
@@ -17,9 +14,6 @@ const meta = {
       { slug: 'srd-2024_poisoned', name: 'Poisoned' },
       { slug: 'srd-2024_prone', name: 'Prone' },
     ],
-    onDamage: fn(),
-    onHeal: fn(),
-    onGrantTemporary: fn(),
     onToggleHidden: fn(),
     onApplyCondition: fn(),
     onRemoveCondition: fn(),
@@ -31,13 +25,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  play: async ({ args, canvasElement }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.type(canvas.getByLabelText('Amount'), '17');
-    await userEvent.click(canvas.getByRole('button', { name: 'Damage' }));
-
-    await expect(args.onDamage).toHaveBeenCalledWith(17);
+    await expect(canvas.getByText('Meat')).toBeVisible();
   },
 };
 
@@ -95,8 +86,11 @@ export const Saving: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.type(canvas.getByLabelText('Amount'), '5');
+    await userEvent.selectOptions(
+      canvas.getByLabelText('Condition'),
+      'srd-2024_poisoned',
+    );
 
-    await expect(canvas.getByRole('button', { name: 'Damage' })).toBeDisabled();
+    await expect(canvas.getByRole('button', { name: 'Apply' })).toBeDisabled();
   },
 };

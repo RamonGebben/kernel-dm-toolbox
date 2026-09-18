@@ -20,6 +20,7 @@ const meta = {
     onSelect: fn(),
     onToggleDelay: fn(),
     onRemove: fn(),
+    onOpenHitPoints: fn(),
   },
 } satisfies Meta<typeof CombatantRow>;
 
@@ -36,9 +37,15 @@ export const Damaged: Story = {
 
     await userEvent.click(canvas.getByRole('button', { name: 'Select Meat' }));
     await expect(args.onSelect).toHaveBeenCalledOnce();
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Edit hit points for Meat' }),
+    );
+    await expect(args.onOpenHitPoints).toHaveBeenCalledOnce();
   },
 };
 
+/** A downed/killed combatant recedes so the standing ones stand out. */
 export const Downed: Story = {
   args: {
     displayName: 'Young Black Dragon',
@@ -51,6 +58,7 @@ export const Downed: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('0/127')).toBeVisible();
+    await expect(canvas.getByText('down')).toBeVisible();
   },
 };
 

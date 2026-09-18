@@ -49,6 +49,7 @@ export type EncounterViewProps = {
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onToggleDelay: (id: string) => void;
+  onOpenHitPoints: (id: string) => void;
   onOpenInitiativeRoll: () => void;
   onCloseInitiativeRoll: () => void;
   onStart: (initiatives: { id: string; initiative: number }[]) => void;
@@ -71,6 +72,7 @@ export const EncounterView = ({
   onSelect,
   onRemove,
   onToggleDelay,
+  onOpenHitPoints,
   onOpenInitiativeRoll,
   onCloseInitiativeRoll,
   onStart,
@@ -124,6 +126,7 @@ export const EncounterView = ({
           onSelect={onSelect}
           onRemove={onRemove}
           onToggleDelay={onToggleDelay}
+          onOpenHitPoints={onOpenHitPoints}
         />
       </Body>
 
@@ -207,6 +210,7 @@ type OrderBodyProps = Pick<
   | 'onSelect'
   | 'onRemove'
   | 'onToggleDelay'
+  | 'onOpenHitPoints'
 >;
 
 /** A named subcomponent, so the branches stay guard clauses. */
@@ -218,6 +222,7 @@ const OrderBody = ({
   onSelect,
   onRemove,
   onToggleDelay,
+  onOpenHitPoints,
 }: OrderBodyProps) => {
   if (isPending)
     return <Skeleton role="status" aria-label="Loading the encounter" />;
@@ -258,6 +263,7 @@ const OrderBody = ({
               onSelect={() => onSelect(combatant.id)}
               onToggleDelay={() => onToggleDelay(combatant.id)}
               onRemove={() => onRemove(combatant.id)}
+              onOpenHitPoints={() => onOpenHitPoints(combatant.id)}
             />
           </li>
         ))}

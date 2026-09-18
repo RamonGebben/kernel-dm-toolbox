@@ -2,7 +2,6 @@
 
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { HitPointControls } from '~/molecules/HitPointControls';
 import {
   ConditionPicker,
   type ConditionOption,
@@ -14,16 +13,10 @@ import {
 
 export type CombatantControlsProps = {
   displayName: string;
-  currentHitPoints: number;
-  maxHitPoints: number;
-  temporaryHitPoints: number;
   isHidden: boolean;
   isPending: boolean;
   conditions: readonly AppliedConditionSummary[];
   conditionOptions: readonly ConditionOption[];
-  onDamage: (amount: number) => void;
-  onHeal: (amount: number) => void;
-  onGrantTemporary: (amount: number) => void;
   onToggleHidden: () => void;
   onApplyCondition: (input: {
     conditionSlug: string;
@@ -34,21 +27,15 @@ export type CombatantControlsProps = {
 
 /**
  * What the DM does *to* the selected combatant, above the reference material
- * about it. Hit points first, because that is the thing being changed every
- * round; hiding is a per-fight decision made once.
+ * about it. Hit points live in their own dialog now, opened from the HP
+ * readout in the tracker's own row — this panel is conditions and visibility.
  */
 export const CombatantControls = ({
   displayName,
-  currentHitPoints,
-  maxHitPoints,
-  temporaryHitPoints,
   isHidden,
   isPending,
   conditions,
   conditionOptions,
-  onDamage,
-  onHeal,
-  onGrantTemporary,
   onToggleHidden,
   onApplyCondition,
   onRemoveCondition,
@@ -65,16 +52,6 @@ export const CombatantControls = ({
         {isHidden ? 'Reveal to players' : 'Hide from players'}
       </Button>
     </Header>
-
-    <HitPointControls
-      currentHitPoints={currentHitPoints}
-      maxHitPoints={maxHitPoints}
-      temporaryHitPoints={temporaryHitPoints}
-      isPending={isPending}
-      onDamage={onDamage}
-      onHeal={onHeal}
-      onGrantTemporary={onGrantTemporary}
-    />
 
     <ConditionBadges conditions={conditions} onRemove={onRemoveCondition} />
     <ConditionPicker
