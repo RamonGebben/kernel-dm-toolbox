@@ -27,6 +27,19 @@ describe('toActionRow', () => {
     expect(toActionRow(consumeMemories).actionType).toBe('ACTION');
   });
 
+  it('treats an explicit null order_in_statblock as 0, not just an omitted field', () => {
+    const noOrder = creatureActionFixtureSchema.parse({
+      ...consumeMemories,
+      pk: 'green-ronin_tdcs_some-action',
+      fields: {
+        ...consumeMemories.fields,
+        order_in_statblock: null,
+      },
+    });
+
+    expect(toActionRow(noOrder).sortOrder).toBe(0);
+  });
+
   it('carries the legendary action cost when there is one', () => {
     const legendary = creatureActionFixtureSchema.parse({
       ...consumeMemories,
