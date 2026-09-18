@@ -9,7 +9,9 @@ describe('computeFloatingPosition', () => {
       computeFloatingPosition({
         anchorRect,
         menuWidth: 150,
+        menuHeight: 200,
         viewportWidth: 1000,
+        viewportHeight: 800,
         align: 'start',
         gap: 4,
       }),
@@ -21,7 +23,9 @@ describe('computeFloatingPosition', () => {
       computeFloatingPosition({
         anchorRect,
         menuWidth: 150,
+        menuHeight: 200,
         viewportWidth: 1000,
+        viewportHeight: 800,
         align: 'end',
         gap: 4,
       }),
@@ -33,7 +37,9 @@ describe('computeFloatingPosition', () => {
       computeFloatingPosition({
         anchorRect,
         menuWidth: 300,
+        menuHeight: 200,
         viewportWidth: 1000,
+        viewportHeight: 800,
         align: 'end',
         gap: 4,
       }).left,
@@ -45,7 +51,9 @@ describe('computeFloatingPosition', () => {
       computeFloatingPosition({
         anchorRect: { left: 950, right: 970, bottom: 60 },
         menuWidth: 200,
+        menuHeight: 200,
         viewportWidth: 1000,
+        viewportHeight: 800,
         align: 'start',
         gap: 4,
       }).left,
@@ -57,10 +65,40 @@ describe('computeFloatingPosition', () => {
       computeFloatingPosition({
         anchorRect,
         menuWidth: 150,
+        menuHeight: 200,
         viewportWidth: 1000,
+        viewportHeight: 800,
         align: 'start',
         gap: 10,
       }).top,
     ).toBe(70);
+  });
+
+  it('clamps to the bottom margin rather than overflowing the viewport', () => {
+    expect(
+      computeFloatingPosition({
+        anchorRect: { left: 100, right: 180, bottom: 780 },
+        menuWidth: 150,
+        menuHeight: 200,
+        viewportWidth: 1000,
+        viewportHeight: 800,
+        align: 'start',
+        gap: 4,
+      }).top,
+    ).toBe(592);
+  });
+
+  it('clamps to the top margin when the menu is taller than the viewport', () => {
+    expect(
+      computeFloatingPosition({
+        anchorRect: { left: 100, right: 180, bottom: 780 },
+        menuWidth: 150,
+        menuHeight: 2000,
+        viewportWidth: 1000,
+        viewportHeight: 800,
+        align: 'start',
+        gap: 4,
+      }).top,
+    ).toBe(8);
   });
 });

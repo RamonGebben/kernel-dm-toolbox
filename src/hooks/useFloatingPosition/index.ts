@@ -25,19 +25,26 @@ const VIEWPORT_MARGIN = 8;
  * `align: 'start'` anchors the dropdown's left edge to the trigger's left
  * edge (`MultiSelectFilter`'s old `left: 0`); `'end'` anchors the right
  * edges (`MapRowMenu`'s old `right: 0`). Either way the result is clamped to
- * stay on screen — a static `left`/`right` never guaranteed that once the
- * dropdown was free to overflow whatever used to clip it.
+ * stay on screen on both axes — a static `left`/`right`/`top` never
+ * guaranteed that once the dropdown was free to overflow whatever used to
+ * clip it, and a trigger near the bottom of the viewport (the last row of a
+ * long, scrolled list) would otherwise place the menu partly or fully below
+ * the visible area with no ancestor scroll left to reach it.
  */
 export const computeFloatingPosition = ({
   anchorRect,
   menuWidth,
+  menuHeight,
   viewportWidth,
+  viewportHeight,
   align,
   gap,
 }: {
   anchorRect: FloatingAnchorRect;
   menuWidth: number;
+  menuHeight: number;
   viewportWidth: number;
+  viewportHeight: number;
   align: FloatingAlign;
   gap: number;
 }): FloatingPosition => {
@@ -47,9 +54,14 @@ export const computeFloatingPosition = ({
     VIEWPORT_MARGIN,
     viewportWidth - menuWidth - VIEWPORT_MARGIN,
   );
+  const rawTop = anchorRect.bottom + gap;
+  const maxTop = Math.max(
+    VIEWPORT_MARGIN,
+    viewportHeight - menuHeight - VIEWPORT_MARGIN,
+  );
 
   return {
-    top: anchorRect.bottom + gap,
+    top: Math.min(Math.max(rawTop, VIEWPORT_MARGIN), maxTop),
     left: Math.min(Math.max(rawLeft, VIEWPORT_MARGIN), maxLeft),
   };
 };
@@ -99,23 +111,44 @@ export const useFloatingPosition = (
       const trigger = triggerRef.current;
       if (!trigger) return;
 
+      const menuRect = menuRef.current?.getBoundingClientRect();
+
       setPosition(
         computeFloatingPosition({
           anchorRect: trigger.getBoundingClientRect(),
-          menuWidth: menuRef.current?.getBoundingClientRect().width ?? 0,
+          menuWidth: menuRect?.width ?? 0,
+          menuHeight: menuRect?.height ?? 0,
           viewportWidth: document.documentElement.clientWidth,
+          viewportHeight: document.documentElement.clientHeight,
           align,
           gap,
         }),
       );
     };
 
+    // rAF-throttled: `scroll` (capture-phase, since it doesn't bubble) and
+    // `resize` can both fire many times per second (trackpad momentum
+    // scroll, a drag-resize), and each raw event would otherwise force a
+    // synchronous layout read (`getBoundingClientRect`) plus a React state
+    // update — batching to at most once per animation frame is the same
+    // "don't write per raw event" rule the map canvas's own scheduler
+    // follows.
+    let frame: number | null = null;
+    const scheduleUpdate = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        update();
+      });
+    };
+
     update();
-    document.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
+    document.addEventListener('scroll', scheduleUpdate, true);
+    window.addEventListener('resize', scheduleUpdate);
     return () => {
-      document.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
+      if (frame !== null) cancelAnimationFrame(frame);
+      document.removeEventListener('scroll', scheduleUpdate, true);
+      window.removeEventListener('resize', scheduleUpdate);
     };
   }, [isOpen, align, triggerRef, menuRef]);
 
