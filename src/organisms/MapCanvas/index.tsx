@@ -30,6 +30,7 @@ export const MapCanvas = () => {
       fogTool={canvas.fogTool}
       onFogStrokeBatch={canvas.onFogStrokeBatch}
       onFogCompactionNeeded={canvas.onFogCompactionNeeded}
+      isFogCompactionPending={canvas.isFogCompactionPending}
       calibrationActive={canvas.calibrationActive}
       calibrationStart={canvas.calibrationStart}
       onCalibrateClick={canvas.onCalibrateClick}

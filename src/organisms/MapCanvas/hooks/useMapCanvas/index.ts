@@ -200,9 +200,9 @@ export const useMapCanvas = () => {
   // request that lands after this one settles just fires again — capturing
   // the mask a second time is harmless — until `strokes` actually resets.
   const onFogCompactionNeeded = useCallback(
-    (baselineImage: string) => {
+    (baselineImage: string, compactedStrokeCount: number) => {
       if (!mapId || compactFog.isPending) return;
-      compactFog.mutate({ id: mapId, baselineImage });
+      compactFog.mutate({ id: mapId, baselineImage, compactedStrokeCount });
     },
     [mapId, compactFog],
   );
@@ -468,6 +468,7 @@ export const useMapCanvas = () => {
     fogTool: fogBrush,
     onFogStrokeBatch,
     onFogCompactionNeeded,
+    isFogCompactionPending: compactFog.isPending,
     calibrationActive,
     calibrationStart,
     onCalibrateClick: handleCalibrateClick,

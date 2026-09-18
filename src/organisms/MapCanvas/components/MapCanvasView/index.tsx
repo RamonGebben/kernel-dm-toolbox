@@ -124,7 +124,14 @@ export type MapCanvasViewProps = {
    * `FOG_COMPACTION_STROKE_THRESHOLD` — undefined on a non-interactive
    * (player) canvas, which has nothing to write it with and skips the
    * rasterize entirely rather than compute one nobody reads. */
-  onFogCompactionNeeded?: (baselineImage: string) => void;
+  onFogCompactionNeeded?: (
+    baselineImage: string,
+    compactedStrokeCount: number,
+  ) => void;
+  /** True while a previously-requested compaction is still in flight —
+   * skips the next rasterize entirely rather than compute one that would
+   * just be thrown away. */
+  isFogCompactionPending?: boolean;
   calibrationActive?: boolean;
   calibrationStart?: CalibrationPoint | null;
   onCalibrateClick?: (point: CalibrationPoint) => void;
@@ -234,6 +241,7 @@ export const MapCanvasView = ({
   fogTool,
   onFogStrokeBatch,
   onFogCompactionNeeded,
+  isFogCompactionPending = false,
   calibrationActive = false,
   calibrationStart = null,
   onCalibrateClick,
@@ -590,6 +598,7 @@ export const MapCanvasView = ({
     mapHeight: mapSize.height,
     onScheduleDraw: scheduleDraw,
     onCompactionNeeded: onFogCompactionNeeded,
+    isCompactionPending: isFogCompactionPending,
   });
 
   const drawGrid = useGridOverlay();

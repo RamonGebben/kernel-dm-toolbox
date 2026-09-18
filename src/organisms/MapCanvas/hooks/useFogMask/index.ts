@@ -78,14 +78,27 @@ export const useFogMask = ({
   mapHeight,
   onScheduleDraw,
   onCompactionNeeded,
+  isCompactionPending = false,
 }: {
   fog: MapCanvasFogState | undefined;
   mapWidth: number;
   mapHeight: number;
   onScheduleDraw: () => void;
   /** Undefined on a non-interactive (player) canvas — see the prop's own
-   * comment on `MapCanvasViewProps`. */
-  onCompactionNeeded?: (baselineImage: string) => void;
+   * comment on `MapCanvasViewProps`. `compactedStrokeCount` is how many
+   * leading strokes this exact snapshot baked in, so the server only drops
+   * that many rather than trusting the client to say "clear everything". */
+  onCompactionNeeded?: (
+    baselineImage: string,
+    compactedStrokeCount: number,
+  ) => void;
+  /** True while a previous compaction request is still in flight. Skips the
+   * `toDataURL` rasterize itself (not just the mutation call it would feed) —
+   * without this, every stroke committed while `strokes.length` stays above
+   * the threshold re-encodes the full-resolution mask on the main thread for
+   * a result that gets thrown away as soon as it's handed to a caller that's
+   * just going to no-op on it. */
+  isCompactionPending?: boolean;
 }): FogMaskHandle => {
   const maskRef = useRef<HTMLCanvasElement | null>(null);
   const maskCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -98,6 +111,11 @@ export const useFogMask = ({
   useEffect(() => {
     onCompactionNeededRef.current = onCompactionNeeded;
   }, [onCompactionNeeded]);
+
+  const isCompactionPendingRef = useRef(isCompactionPending);
+  useEffect(() => {
+    isCompactionPendingRef.current = isCompactionPending;
+  }, [isCompactionPending]);
 
   useEffect(() => {
     if (!fog?.enabled || mapWidth <= 0 || mapHeight <= 0) {
@@ -139,8 +157,15 @@ export const useFogMask = ({
 
       onScheduleDraw();
 
-      if (onCompactionNeededRef.current && shouldCompactFog(strokes.length)) {
-        onCompactionNeededRef.current(canvas.toDataURL('image/png'));
+      if (
+        onCompactionNeededRef.current &&
+        !isCompactionPendingRef.current &&
+        shouldCompactFog(strokes.length)
+      ) {
+        onCompactionNeededRef.current(
+          canvas.toDataURL('image/png'),
+          strokes.length,
+        );
       }
     };
 
