@@ -130,7 +130,7 @@ export const creatureActionFixtureSchema = fixtureRecord(
       .int()
       .nullable()
       .default(0)
-      .transform((value) => value ?? 0),
+      .transform(value => value ?? 0),
     legendary_action_cost: nullableInt,
     uses_type: z.string().nullable().default(null),
     uses_param: nullableInt,
