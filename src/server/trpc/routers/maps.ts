@@ -391,6 +391,16 @@ export const mapsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const existing = await loadMap(ctx.db, input.id);
 
+      // `existing.fog.strokes` can be shorter than `compactedStrokeCount` if a
+      // reset, a reveal, or another compaction landed between the client's
+      // snapshot and this write — applying it anyway would either resurrect
+      // fog a later mutation already cleared, or truncate strokes painted
+      // after that mutation. Skip: the client re-evaluates compaction on its
+      // own next fog change, so this is never a permanent no-op.
+      if (existing.fog.strokes.length < input.compactedStrokeCount) {
+        return existing;
+      }
+
       const [updated] = await ctx.db
         .update(maps)
         .set({

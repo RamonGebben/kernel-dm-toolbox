@@ -143,6 +143,8 @@ export const useFogMask = ({
     const strokes = fog.strokes;
     const baseState = fog.baseState;
 
+    let cancelled = false;
+
     const render = (baseImage: HTMLImageElement | null) => {
       ctx.clearRect(0, 0, mapWidth, mapHeight);
 
@@ -162,10 +164,17 @@ export const useFogMask = ({
         !isCompactionPendingRef.current &&
         shouldCompactFog(strokes.length)
       ) {
-        onCompactionNeededRef.current(
-          canvas.toDataURL('image/png'),
-          strokes.length,
-        );
+        // Deferred a tick so the paint `onScheduleDraw` just requested isn't
+        // delayed by `toDataURL`'s synchronous full-resolution PNG encode —
+        // both run on the main thread, so ordering them after the browser
+        // has had a chance to paint keeps this off the critical frame path.
+        setTimeout(() => {
+          if (cancelled) return;
+          onCompactionNeededRef.current?.(
+            canvas.toDataURL('image/png'),
+            strokes.length,
+          );
+        }, 0);
       }
     };
 
@@ -173,16 +182,19 @@ export const useFogMask = ({
     if (!baselineSrc) {
       baselineImageRef.current = null;
       render(null);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     const cached = baselineImageRef.current;
     if (cached && cached.src === baselineSrc) {
       render(cached.image);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
     const image = new Image();
     image.onload = () => {
       if (cancelled) return;
@@ -192,8 +204,13 @@ export const useFogMask = ({
     image.onerror = () => {
       // A failed decode falls back to strokes-only rather than blocking the
       // mask forever — the same "degrade, don't break" spirit as a missing
-      // spell-effect clip elsewhere on this canvas.
+      // spell-effect clip elsewhere on this canvas. Logged because this
+      // silently drops every stroke baked into the baseline (everything
+      // before the last compaction), not just strokes since it.
       if (cancelled) return;
+      console.error(
+        'useFogMask: failed to decode fog baseline image; rendering strokes without it',
+      );
       render(null);
     };
     image.src = baselineSrc;

@@ -114,7 +114,20 @@ export const useMapCanvas = () => {
     trpc.maps.applyFogStrokes.mutationOptions({ onSuccess: invalidateMap }),
   );
   const compactFog = useMutation(
-    trpc.maps.compactFog.mutationOptions({ onSuccess: invalidateMap }),
+    trpc.maps.compactFog.mutationOptions({
+      onSuccess: invalidateMap,
+      // Otherwise a rejected compaction (e.g. the rasterized baseline
+      // exceeding the server's size cap) fails silently: `isPending` still
+      // returns to false, so `useFogMask` just re-fires the same oversized
+      // compaction on the very next stroke, forever, with nothing visible
+      // telling the DM why fog keeps growing unbounded.
+      onError: error => {
+        console.error(
+          'compactFog failed; fog will keep growing until this succeeds',
+          error,
+        );
+      },
+    }),
   );
   const setDmViewport = useMutation(trpc.maps.setDmViewport.mutationOptions());
   const setPlayerViewport = useMutation(
