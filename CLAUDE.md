@@ -287,8 +287,10 @@ The Docker image is built once with `SKIP_ENV_VALIDATION=1` and configured at
 its HTML and ignore the container's actual settings. **Any route that reads
 `env` or a feature gate needs `export const dynamic = 'force-dynamic'`**, and
 metadata that depends on env must use `generateMetadata`, not a static
-`metadata` object. `src/app/page.tsx` and `src/app/layout.tsx` show both.
-Check the `next build` route table: env-dependent routes must be `ƒ`, not `○`.
+`metadata` object. `src/app/layout.tsx` shows both. That includes a route
+whose _layout_ reads `env`: the root layout's title comes from
+`CAMPAIGN_NAME`, which is why `force-dynamic` sits on the layout rather than on
+each page — a page that reads nothing itself still inherits it. Check the `next build` route table: env-dependent routes must be `ƒ`, not `○`.
 
 ## Data model & database
 
