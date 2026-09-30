@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, within } from 'storybook/test';
 import {
   CreatureLibraryView,
   type CreatureSummary,
@@ -44,6 +44,11 @@ const typeOptions = [
   { value: 'undead', label: 'Undead' },
 ];
 
+const documentOptions = [
+  { value: 'a5e-mm', label: 'Monstrous Menagerie' },
+  { value: 'srd-2024', label: 'System Reference Document 5.2' },
+];
+
 const meta = {
   title: 'Organisms/CreatureLibrary/CreatureLibraryView',
   component: CreatureLibraryView,
@@ -56,11 +61,14 @@ const meta = {
     selectedSources: [],
     typeOptions,
     selectedTypes: [],
+    documentOptions,
+    selectedDocuments: [],
     selectedSlug: null,
     selectedCustomCreatureId: null,
     onSearchChange: fn(),
     onSourcesChange: fn(),
     onTypesChange: fn(),
+    onDocumentsChange: fn(),
     onSelect: fn(),
     onAdd: fn(),
     onNewCreature: fn(),
@@ -138,9 +146,34 @@ export const FilteringByType: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(canvas.getByRole('button', { name: 'Type' }));
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Dragon' }));
+    // The checkbox list is portalled to `document.body`, so it's found via
+    // `screen`, not `canvas` — see `MultiSelectFilter`'s own doc comment.
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Dragon' }));
 
     await expect(args.onTypesChange).toHaveBeenCalledWith(['dragon']);
+  },
+};
+
+export const FilteringByBook: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Book' }));
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Monstrous Menagerie' }),
+    );
+
+    await expect(args.onDocumentsChange).toHaveBeenCalledWith(['a5e-mm']);
+  },
+};
+
+/** Narrowing to Custom makes the Book filter meaningless — disable it. */
+export const CustomSourceDisablesBook: Story = {
+  args: { selectedSources: ['custom'] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByRole('button', { name: 'Book' })).toBeDisabled();
   },
 };
 

@@ -30,18 +30,10 @@ export const StatblockPanel = () => {
   const controls = combatant && (
     <CombatantControls
       displayName={combatant.displayName}
-      currentHitPoints={combatant.currentHitPoints}
-      maxHitPoints={combatant.maxHitPoints}
-      temporaryHitPoints={combatant.temporaryHitPoints}
       isHidden={combatant.isHidden}
       isPending={encounter.isAdjusting}
       conditions={combatant.conditions}
       conditionOptions={conditionOptions.data ?? []}
-      onDamage={amount => encounter.damage(combatant.id, amount)}
-      onHeal={amount => encounter.heal(combatant.id, amount)}
-      onGrantTemporary={amount =>
-        encounter.grantTemporary(combatant.id, amount)
-      }
       onToggleHidden={() =>
         encounter.setHidden(combatant.id, !combatant.isHidden)
       }

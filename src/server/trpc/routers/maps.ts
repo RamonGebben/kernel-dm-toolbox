@@ -11,6 +11,7 @@ import {
 } from '~/server/db/schema';
 import {
   applyFogStrokesInputSchema,
+  compactFogInputSchema,
   createFolderInputSchema,
   createMeasurementShapeInputSchema,
   folderIdInputSchema,
@@ -39,6 +40,7 @@ import {
 } from '~/server/trpc/schemas/maps';
 import { buildMapGallery } from '~/server/trpc/helpers/buildMapGallery';
 import { applyFogStrokeBatch } from '~/server/trpc/helpers/applyFogStrokeBatch';
+import { resetFogState } from '~/server/trpc/helpers/resetFogState';
 import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
 import {
   tombstoneSyncMeta,
@@ -298,7 +300,7 @@ export const mapsRouter = createTRPCRouter({
       const [updated] = await ctx.db
         .update(maps)
         .set({
-          fog: { ...existing.fog, baseState: 'covered', strokes: [] },
+          fog: resetFogState(existing.fog, 'covered'),
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))
@@ -317,7 +319,7 @@ export const mapsRouter = createTRPCRouter({
       const [updated] = await ctx.db
         .update(maps)
         .set({
-          fog: { ...existing.fog, baseState: 'revealed', strokes: [] },
+          fog: resetFogState(existing.fog, 'revealed'),
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))
@@ -358,6 +360,55 @@ export const mapsRouter = createTRPCRouter({
         .update(maps)
         .set({
           fog: applyFogStrokeBatch(existing.fog, input.strokes),
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(maps.id, input.id))
+        .returning();
+
+      publishMapsChanged();
+
+      return updated;
+    }),
+
+  /**
+   * Bakes `strokes` into `baselineImage` and drops only the strokes that
+   * snapshot actually captured — the client decides when
+   * (`FOG_COMPACTION_STROKE_THRESHOLD`, `~/utils/fogMask`) and rasterizes its
+   * own offscreen mask canvas to produce the image, since only the client has
+   * a canvas to paint with. This is what keeps a long session's fog payload
+   * bounded instead of growing with every dab ever painted — see the field's
+   * own comment on `MapFogState`.
+   *
+   * `existing` is read fresh here (not trusted from the client), and only
+   * `input.compactedStrokeCount` leading strokes are dropped from it —
+   * `applyFogStrokeBatch` always appends, so any stroke committed by a
+   * concurrent `applyFogStrokes` call after the client's snapshot was taken
+   * sorts after that prefix and survives the compaction untouched, instead of
+   * being wiped by an unconditional `strokes: []`.
+   */
+  compactFog: publicProcedure
+    .input(compactFogInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await loadMap(ctx.db, input.id);
+
+      // `existing.fog.strokes` can be shorter than `compactedStrokeCount` if a
+      // reset, a reveal, or another compaction landed between the client's
+      // snapshot and this write — applying it anyway would either resurrect
+      // fog a later mutation already cleared, or truncate strokes painted
+      // after that mutation. Skip: the client re-evaluates compaction on its
+      // own next fog change, so this is never a permanent no-op.
+      if (existing.fog.strokes.length < input.compactedStrokeCount) {
+        return existing;
+      }
+
+      const [updated] = await ctx.db
+        .update(maps)
+        .set({
+          fog: {
+            ...existing.fog,
+            baselineImage: input.baselineImage,
+            strokes: existing.fog.strokes.slice(input.compactedStrokeCount),
+          },
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(maps.id, input.id))

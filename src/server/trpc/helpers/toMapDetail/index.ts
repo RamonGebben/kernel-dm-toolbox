@@ -1,3 +1,4 @@
+import { normalizeMapFogState } from '~/utils/normalizeMapFogState';
 import type { MapAsset } from '~/server/db/schema';
 
 /**
@@ -8,4 +9,5 @@ import type { MapAsset } from '~/server/db/schema';
 export const toMapDetail = (map: MapAsset) => ({
   ...map,
   fileUrl: `/api/maps/${map.id}/file`,
+  fog: normalizeMapFogState(map.fog),
 });

@@ -2,8 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { type MapPoint, type Viewport } from '~/utils/mapViewport';
+import {
+  computeVisibleMapRect,
+  type MapPoint,
+  type Viewport,
+} from '~/utils/mapViewport';
 import type { LensRect } from '~/utils/mapLens';
+import { computeFogMaskScale } from '~/utils/fogMask';
 import { useCanvasSize } from '~/organisms/MapCanvas/hooks/useCanvasSize';
 import { useMapMedia } from '~/organisms/MapCanvas/hooks/useMapMedia';
 import { useFogMask } from '~/organisms/MapCanvas/hooks/useFogMask';
@@ -39,6 +44,10 @@ export type MapCanvasFogStroke = {
 export type MapCanvasFogState = {
   enabled: boolean;
   baseState: 'covered' | 'revealed';
+  /** A rasterized snapshot everything up to some earlier point was baked
+   * into — see `MapFogState.baselineImage` on the schema for why. Null
+   * before the first compaction. */
+  baselineImage: string | null;
   strokes: MapCanvasFogStroke[];
 };
 
@@ -116,6 +125,18 @@ export type MapCanvasViewProps = {
   fogOpacity?: number;
   fogTool?: MapCanvasFogTool;
   onFogStrokeBatch?: (strokes: MapCanvasFogStroke[]) => void;
+  /** Fired with a freshly-rasterized data URL once `fog.strokes` crosses
+   * `FOG_COMPACTION_STROKE_THRESHOLD` — undefined on a non-interactive
+   * (player) canvas, which has nothing to write it with and skips the
+   * rasterize entirely rather than compute one nobody reads. */
+  onFogCompactionNeeded?: (
+    baselineImage: string,
+    compactedStrokeCount: number,
+  ) => void;
+  /** True while a previously-requested compaction is still in flight —
+   * skips the next rasterize entirely rather than compute one that would
+   * just be thrown away. */
+  isFogCompactionPending?: boolean;
   calibrationActive?: boolean;
   calibrationStart?: CalibrationPoint | null;
   onCalibrateClick?: (point: CalibrationPoint) => void;
@@ -224,6 +245,8 @@ export const MapCanvasView = ({
   fogOpacity,
   fogTool,
   onFogStrokeBatch,
+  onFogCompactionNeeded,
+  isFogCompactionPending = false,
   calibrationActive = false,
   calibrationStart = null,
   onCalibrateClick,
@@ -579,6 +602,8 @@ export const MapCanvasView = ({
     mapWidth: mapSize.width,
     mapHeight: mapSize.height,
     onScheduleDraw: scheduleDraw,
+    onCompactionNeeded: onFogCompactionNeeded,
+    isCompactionPending: isFogCompactionPending,
   });
 
   const drawGrid = useGridOverlay();
@@ -654,10 +679,42 @@ export const MapCanvasView = ({
 
       const mask = fogMask.maskRef.current;
       if (fogRef.current?.enabled && mask) {
-        ctx.save();
-        ctx.globalAlpha = fogOpacity ?? DEFAULT_FOG_OPACITY;
-        ctx.drawImage(mask, 0, 0);
-        ctx.restore();
+        // Compositing the whole mask every frame regardless of zoom or what's
+        // actually on screen was the single biggest cost in a real profiling
+        // session on a 12450x12450 map (~65% of total CPU time) — clipping to
+        // what's actually visible (below) fixes that at a normal zoom level,
+        // but a DM zoomed out to see the whole map has "visible" cover nearly
+        // all of it again. `useFogMask` caps the mask's own backing-canvas
+        // resolution independently of the map's (see `FOG_MASK_MAX_DIMENSION`
+        // in `~/utils/fogMask`), which is what actually bounds the cost
+        // regardless of zoom — `maskScale` here converts the visible rect
+        // (still in map-space) into that smaller canvas's own pixel space for
+        // the source rect, while the destination stays in map-space, already
+        // handled by this context's own viewport transform.
+        const visible = computeVisibleMapRect(
+          currentViewport,
+          rect.width,
+          rect.height,
+          mapSize.width,
+          mapSize.height,
+        );
+        if (visible) {
+          const maskScale = computeFogMaskScale(mapSize.width, mapSize.height);
+          ctx.save();
+          ctx.globalAlpha = fogOpacity ?? DEFAULT_FOG_OPACITY;
+          ctx.drawImage(
+            mask,
+            visible.x * maskScale,
+            visible.y * maskScale,
+            visible.width * maskScale,
+            visible.height * maskScale,
+            visible.x,
+            visible.y,
+            visible.width,
+            visible.height,
+          );
+          ctx.restore();
+        }
       }
 
       const tool = fogToolRef.current;
@@ -1133,6 +1190,8 @@ export const MapCanvasView = ({
     lensRectRef,
     livePreviewShape,
     livePreviewShapeRef,
+    mapSize.height,
+    mapSize.width,
     measurementCursor,
     measurementCursorRef,
     measurementCursorScale,

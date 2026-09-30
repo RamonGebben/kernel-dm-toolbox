@@ -24,6 +24,7 @@ export type CombatantRowProps = {
   onSelect: () => void;
   onToggleDelay: () => void;
   onRemove: () => void;
+  onOpenHitPoints: () => void;
 };
 
 /**
@@ -48,54 +49,71 @@ export const CombatantRow = ({
   onSelect,
   onToggleDelay,
   onRemove,
-}: CombatantRowProps) => (
-  <Row $isSelected={isSelected} $isActive={isActive}>
-    <Initiative>{initiative}</Initiative>
-    <SelectButton
-      type="button"
-      onClick={onSelect}
-      aria-pressed={isSelected}
-      aria-label={`Select ${displayName}`}
-    >
-      {displayName}
-      {isActive && <Badge $tone="active">turn</Badge>}
-      {isDelayed && <Badge $tone="muted">delayed</Badge>}
-      {isHidden && (
-        <Badge $tone="muted" title="Hidden from the player view">
-          hidden
-        </Badge>
-      )}
-      <ConditionBadges conditions={conditions} />
-    </SelectButton>
-    <HitPoints $tone={toHitPointTone({ currentHitPoints, maxHitPoints })}>
-      {currentHitPoints}/{maxHitPoints}
-      {temporaryHitPoints > 0 && <Temporary>+{temporaryHitPoints}</Temporary>}
-    </HitPoints>
-    <ArmorClass>{armorClass}</ArmorClass>
-    <Actions>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onToggleDelay}
-        aria-label={
-          isDelayed
-            ? `Return ${displayName} to the order`
-            : `Delay ${displayName}`
-        }
+  onOpenHitPoints,
+}: CombatantRowProps) => {
+  const tone = toHitPointTone({ currentHitPoints, maxHitPoints });
+
+  const isDown = tone === 'down';
+
+  return (
+    <Row $isSelected={isSelected} $isActive={isActive} $isDown={isDown}>
+      <Initiative>{initiative}</Initiative>
+      <SelectButton
+        type="button"
+        onClick={onSelect}
+        aria-pressed={isSelected}
+        aria-label={`Select ${displayName}`}
       >
-        {isDelayed ? '⏵' : '⏸'}
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onRemove}
-        aria-label={`Remove ${displayName}`}
+        {displayName}
+        {isActive && <Badge $tone="active">turn</Badge>}
+        {isDown && (
+          <Badge $tone="muted" title="Reduced to 0 hit points">
+            down
+          </Badge>
+        )}
+        {isDelayed && <Badge $tone="muted">delayed</Badge>}
+        {isHidden && (
+          <Badge $tone="muted" title="Hidden from the player view">
+            hidden
+          </Badge>
+        )}
+        <ConditionBadges conditions={conditions} />
+      </SelectButton>
+      <HitPointsButton
+        type="button"
+        $tone={tone}
+        onClick={onOpenHitPoints}
+        aria-label={`Edit hit points for ${displayName}`}
       >
-        ✕
-      </Button>
-    </Actions>
-  </Row>
-);
+        {currentHitPoints}/{maxHitPoints}
+        {temporaryHitPoints > 0 && <Temporary>+{temporaryHitPoints}</Temporary>}
+      </HitPointsButton>
+      <ArmorClass>{armorClass}</ArmorClass>
+      <Actions>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleDelay}
+          aria-label={
+            isDelayed
+              ? `Return ${displayName} to the order`
+              : `Delay ${displayName}`
+          }
+        >
+          {isDelayed ? '⏵' : '⏸'}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          aria-label={`Remove ${displayName}`}
+        >
+          ✕
+        </Button>
+      </Actions>
+    </Row>
+  );
+};
 
 const toneColor = {
   full: (color: { success: string }) => color.success,
@@ -103,7 +121,11 @@ const toneColor = {
   down: (color: { danger: string }) => color.danger,
 } as const;
 
-const Row = styled.div<{ $isSelected: boolean; $isActive: boolean }>`
+const Row = styled.div<{
+  $isSelected: boolean;
+  $isActive: boolean;
+  $isDown: boolean;
+}>`
   display: grid;
   grid-template-columns: 3rem minmax(0, 1fr) 5.5rem 3rem 2.5rem;
   align-items: center;
@@ -121,7 +143,16 @@ const Row = styled.div<{ $isSelected: boolean; $isActive: boolean }>`
   border-left: 3px solid
     ${props => (props.$isActive ? props.theme.color.accent : 'transparent')};
   border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
+  /* A downed/killed combatant recedes to the same muted tone the rest of the
+   * row's secondary text already uses — never plain CSS opacity, which would
+   * blend every child's colour toward the background and risk retuning
+   * contrast that's already tightly budgeted (see the \`danger\` comment in
+   * theme/colors.ts, tuned for exactly this "selected combatant on 0 HP"
+   * case) and would carry no signal at all for a screen reader. */
+  color: ${props =>
+    props.$isDown
+      ? props.theme.color.textMuted
+      : props.theme.color.textPrimary};
   font-size: ${props => props.theme.fontSize.md};
 
   &:hover {
@@ -132,10 +163,12 @@ const Row = styled.div<{ $isSelected: boolean; $isActive: boolean }>`
   }
 `;
 
+/* Colour is deliberately not repeated here — it inherits from `Row`'s own
+ * `$isDown` ternary, so the two can never drift out of sync with each
+ * other. */
 const Initiative = styled.span`
   font-family: ${props => props.theme.font.mono};
   font-weight: 700;
-  color: ${props => props.theme.color.textPrimary};
 `;
 
 const SelectButton = styled.button`
@@ -171,9 +204,18 @@ const Badge = styled.span<{ $tone: 'active' | 'muted' }>`
       : props.theme.color.textMuted};
 `;
 
-const HitPoints = styled.span<{ $tone: HitPointTone }>`
+const HitPointsButton = styled.button<{ $tone: HitPointTone }>`
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
   font-family: ${props => props.theme.font.mono};
   color: ${props => toneColor[props.$tone](props.theme.color)};
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
 const Temporary = styled.span`

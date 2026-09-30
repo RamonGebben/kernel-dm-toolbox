@@ -65,6 +65,15 @@ describe('validateMapUpload', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('accepts a file larger than any conventional cap when maxBytes is unset', () => {
+    const result = validateMapUpload({
+      filename: 'battlemap.webm',
+      byteSize: 500 * ONE_MB,
+    });
+
+    expect(result).toMatchObject({ ok: true, kind: 'video' });
+  });
+
   it('rejects an empty file', () => {
     const result = validateMapUpload({
       filename: 'map.png',

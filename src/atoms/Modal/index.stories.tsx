@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, userEvent, within } from 'storybook/test';
-import { fn } from 'storybook/test';
+import { expect, fn, screen, userEvent } from 'storybook/test';
 import { Modal } from '~/atoms/Modal';
 
 const meta = {
@@ -24,10 +23,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Open: Story = {
-  play: async ({ canvasElement, args }) => {
-    const canvas = within(canvasElement);
-
-    await userEvent.click(canvas.getByRole('button', { name: 'Close' }));
+  play: async ({ args }) => {
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     await expect(args.onClose).toHaveBeenCalled();
   },
@@ -35,18 +32,14 @@ export const Open: Story = {
 
 export const Closed: Story = {
   args: { isOpen: false },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await expect(canvas.queryByRole('dialog')).not.toBeInTheDocument();
+  play: async () => {
+    await expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   },
 };
 
 export const Wide: Story = {
   args: { size: 'wide' },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await expect(canvas.getByRole('dialog')).toBeVisible();
+  play: async () => {
+    await expect(screen.getByRole('dialog')).toBeVisible();
   },
 };

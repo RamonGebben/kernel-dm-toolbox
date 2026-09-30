@@ -124,7 +124,13 @@ export const creatureActionFixtureSchema = fixtureRecord(
     /** `parent` is the creature's pk. */
     parent: z.string(),
     action_type: z.string(),
-    order_in_statblock: z.number().int().default(0),
+    /** Green Ronin's TDCS ships this as an explicit `null`, not omitted — `.default()` alone only catches `undefined`. */
+    order_in_statblock: z
+      .number()
+      .int()
+      .nullable()
+      .default(0)
+      .transform(value => value ?? 0),
     legendary_action_cost: nullableInt,
     uses_type: z.string().nullable().default(null),
     uses_param: nullableInt,

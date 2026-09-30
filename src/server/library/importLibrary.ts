@@ -11,11 +11,19 @@ import {
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import {
+  CREATURE_LIBRARY_SOURCES,
   LIBRARY_GIT_REF,
+  SRD_SOURCE,
   fetchJson as defaultFetchJson,
   loadFixture,
   type FetchJson,
 } from '~/server/library/source';
+import type {
+  CreatureActionAttackFixture,
+  CreatureActionFixture,
+  CreatureFixture,
+  CreatureTraitFixture,
+} from '~/server/library/fixtures';
 import { toCreatureRow } from '~/server/library/mappers/toCreatureRow';
 import { toActionRow } from '~/server/library/mappers/toActionRow';
 import { toAttackRow } from '~/server/library/mappers/toAttackRow';
@@ -118,24 +126,77 @@ export const importLibrary = async ({
   };
 
   try {
-    onProgress(`Fetching fixtures at ${gitRef}`);
-    const [
-      creatureFixtures,
-      actionFixtures,
-      attackFixtures,
-      traitFixtures,
-      conditionFixtures,
-      spellFixtures,
-      castingOptionFixtures,
-    ] = await Promise.all([
-      loadFixture('Creature', { gitRef, fetchJson }),
-      loadFixture('CreatureAction', { gitRef, fetchJson }),
-      loadFixture('CreatureActionAttack', { gitRef, fetchJson }),
-      loadFixture('CreatureTrait', { gitRef, fetchJson }),
-      loadFixture('ConditionDescription', { gitRef, fetchJson }),
-      loadFixture('Spell', { gitRef, fetchJson }),
-      loadFixture('SpellCastingOption', { gitRef, fetchJson }),
-    ]);
+    onProgress(
+      `Fetching fixtures at ${gitRef} from ${CREATURE_LIBRARY_SOURCES.length} sources`,
+    );
+    // Every source contributes creatures/actions/attacks/traits; only the
+    // SRD also contributes conditions and spells (DECISIONS #24 and
+    // `CREATURE_LIBRARY_SOURCES`'s own comment — this is a combat toolbox,
+    // not a character builder, and a supplementary bestiary has neither).
+    const perSource = await Promise.all(
+      CREATURE_LIBRARY_SOURCES.map(async source => {
+        const [creature, action, attack, trait] = await Promise.all([
+          loadFixture('Creature', {
+            gitRef,
+            sourcePath: source.path,
+            fetchJson,
+          }),
+          loadFixture('CreatureAction', {
+            gitRef,
+            sourcePath: source.path,
+            fetchJson,
+          }),
+          // Not every source publishes this file — Tome of Beasts 3 has no
+          // separate attacks file at all — so a 404 here means "no attacks
+          // from this source," not a broken import.
+          loadFixture('CreatureActionAttack', {
+            gitRef,
+            sourcePath: source.path,
+            fetchJson,
+            optional: true,
+          }),
+          loadFixture('CreatureTrait', {
+            gitRef,
+            sourcePath: source.path,
+            fetchJson,
+          }),
+        ]);
+        onProgress(`Fetched ${creature.length} creatures from ${source.title}`);
+        return { creature, action, attack, trait };
+      }),
+    );
+
+    const creatureFixtures: CreatureFixture[] = perSource.flatMap(
+      s => s.creature,
+    );
+    const actionFixtures: CreatureActionFixture[] = perSource.flatMap(
+      s => s.action,
+    );
+    const attackFixtures: CreatureActionAttackFixture[] = perSource.flatMap(
+      s => s.attack,
+    );
+    const traitFixtures: CreatureTraitFixture[] = perSource.flatMap(
+      s => s.trait,
+    );
+
+    const [conditionFixtures, spellFixtures, castingOptionFixtures] =
+      await Promise.all([
+        loadFixture('ConditionDescription', {
+          gitRef,
+          sourcePath: SRD_SOURCE.path,
+          fetchJson,
+        }),
+        loadFixture('Spell', {
+          gitRef,
+          sourcePath: SRD_SOURCE.path,
+          fetchJson,
+        }),
+        loadFixture('SpellCastingOption', {
+          gitRef,
+          sourcePath: SRD_SOURCE.path,
+          fetchJson,
+        }),
+      ]);
 
     const creatureRows = creatureFixtures.map(toCreatureRow);
     const creatureSlugs = new Set(creatureRows.map(row => row.slug));

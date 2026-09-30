@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, within } from 'storybook/test';
 import { MultiSelectFilter } from '~/atoms/MultiSelectFilter';
 
 const meta = {
@@ -37,9 +37,11 @@ export const OpensToACheckboxList: Story = {
 
     await userEvent.click(canvas.getByRole('button', { name: /class/i }));
 
-    await expect(canvas.getByRole('checkbox', { name: 'Bard' })).toBeVisible();
+    // The checkbox list is portalled to `document.body`, so it's found via
+    // `screen`, not `canvas` — see `MultiSelectFilter`'s own doc comment.
+    await expect(screen.getByRole('checkbox', { name: 'Bard' })).toBeVisible();
     await expect(
-      canvas.getByRole('checkbox', { name: 'Wizard' }),
+      screen.getByRole('checkbox', { name: 'Wizard' }),
     ).toBeVisible();
   },
 };
@@ -49,7 +51,7 @@ export const TogglingACheckboxReportsEverySelectedValue: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(canvas.getByRole('button', { name: /class/i }));
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Wizard' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Wizard' }));
 
     await expect(args.onChange).toHaveBeenCalledWith(['srd-2024_wizard']);
   },

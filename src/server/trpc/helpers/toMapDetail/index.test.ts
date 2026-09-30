@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { toMapDetail } from '~/server/trpc/helpers/toMapDetail';
-import type { MapAsset } from '~/server/db/schema';
+import type { MapAsset, MapFogState } from '~/server/db/schema';
 
 const baseMap = {
   id: 'm1',
   name: 'Tavern',
   kind: 'image',
   storagePath: 'abc.png',
-} as MapAsset;
+  fog: {
+    enabled: false,
+    baseState: 'covered',
+    opacityDm: 0.6,
+    opacityTable: 0.9,
+    baselineImage: null,
+    strokes: [],
+  } satisfies MapFogState,
+} as unknown as MapAsset;
 
 describe('toMapDetail', () => {
   it('derives the file URL from the map id, not the storage path', () => {

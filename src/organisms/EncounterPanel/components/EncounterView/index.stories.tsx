@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, within } from 'storybook/test';
 import { EncounterView } from '~/organisms/EncounterPanel/components/EncounterView';
 
 /** The exact order from the reference screenshot. */
@@ -81,6 +81,7 @@ const meta = {
     onSelect: fn(),
     onRemove: fn(),
     onToggleDelay: fn(),
+    onOpenHitPoints: fn(),
     onOpenInitiativeRoll: fn(),
     onCloseInitiativeRoll: fn(),
     onStart: fn(),
@@ -88,6 +89,12 @@ const meta = {
     onNextTurn: fn(),
     onPreviousTurn: fn(),
     onClearMonsters: fn(),
+    hitPointsCombatant: null,
+    isAdjustingHitPoints: false,
+    onCloseHitPoints: fn(),
+    onDamage: fn(),
+    onHeal: fn(),
+    onGrantTemporary: fn(),
   },
 } satisfies Meta<typeof EncounterView>;
 
@@ -106,6 +113,11 @@ export const Loaded: Story = {
       canvas.getByRole('button', { name: 'Select Sigrid' }),
     );
     await expect(args.onSelect).toHaveBeenCalledWith('sigrid');
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Edit hit points for Meat' }),
+    );
+    await expect(args.onOpenHitPoints).toHaveBeenCalledWith('meat');
   },
 };
 
@@ -145,11 +157,13 @@ export const NotStarted: Story = {
 /** The dialog is where the party's physical rolls get typed in. */
 export const RollingForInitiative: Story = {
   args: { isRollingInitiative: true },
-  play: async ({ args, canvasElement }) => {
-    const canvas = within(canvasElement);
-    // Scoped to the dialog: the order behind it labels its rows by name too.
+  play: async ({ args }) => {
+    // `Modal` is portalled to `document.body`, so the dialog is found via
+    // `screen`, not `canvas` — see `Modal`'s own doc comment. Scoped to the
+    // dialog itself from there: the order behind it labels its rows by name
+    // too.
     const dialog = within(
-      canvas.getByRole('dialog', { name: 'Roll for initiative' }),
+      screen.getByRole('dialog', { name: 'Roll for initiative' }),
     );
 
     // Monsters are prefilled with the roll the tool already made for them.
@@ -165,6 +179,33 @@ export const RollingForInitiative: Story = {
       { id: 'sigrid', initiative: 14 },
       { id: 'hammie', initiative: 5 },
     ]);
+  },
+};
+
+/** Opened from a combatant row's HP readout — the dialog this diff moved
+ * into `EncounterView` itself, so it stays reachable from a story rather
+ * than living only in the connected `EncounterPanel`. */
+export const EditingHitPoints: Story = {
+  args: {
+    hitPointsCombatant: {
+      displayName: 'Meat',
+      currentHitPoints: 35,
+      maxHitPoints: 52,
+      temporaryHitPoints: 0,
+    },
+  },
+  play: async ({ args }) => {
+    // `Modal` is portalled to `document.body` — see `RollingForInitiative`.
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Hit points — Meat' }),
+    );
+
+    await expect(dialog.getByText('35/52')).toBeVisible();
+
+    await userEvent.type(dialog.getByLabelText('Amount'), '10');
+    await userEvent.click(dialog.getByRole('button', { name: 'Damage' }));
+
+    await expect(args.onDamage).toHaveBeenCalledWith(10);
   },
 };
 

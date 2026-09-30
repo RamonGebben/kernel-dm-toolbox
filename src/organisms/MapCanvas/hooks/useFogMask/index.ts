@@ -3,7 +3,10 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import {
   compositeOperationForMode,
+  computeFogMaskScale,
+  computeFogMaskSize,
   innerRadiusForStroke,
+  shouldCompactFog,
 } from '~/utils/fogMask';
 import type {
   MapCanvasFogState,
@@ -55,28 +58,71 @@ const drawFogStroke = (
 };
 
 /**
- * Owns the offscreen fog mask: an alpha canvas at the map's native
- * resolution, rebuilt from committed strokes whenever the fog state or map
- * size changes, drawn onto the main canvas with `globalCompositeOperation`
- * doing the reveal/cover work.
+ * Owns the offscreen fog mask: an alpha canvas capped at
+ * `FOG_MASK_MAX_DIMENSION` regardless of the map's own resolution (see
+ * `~/utils/fogMask`), rebuilt whenever the fog state or map size changes,
+ * drawn onto the main canvas with `globalCompositeOperation` doing the
+ * reveal/cover work. Every draw call below still takes map-space (native
+ * pixel) coordinates — the same space a stroke's own x/y/radius are already
+ * in — and relies on the canvas context's own transform (set from
+ * `computeFogMaskScale`) to land them on the smaller backing store; nothing
+ * in this file needs to convert coordinates itself.
  *
  * Strokes still in progress (before the gesture's batched write commits) are
  * painted directly via `paintStroke`, so the brush feels live rather than
  * waiting on a round trip.
+ *
+ * The rebuild draws `baselineImage` (if any) first, then replays only the
+ * strokes on top of it — never `baseState`'s full-canvas fill once a
+ * baseline exists, since the baseline is itself a snapshot of that fill plus
+ * every earlier stroke (see `MapFogState.baselineImage`). The decoded image
+ * is cached by its own data URL so a stroke-only change (the common case
+ * between compactions) never re-decodes it.
  */
 export const useFogMask = ({
   fog,
   mapWidth,
   mapHeight,
   onScheduleDraw,
+  onCompactionNeeded,
+  isCompactionPending = false,
 }: {
   fog: MapCanvasFogState | undefined;
   mapWidth: number;
   mapHeight: number;
   onScheduleDraw: () => void;
+  /** Undefined on a non-interactive (player) canvas — see the prop's own
+   * comment on `MapCanvasViewProps`. `compactedStrokeCount` is how many
+   * leading strokes this exact snapshot baked in, so the server only drops
+   * that many rather than trusting the client to say "clear everything". */
+  onCompactionNeeded?: (
+    baselineImage: string,
+    compactedStrokeCount: number,
+  ) => void;
+  /** True while a previous compaction request is still in flight. Skips the
+   * `toDataURL` rasterize itself (not just the mutation call it would feed) —
+   * without this, every stroke committed while `strokes.length` stays above
+   * the threshold re-encodes the full-resolution mask on the main thread for
+   * a result that gets thrown away as soon as it's handed to a caller that's
+   * just going to no-op on it. */
+  isCompactionPending?: boolean;
 }): FogMaskHandle => {
   const maskRef = useRef<HTMLCanvasElement | null>(null);
   const maskCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const baselineImageRef = useRef<{
+    src: string;
+    image: HTMLImageElement;
+  } | null>(null);
+
+  const onCompactionNeededRef = useRef(onCompactionNeeded);
+  useEffect(() => {
+    onCompactionNeededRef.current = onCompactionNeeded;
+  }, [onCompactionNeeded]);
+
+  const isCompactionPendingRef = useRef(isCompactionPending);
+  useEffect(() => {
+    isCompactionPendingRef.current = isCompactionPending;
+  }, [isCompactionPending]);
 
   useEffect(() => {
     if (!fog?.enabled || mapWidth <= 0 || mapHeight <= 0) {
@@ -86,6 +132,8 @@ export const useFogMask = ({
       return;
     }
 
+    const maskSize = computeFogMaskSize(mapWidth, mapHeight);
+
     let canvas = maskRef.current;
     if (!canvas) {
       canvas = document.createElement('canvas');
@@ -93,23 +141,104 @@ export const useFogMask = ({
       maskCtxRef.current = canvas.getContext('2d');
     }
 
-    if (canvas.width !== mapWidth || canvas.height !== mapHeight) {
-      canvas.width = mapWidth;
-      canvas.height = mapHeight;
+    if (canvas.width !== maskSize.width || canvas.height !== maskSize.height) {
+      canvas.width = maskSize.width;
+      canvas.height = maskSize.height;
     }
 
     const ctx = maskCtxRef.current;
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, mapWidth, mapHeight);
-    if (fog.baseState === 'covered') {
-      ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-      ctx.fillRect(0, 0, mapWidth, mapHeight);
+    // Everything below still draws in map-space (native pixel) coordinates —
+    // same as a stroke's own x/y/radius — so this transform is what actually
+    // maps them onto the mask's own, possibly much smaller, backing store.
+    // Assigning `canvas.width`/`.height` above resets the context's
+    // transform to the identity even when the size didn't change, so this
+    // has to be reapplied unconditionally, not just once at creation.
+    const maskScale = computeFogMaskScale(mapWidth, mapHeight);
+    ctx.setTransform(maskScale, 0, 0, maskScale, 0, 0);
+
+    const strokes = fog.strokes;
+    const baseState = fog.baseState;
+
+    let cancelled = false;
+
+    const render = (baseImage: HTMLImageElement | null) => {
+      ctx.clearRect(0, 0, mapWidth, mapHeight);
+
+      if (baseImage) {
+        ctx.drawImage(baseImage, 0, 0, mapWidth, mapHeight);
+      } else if (baseState === 'covered') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+        ctx.fillRect(0, 0, mapWidth, mapHeight);
+      }
+
+      for (const stroke of strokes) drawFogStroke(ctx, stroke);
+
+      onScheduleDraw();
+
+      if (
+        onCompactionNeededRef.current &&
+        !isCompactionPendingRef.current &&
+        shouldCompactFog(strokes.length)
+      ) {
+        // Deferred a tick so the paint `onScheduleDraw` just requested isn't
+        // delayed by `toDataURL`'s synchronous PNG encode — both run on the
+        // main thread, so ordering them after the browser has had a chance
+        // to paint keeps this off the critical frame path. Cheaper than it
+        // used to be now that the canvas itself is capped at
+        // `FOG_MASK_MAX_DIMENSION` rather than the map's native resolution,
+        // but still real work worth keeping off the frame that just drew.
+        setTimeout(() => {
+          if (cancelled) return;
+          onCompactionNeededRef.current?.(
+            canvas.toDataURL('image/png'),
+            strokes.length,
+          );
+        }, 0);
+      }
+    };
+
+    const baselineSrc = fog.baselineImage;
+    if (!baselineSrc) {
+      baselineImageRef.current = null;
+      render(null);
+      return () => {
+        cancelled = true;
+      };
     }
 
-    for (const stroke of fog.strokes) drawFogStroke(ctx, stroke);
+    const cached = baselineImageRef.current;
+    if (cached && cached.src === baselineSrc) {
+      render(cached.image);
+      return () => {
+        cancelled = true;
+      };
+    }
 
-    onScheduleDraw();
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      baselineImageRef.current = { src: baselineSrc, image };
+      render(image);
+    };
+    image.onerror = () => {
+      // A failed decode falls back to strokes-only rather than blocking the
+      // mask forever — the same "degrade, don't break" spirit as a missing
+      // spell-effect clip elsewhere on this canvas. Logged because this
+      // silently drops every stroke baked into the baseline (everything
+      // before the last compaction), not just strokes since it.
+      if (cancelled) return;
+      console.error(
+        'useFogMask: failed to decode fog baseline image; rendering strokes without it',
+      );
+      render(null);
+    };
+    image.src = baselineSrc;
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fog, mapWidth, mapHeight]);
 

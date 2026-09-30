@@ -7,6 +7,7 @@ const baseFog: MapFogState = {
   baseState: 'covered',
   opacityDm: 0.6,
   opacityTable: 0.9,
+  baselineImage: null,
   strokes: [],
 };
 
@@ -43,7 +44,11 @@ describe('applyFogStrokeBatch', () => {
   });
 
   it('leaves every other field untouched', () => {
-    const result = applyFogStrokeBatch(baseFog, [
+    const withBaseline = {
+      ...baseFog,
+      baselineImage: 'data:image/png;base64,x',
+    };
+    const result = applyFogStrokeBatch(withBaseline, [
       {
         id: 'a',
         x: 0,
@@ -59,5 +64,8 @@ describe('applyFogStrokeBatch', () => {
     expect(result.baseState).toBe('covered');
     expect(result.opacityDm).toBe(0.6);
     expect(result.opacityTable).toBe(0.9);
+    // A batch appends on top of whatever's already compacted — it never
+    // touches the baseline itself.
+    expect(result.baselineImage).toBe('data:image/png;base64,x');
   });
 });

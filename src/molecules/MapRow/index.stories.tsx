@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, within } from 'storybook/test';
 import { MapRow } from '~/molecules/MapRow';
 
 const meta = {
@@ -84,12 +84,14 @@ export const OpeningTheMenu: Story = {
       canvas.getByRole('button', { name: 'More actions for The Sunken Crypt' }),
     );
 
+    // The menu is portalled to `document.body`, so it's found via `screen`,
+    // not `canvas` — see `MapRowMenu`'s own doc comment.
     await expect(
-      canvas.getByRole('group', { name: 'Actions for The Sunken Crypt' }),
+      screen.getByRole('group', { name: 'Actions for The Sunken Crypt' }),
     ).toBeVisible();
-    await expect(canvas.getByText('Move to folder')).toBeVisible();
+    await expect(screen.getByText('Move to folder')).toBeVisible();
     await expect(
-      canvas.getByRole('button', { name: 'No folder' }),
+      screen.getByRole('button', { name: 'No folder' }),
     ).toHaveAttribute('aria-pressed', 'true');
   },
 };
@@ -101,8 +103,9 @@ export const Renaming: Story = {
     await userEvent.click(
       canvas.getByRole('button', { name: 'More actions for The Sunken Crypt' }),
     );
-    await userEvent.click(canvas.getByRole('button', { name: 'Rename' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Rename' }));
 
+    // The rename input isn't portalled — it replaces the row's own name text.
     const input = canvas.getByRole('textbox', { name: 'Map name' });
     await userEvent.clear(input);
     await userEvent.type(input, 'Renamed Crypt{Enter}');
@@ -118,7 +121,7 @@ export const MovingToAFolder: Story = {
     await userEvent.click(
       canvas.getByRole('button', { name: 'More actions for The Sunken Crypt' }),
     );
-    await userEvent.click(canvas.getByRole('button', { name: 'Towns' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Towns' }));
 
     await expect(args.onMove).toHaveBeenCalledWith('f2');
   },
@@ -131,7 +134,7 @@ export const Removing: Story = {
     await userEvent.click(
       canvas.getByRole('button', { name: 'More actions for The Sunken Crypt' }),
     );
-    await userEvent.click(canvas.getByRole('button', { name: 'Remove' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     await expect(args.onRemove).toHaveBeenCalledOnce();
   },

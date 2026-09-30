@@ -36,11 +36,14 @@ export type CreatureLibraryViewProps = {
   selectedSources: readonly string[];
   typeOptions: readonly MultiSelectFilterOption[];
   selectedTypes: readonly string[];
+  documentOptions: readonly MultiSelectFilterOption[];
+  selectedDocuments: readonly string[];
   selectedSlug: string | null;
   selectedCustomCreatureId: string | null;
   onSearchChange: (search: string) => void;
   onSourcesChange: (sources: string[]) => void;
   onTypesChange: (types: string[]) => void;
+  onDocumentsChange: (documents: string[]) => void;
   onSelect: (creature: CreatureSummary) => void;
   onAdd: (creature: CreatureSummary) => void;
   onNewCreature: () => void;
@@ -62,11 +65,14 @@ export const CreatureLibraryView = ({
   selectedSources,
   typeOptions,
   selectedTypes,
+  documentOptions,
+  selectedDocuments,
   selectedSlug,
   selectedCustomCreatureId,
   onSearchChange,
   onSourcesChange,
   onTypesChange,
+  onDocumentsChange,
   onSelect,
   onAdd,
   onNewCreature,
@@ -75,6 +81,10 @@ export const CreatureLibraryView = ({
   // searching/filtering their own homebrew — only disable these controls
   // when there is truly nothing to search yet, custom or otherwise.
   const isUsable = isLibraryImported || creatures.length > 0;
+  // A custom creature has no upstream document — narrowing to "Custom" makes
+  // the Book filter meaningless, same reasoning as `category` server-side.
+  const isCustomOnlySource =
+    selectedSources.includes('custom') && !selectedSources.includes('library');
 
   return (
     <Wrapper>
@@ -99,6 +109,13 @@ export const CreatureLibraryView = ({
           selectedValues={selectedTypes}
           onChange={onTypesChange}
           disabled={!isUsable}
+        />
+        <MultiSelectFilter
+          label="Book"
+          options={documentOptions}
+          selectedValues={selectedDocuments}
+          onChange={onDocumentsChange}
+          disabled={!isUsable || isCustomOnlySource}
         />
       </Filters>
       <Results>
@@ -131,6 +148,9 @@ type ResultsBodyProps = Omit<
   | 'typeOptions'
   | 'selectedTypes'
   | 'onTypesChange'
+  | 'documentOptions'
+  | 'selectedDocuments'
+  | 'onDocumentsChange'
   | 'onNewCreature'
 >;
 

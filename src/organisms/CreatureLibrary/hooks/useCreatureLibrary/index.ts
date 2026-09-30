@@ -25,6 +25,9 @@ export type CreatureLibraryState = {
   typeOptions: MultiSelectFilterOption[];
   selectedTypes: string[];
   setSelectedTypes: (types: string[]) => void;
+  documentOptions: MultiSelectFilterOption[];
+  selectedDocuments: string[];
+  setSelectedDocuments: (documents: string[]) => void;
 };
 
 /**
@@ -53,6 +56,19 @@ export const toCreatureSourceInput = (
   if (hasCustom && !hasLibrary) return 'custom';
   return 'all';
 };
+
+/**
+ * The Book/document filter has no meaning once narrowed to custom creatures
+ * only — the server drops any non-empty `documents` for `source: 'custom'`
+ * (mirroring `category`, see library.ts's `listCreatures`). Pure so this
+ * "keep the query honest regardless of whether the UI remembered to clear
+ * the selection" rule is testable without a React renderer, the same
+ * pattern `toCreatureSourceInput` already follows for a sibling decision.
+ */
+export const toDocumentsFilterInput = (
+  source: CreatureSource,
+  selectedDocuments: readonly string[],
+): string[] => (source === 'custom' ? [] : [...selectedDocuments]);
 
 type ToLibraryStateArgs = {
   isStatusPending: boolean;
@@ -84,6 +100,9 @@ export const toLibraryState = ({
   | 'typeOptions'
   | 'selectedTypes'
   | 'setSelectedTypes'
+  | 'documentOptions'
+  | 'selectedDocuments'
+  | 'setSelectedDocuments'
 > => ({
   ...toLibraryImportState({ isStatusPending, isListPending, status }),
   creatures: creatures ?? [],
@@ -105,14 +124,21 @@ export const useCreatureLibrary = () => {
   const [search, setSearch] = useState('');
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
 
   const status = useQuery(trpc.library.status.queryOptions());
   const types = useQuery(trpc.library.listCreatureTypes.queryOptions());
+  const documents = useQuery(trpc.library.listCreatureDocuments.queryOptions());
+  const source = toCreatureSourceInput(selectedSources);
+  // The Book control is only *disabled* while narrowed to Custom, not
+  // cleared, so a selection made before narrowing would otherwise still be
+  // sent — `toDocumentsFilterInput` is what keeps the query honest.
   const list = useQuery(
     trpc.library.listCreatures.queryOptions({
       search,
-      source: toCreatureSourceInput(selectedSources),
+      source,
       types: selectedTypes,
+      documents: toDocumentsFilterInput(source, selectedDocuments),
     }),
   );
 
@@ -140,6 +166,9 @@ export const useCreatureLibrary = () => {
     typeOptions: types.data ?? [],
     selectedTypes,
     setSelectedTypes,
+    documentOptions: documents.data ?? [],
+    selectedDocuments,
+    setSelectedDocuments,
     addCreature: (creature: CreatureSummary) =>
       addCreature.mutate(toAddCreatureInput(creature)),
   };

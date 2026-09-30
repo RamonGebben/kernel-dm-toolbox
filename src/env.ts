@@ -44,12 +44,13 @@ export const env = createEnv({
      */
     MAPS_STORAGE_DIR: z.string().min(1).default('.data/maps'),
 
-    /** Upload size cap in bytes, enforced before a file is written to disk. */
-    MAPS_MAX_UPLOAD_BYTES: z.coerce
-      .number()
-      .int()
-      .positive()
-      .default(50 * 1024 * 1024),
+    /**
+     * Optional upload size cap in bytes, enforced before a file is written to
+     * disk. Unset means unlimited — this runs on the operator's own hardware
+     * with no multi-tenancy, so there is no default ceiling to protect
+     * against another user's upload.
+     */
+    MAPS_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().optional(),
 
     /**
      * Where animated spell-effect clips fetched from

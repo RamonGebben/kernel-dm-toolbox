@@ -113,6 +113,22 @@ export const useMapCanvas = () => {
   const applyFogStrokes = useMutation(
     trpc.maps.applyFogStrokes.mutationOptions({ onSuccess: invalidateMap }),
   );
+  const compactFog = useMutation(
+    trpc.maps.compactFog.mutationOptions({
+      onSuccess: invalidateMap,
+      // Otherwise a rejected compaction (e.g. the rasterized baseline
+      // exceeding the server's size cap) fails silently: `isPending` still
+      // returns to false, so `useFogMask` just re-fires the same oversized
+      // compaction on the very next stroke, forever, with nothing visible
+      // telling the DM why fog keeps growing unbounded.
+      onError: error => {
+        console.error(
+          'compactFog failed; fog will keep growing until this succeeds',
+          error,
+        );
+      },
+    }),
+  );
   const setDmViewport = useMutation(trpc.maps.setDmViewport.mutationOptions());
   const setPlayerViewport = useMutation(
     trpc.maps.setPlayerViewport.mutationOptions({
@@ -188,6 +204,20 @@ export const useMapCanvas = () => {
       if (mapId) applyFogStrokes.mutate({ id: mapId, strokes });
     },
     [mapId, applyFogStrokes],
+  );
+
+  // Client-triggered because only the client has a canvas to rasterize the
+  // mask with — see `useFogMask`'s own comment. Guarded on `isPending` so a
+  // burst of stroke commits arriving while `strokes.length` is already past
+  // the threshold can't fire overlapping compactions; any still-oversized
+  // request that lands after this one settles just fires again — capturing
+  // the mask a second time is harmless — until `strokes` actually resets.
+  const onFogCompactionNeeded = useCallback(
+    (baselineImage: string, compactedStrokeCount: number) => {
+      if (!mapId || compactFog.isPending) return;
+      compactFog.mutate({ id: mapId, baselineImage, compactedStrokeCount });
+    },
+    [mapId, compactFog],
   );
 
   const onMediaDimensions = useCallback(
@@ -450,6 +480,8 @@ export const useMapCanvas = () => {
     fogOpacity: map.data?.fog.opacityDm,
     fogTool: fogBrush,
     onFogStrokeBatch,
+    onFogCompactionNeeded,
+    isFogCompactionPending: compactFog.isPending,
     calibrationActive,
     calibrationStart,
     onCalibrateClick: handleCalibrateClick,

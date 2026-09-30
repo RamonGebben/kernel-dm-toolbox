@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   toAddCreatureInput,
   toCreatureSourceInput,
+  toDocumentsFilterInput,
   toLibraryState,
 } from '~/organisms/CreatureLibrary/hooks/useCreatureLibrary';
 
@@ -116,5 +117,18 @@ describe('toCreatureSourceInput', () => {
   it('narrows to the one checked source', () => {
     expect(toCreatureSourceInput(['library'])).toBe('library');
     expect(toCreatureSourceInput(['custom'])).toBe('custom');
+  });
+});
+
+describe('toDocumentsFilterInput', () => {
+  it('drops the document selection once narrowed to custom-only', () => {
+    expect(toDocumentsFilterInput('custom', ['srd-2024'])).toEqual([]);
+  });
+
+  it('passes the selection through for library or all', () => {
+    expect(toDocumentsFilterInput('library', ['srd-2024'])).toEqual([
+      'srd-2024',
+    ]);
+    expect(toDocumentsFilterInput('all', ['srd-2024'])).toEqual(['srd-2024']);
   });
 });

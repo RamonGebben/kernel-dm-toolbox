@@ -394,6 +394,10 @@ describe('mapSpellShapeType', () => {
     expect(mapSpellShapeType('sphere')).toBe('circle');
   });
 
+  it('maps a self-centered emanation to a circle', () => {
+    expect(mapSpellShapeType('emanation')).toBe('circle');
+  });
+
   it('maps a cone, line and cube directly', () => {
     expect(mapSpellShapeType('cone')).toBe('cone');
     expect(mapSpellShapeType('line')).toBe('line');

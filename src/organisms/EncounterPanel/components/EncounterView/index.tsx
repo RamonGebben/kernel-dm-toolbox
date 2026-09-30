@@ -6,6 +6,7 @@ import { EmptyState } from '~/atoms/EmptyState';
 import { Modal } from '~/atoms/Modal';
 import { CombatantRow } from '~/molecules/CombatantRow';
 import { DifficultyReadout } from '~/molecules/DifficultyReadout';
+import { HitPointControls } from '~/molecules/HitPointControls';
 import { InitiativeRollForm } from '~/molecules/InitiativeRollForm';
 import type { EncounterDifficulty } from '~/content/encounterDifficulty';
 
@@ -49,6 +50,7 @@ export type EncounterViewProps = {
   onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onToggleDelay: (id: string) => void;
+  onOpenHitPoints: (id: string) => void;
   onOpenInitiativeRoll: () => void;
   onCloseInitiativeRoll: () => void;
   onStart: (initiatives: { id: string; initiative: number }[]) => void;
@@ -56,6 +58,19 @@ export type EncounterViewProps = {
   onNextTurn: () => void;
   onPreviousTurn: () => void;
   onClearMonsters: () => void;
+  /** The combatant whose HP dialog is open, or null when it's closed —
+   * opened by clicking the HP readout in that combatant's own row. */
+  hitPointsCombatant: {
+    displayName: string;
+    currentHitPoints: number;
+    maxHitPoints: number;
+    temporaryHitPoints: number;
+  } | null;
+  isAdjustingHitPoints: boolean;
+  onCloseHitPoints: () => void;
+  onDamage: (amount: number) => void;
+  onHeal: (amount: number) => void;
+  onGrantTemporary: (amount: number) => void;
 };
 
 /** Presentational: the centre column of the tracker. */
@@ -71,6 +86,7 @@ export const EncounterView = ({
   onSelect,
   onRemove,
   onToggleDelay,
+  onOpenHitPoints,
   onOpenInitiativeRoll,
   onCloseInitiativeRoll,
   onStart,
@@ -78,6 +94,12 @@ export const EncounterView = ({
   onNextTurn,
   onPreviousTurn,
   onClearMonsters,
+  hitPointsCombatant,
+  isAdjustingHitPoints,
+  onCloseHitPoints,
+  onDamage,
+  onHeal,
+  onGrantTemporary,
 }: EncounterViewProps) => {
   const monsterCount = combatants.filter(
     combatant => !combatant.isPlayerCharacter,
@@ -124,6 +146,7 @@ export const EncounterView = ({
           onSelect={onSelect}
           onRemove={onRemove}
           onToggleDelay={onToggleDelay}
+          onOpenHitPoints={onOpenHitPoints}
         />
       </Body>
 
@@ -144,6 +167,24 @@ export const EncounterView = ({
           onSubmit={onStart}
           onCancel={onCloseInitiativeRoll}
         />
+      </Modal>
+
+      <Modal
+        title={`Hit points — ${hitPointsCombatant?.displayName ?? ''}`}
+        isOpen={hitPointsCombatant !== null}
+        onClose={onCloseHitPoints}
+      >
+        {hitPointsCombatant && (
+          <HitPointControls
+            currentHitPoints={hitPointsCombatant.currentHitPoints}
+            maxHitPoints={hitPointsCombatant.maxHitPoints}
+            temporaryHitPoints={hitPointsCombatant.temporaryHitPoints}
+            isPending={isAdjustingHitPoints}
+            onDamage={onDamage}
+            onHeal={onHeal}
+            onGrantTemporary={onGrantTemporary}
+          />
+        )}
       </Modal>
     </Wrapper>
   );
@@ -207,6 +248,7 @@ type OrderBodyProps = Pick<
   | 'onSelect'
   | 'onRemove'
   | 'onToggleDelay'
+  | 'onOpenHitPoints'
 >;
 
 /** A named subcomponent, so the branches stay guard clauses. */
@@ -218,6 +260,7 @@ const OrderBody = ({
   onSelect,
   onRemove,
   onToggleDelay,
+  onOpenHitPoints,
 }: OrderBodyProps) => {
   if (isPending)
     return <Skeleton role="status" aria-label="Loading the encounter" />;
@@ -258,6 +301,7 @@ const OrderBody = ({
               onSelect={() => onSelect(combatant.id)}
               onToggleDelay={() => onToggleDelay(combatant.id)}
               onRemove={() => onRemove(combatant.id)}
+              onOpenHitPoints={() => onOpenHitPoints(combatant.id)}
             />
           </li>
         ))}

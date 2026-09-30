@@ -2,6 +2,7 @@ import { getDb } from '~/server/db';
 import { readEncounterState } from '~/server/encounter/state';
 import { subscribeToEncounterChanges } from '~/server/encounter/events';
 import { toPlayerView } from '~/server/encounter/toPlayerView';
+import { createCoalescedPusher } from '~/utils/createCoalescedPusher';
 
 /**
  * Server-Sent Events: the live feed the player screen reads.
@@ -40,9 +41,10 @@ export const GET = async (request: Request) => {
 
       await push();
 
-      const unsubscribe = subscribeToEncounterChanges(() => {
-        void push();
-      });
+      // Mirrors the maps stream's own pusher — see `createCoalescedPusher`
+      // for why a change event must not launch an overlapping `push()`.
+      const pusher = createCoalescedPusher(push);
+      const unsubscribe = subscribeToEncounterChanges(pusher.requestPush);
 
       const heartbeat = setInterval(() => {
         if (isClosed) return;

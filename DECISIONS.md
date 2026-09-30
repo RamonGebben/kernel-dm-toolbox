@@ -771,3 +771,93 @@ network hiccup fetching video must never turn a `pnpm db:import` or a first
 boot's automatic import that would otherwise have succeeded into a failed
 one. An animated effect is a bonus layered onto a working text library,
 never a reason to leave one half-imported.
+
+---
+
+## 30. The creature library pulls from multiple Open5e documents, not just the SRD
+
+**Decision.** `importLibrary` now loops over `CREATURE_LIBRARY_SOURCES`
+(`~/server/library/source.ts`) — the SRD plus seven supplementary
+bestiaries — fetching `Creature`/`CreatureAction`/`CreatureActionAttack`/
+`CreatureTrait` from each and merging the results before writing. Conditions
+and spells stay SRD-only, fetched from `SRD_SOURCE` alone. The added
+sources: EN Publishing's _Monstrous Menagerie_ (A5E), five Kobold Press
+volumes (_Tome of Beasts_, its 2023 edition, _2_, _3_, and _Creature
+Codex_), and Green Ronin's _Tal'Dorei Campaign Setting_.
+
+**Why.** A DM went looking for the Banshee and it wasn't in the SRD-only
+library — Open5e has it, just under a different document
+(`en-publishing/a5e-mm`). Surveyed before building anything: every one of
+these documents' `Creature.json` (and its three sibling files) share the
+exact same field shape the SRD's own fixtures already use — a diff against
+the SRD's keys came back empty for all seven. Nothing in `fixtures.ts`'s zod
+schemas or any mapper needed to change; only the fetch loop and the upstream
+path did.
+
+**Why creatures only, not the whole document.** The same reasoning as
+DECISIONS #24: this is a combat toolbox, not a character builder, and every
+condition a monster can inflict is already in the SRD's own glossary. None
+of these seven sources publish a `Spell.json` worth pulling from either —
+most don't have one at all.
+
+**Why the licence matters here.** All seven are OGL 1.0a, not the SRD's
+CC-BY-4.0 — a different attribution mechanism (a Section 15 copyright
+notice naming every contributing work, not a simple credit line). The
+README's "Open Game License content" section carries it, built from each
+document's own `Document.json` (`name`, `author`, `publication_date`) at the
+time this was written — those fields are static prose in the README, not
+generated at import time, since the whole point of a Section 15 notice is
+that it names what's actually in the product, not what upstream might
+publish next.
+
+**Why a source can be missing a file without breaking the import.** Tome of
+Beasts 3 has no `CreatureActionAttack.json` upstream at all — a plain 404,
+not a broken document. `loadFixture` takes an `optional` flag for exactly
+this: a 404 on an optional file returns an empty list instead of throwing,
+so one source's gap in structured attack data can't fail the other six.
+
+**Why Kobold Press's 5e-2014 stat blocks were still worth including.** Their
+`Document.json` reports `gamesystem: "5e-2014"`, not `"5e-2024"` like the
+rest of this library — an older ruleset's monster math, mixed into a
+2024-rules toolbox. Accepted deliberately: monster stat blocks are largely
+edition-stable in practice (attack bonuses, hit points and saves don't move
+much between 2014 and 2024 5e), and a DM reading a slightly-off-edition stat
+block at the table can adjust it on the fly far more easily than they can
+work with no stat block at all.
+
+---
+
+## 31. Self-centered spells get a shape override; following the caster stays manual
+
+**Decision.** `~/server/library/selfEmanationSpellShapes` hand-curates a
+shape/size for eleven SRD spells — Spirit Guardians among them — that
+Open5e's `Spell.json` leaves shapeless, applied in `toSpellRow` at import
+time. The measurement tool gets no new "attach to a moving anchor" concept:
+a DM places one of these the same way as any other spell template, then
+drags it (the existing drag-to-move gesture) to keep it over their token as
+it moves.
+
+**Why the shape needed curating at all.** Every "Self"-range spell whose
+area is only described in prose — "flit around you in a 15-foot Emanation"
+— has `shape_type: null, shape_size: null` upstream. `useMeasurementControls`
+already drops any spell missing either from its picker, so Spirit Guardians
+was never merely unsupported — it was invisible. Found by grepping the
+SRD's own `desc` text for "N-foot Emanation" on every spell upstream left
+shapeless: eleven matches, spot-checked against their full description to
+rule out an incidental mention. `mapSpellShapeType` already mapped
+`'emanation'` onto the tool's `circle` (nothing upstream had ever set that
+value, so it was an untested branch) — filling in the shape at the source
+was enough to make the picker, placement, and `importSpellEffects`'s
+animation matching all work unchanged.
+
+**Why manual dragging instead of building "follow the caster."** There is
+no token or per-combatant position anywhere on the map — the tracker overlay
+is a read-only UI panel, not a positioned pog, and nothing in
+`map_measurement_shapes` references a combatant. Automatic following needs
+something to follow, and building that (a token layer: schema, drag/hit-test
+on both canvases, live broadcast, tracker-to-map linking) is a project on
+the scale of everything else in this document combined, not a measurement-
+tool tweak. Asked directly rather than assumed either way: ship the
+placeable, animated shape now: with drag-to-move already built, "the DM
+nudges it each round" costs nothing new to support, and revisit true
+token-following if a real token layer gets built for its own sake.

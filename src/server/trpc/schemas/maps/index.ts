@@ -53,6 +53,20 @@ export const applyFogStrokesInputSchema = z.object({
   strokes: z.array(fogStrokeSchema).min(1).max(500),
 });
 
+/** Baking the mask into a bitmap once `strokes` crosses
+ * `FOG_COMPACTION_STROKE_THRESHOLD` (`~/utils/fogMask`) — a data URL PNG,
+ * capped well above what a full-map mask realistically compresses to.
+ * `compactedStrokeCount` is how many leading strokes the client's snapshot
+ * actually baked in — the resolver only drops that many off the front of a
+ * freshly-read `strokes`, so a stroke appended by a concurrent
+ * `applyFogStrokes` call after the snapshot was taken survives the
+ * compaction instead of being silently wiped by it. */
+export const compactFogInputSchema = z.object({
+  id: z.uuid(),
+  baselineImage: z.string().min(1).max(8_000_000),
+  compactedStrokeCount: z.number().int().nonnegative(),
+});
+
 export const toggleFogInputSchema = z.object({
   id: z.uuid(),
   enabled: z.boolean(),

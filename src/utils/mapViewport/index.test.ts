@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeCenteredViewport,
+  computeVisibleMapRect,
   isPointInMapRect,
   panViewport,
   screenToMapPoint,
@@ -96,6 +97,68 @@ describe('computeCenteredViewport', () => {
     });
 
     expect(viewport.zoom).toBe(1);
+  });
+});
+
+describe('computeVisibleMapRect', () => {
+  it('is the full screen in map space when zoomed out to fit', () => {
+    const rect = computeVisibleMapRect(
+      { x: 0, y: 0, zoom: 1 },
+      800,
+      600,
+      1600,
+      1200,
+    );
+
+    expect(rect).toEqual({ x: 0, y: 0, width: 800, height: 600 });
+  });
+
+  it('clamps to the media bounds when the viewport hangs off the edge', () => {
+    const rect = computeVisibleMapRect(
+      { x: -100, y: -50, zoom: 1 },
+      800,
+      600,
+      500,
+      400,
+    );
+
+    expect(rect).toEqual({ x: 0, y: 0, width: 500, height: 400 });
+  });
+
+  it('shrinks the map-space rect as zoom increases', () => {
+    const rect = computeVisibleMapRect(
+      { x: 100, y: 100, zoom: 2 },
+      800,
+      600,
+      2000,
+      2000,
+    );
+
+    expect(rect).toEqual({ x: 100, y: 100, width: 400, height: 300 });
+  });
+
+  it('is null once the media is entirely scrolled off screen', () => {
+    const rect = computeVisibleMapRect(
+      { x: 5000, y: 5000, zoom: 1 },
+      800,
+      600,
+      1600,
+      1200,
+    );
+
+    expect(rect).toBeNull();
+  });
+
+  it('treats a zero zoom as 1x, same as screenToMapPoint', () => {
+    const rect = computeVisibleMapRect(
+      { x: 0, y: 0, zoom: 0 },
+      800,
+      600,
+      1600,
+      1200,
+    );
+
+    expect(rect).toEqual({ x: 0, y: 0, width: 800, height: 600 });
   });
 });
 

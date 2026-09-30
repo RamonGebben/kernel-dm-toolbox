@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, within } from 'storybook/test';
 import { SpellLibraryView } from '~/organisms/SpellLibrary/components/SpellLibraryView';
 
 const spells = [
@@ -120,12 +120,14 @@ export const FilteringByLevelAndClass: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
+    // The checkbox list is portalled to `document.body`, so it's found via
+    // `screen`, not `canvas` — see `MultiSelectFilter`'s own doc comment.
     await userEvent.click(canvas.getByRole('button', { name: /level/i }));
-    await userEvent.click(canvas.getByRole('checkbox', { name: '1st-level' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: '1st-level' }));
     await expect(args.onLevelsChange).toHaveBeenCalledWith(['1']);
 
     await userEvent.click(canvas.getByRole('button', { name: /class/i }));
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Bard' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Bard' }));
     await expect(args.onClassSlugsChange).toHaveBeenCalledWith([
       'srd-2024_bard',
     ]);
