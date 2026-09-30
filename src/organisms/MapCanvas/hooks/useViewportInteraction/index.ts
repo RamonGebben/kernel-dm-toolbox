@@ -167,6 +167,14 @@ export const useViewportInteraction = ({
   const startTrackerRectRef = useRef<LensRect | null>(null);
   const trackerStartMapPointRef = useRef<MapPoint>({ x: 0, y: 0 });
   const pendingStrokesRef = useRef<MapCanvasFogStroke[]>([]);
+  /** The grid cell (as its snapped center) the measurement tool's "armed but
+   * not yet placing" hover last redrew for — lets `handlePointerMove` skip
+   * rescheduling a draw for a pixel of movement that stays inside the same
+   * cell, since that highlight is drawn grid-snapped anyway (see
+   * `drawScene`'s aim-cell highlight). Not used for the fog brush: its
+   * circular/square cursor outline tracks the raw pointer, so every move
+   * has to redraw regardless. */
+  const armedMeasurementHoverCellRef = useRef<MapPoint | null>(null);
 
   // Latest callbacks in refs, so the listener-attaching effect below never
   // has to re-run (and re-attach) just because a callback prop changed identity.
@@ -324,6 +332,7 @@ export const useViewportInteraction = ({
       movingShapeIdRef.current = null;
       movingShapeStartOriginRef.current = null;
       dragModeRef.current = null;
+      armedMeasurementHoverCellRef.current = null;
       onScheduleDraw();
     };
 
@@ -466,9 +475,24 @@ export const useViewportInteraction = ({
       // Schedules a draw purely so the RAF loop's cursor-broadcast diff (in
       // `MapCanvasView`) runs — needed even here, before an origin is
       // clicked, so the player screen's "aim" reticle tracks the DM's
-      // cursor from the moment the tool is armed.
-      if (fogToolRef.current?.enabled || measurementToolRef.current?.enabled) {
+      // cursor from the moment the tool is armed. The fog brush's own
+      // cursor-outline preview needs the raw pointer, so it redraws on every
+      // move; the measurement tool's pre-placement highlight is drawn
+      // grid-snapped already, so it only needs to redraw when the pointer
+      // actually crosses into a different cell — full-canvas redraws on
+      // every pixel of hover were a real, profiled cost on a large map.
+      if (fogToolRef.current?.enabled) {
         onScheduleDraw();
+      } else if (
+        measurementToolRef.current?.enabled &&
+        !measurementOriginRef.current
+      ) {
+        const cell = snapPointToGridCellCenter(mapPoint, gridRef.current);
+        const last = armedMeasurementHoverCellRef.current;
+        if (!last || last.x !== cell.x || last.y !== cell.y) {
+          armedMeasurementHoverCellRef.current = cell;
+          onScheduleDraw();
+        }
       }
 
       if (dragModeRef.current === 'lens' && startLensRectRef.current) {
@@ -604,6 +628,7 @@ export const useViewportInteraction = ({
 
     const handlePointerLeave = () => {
       cursorMapPosRef.current = null;
+      armedMeasurementHoverCellRef.current = null;
       onScheduleDraw();
     };
 

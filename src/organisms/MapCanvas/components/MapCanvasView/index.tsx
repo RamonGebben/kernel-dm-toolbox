@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { type MapPoint, type Viewport } from '~/utils/mapViewport';
+import {
+  computeVisibleMapRect,
+  type MapPoint,
+  type Viewport,
+} from '~/utils/mapViewport';
 import type { LensRect } from '~/utils/mapLens';
 import { useCanvasSize } from '~/organisms/MapCanvas/hooks/useCanvasSize';
 import { useMapMedia } from '~/organisms/MapCanvas/hooks/useMapMedia';
@@ -674,10 +678,36 @@ export const MapCanvasView = ({
 
       const mask = fogMask.maskRef.current;
       if (fogRef.current?.enabled && mask) {
-        ctx.save();
-        ctx.globalAlpha = fogOpacity ?? DEFAULT_FOG_OPACITY;
-        ctx.drawImage(mask, 0, 0);
-        ctx.restore();
+        // The mask canvas is built at the map's own native resolution, which
+        // can be tens of megapixels — compositing all of it every frame
+        // regardless of zoom or what's actually on screen was the single
+        // biggest cost in a real profiling session on a 12450x12450 map
+        // (~65% of total CPU time). Clipping both the source and destination
+        // rect to what's actually visible makes the cost track the viewport
+        // instead of the map.
+        const visible = computeVisibleMapRect(
+          currentViewport,
+          rect.width,
+          rect.height,
+          mapSize.width,
+          mapSize.height,
+        );
+        if (visible) {
+          ctx.save();
+          ctx.globalAlpha = fogOpacity ?? DEFAULT_FOG_OPACITY;
+          ctx.drawImage(
+            mask,
+            visible.x,
+            visible.y,
+            visible.width,
+            visible.height,
+            visible.x,
+            visible.y,
+            visible.width,
+            visible.height,
+          );
+          ctx.restore();
+        }
       }
 
       const tool = fogToolRef.current;
@@ -1153,6 +1183,8 @@ export const MapCanvasView = ({
     lensRectRef,
     livePreviewShape,
     livePreviewShapeRef,
+    mapSize.height,
+    mapSize.width,
     measurementCursor,
     measurementCursorRef,
     measurementCursorScale,

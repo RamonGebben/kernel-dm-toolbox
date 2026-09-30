@@ -100,6 +100,34 @@ export const computeCenteredViewport = ({
   };
 };
 
+export type MapRect = { x: number; y: number; width: number; height: number };
+
+/**
+ * The map-space rectangle currently visible through this viewport, clamped to
+ * the media's own bounds — null when nothing of it is on screen. Lets a
+ * caller clip a full-resolution overlay (the fog mask) to only the pixels
+ * about to be drawn, instead of compositing the whole thing every frame
+ * regardless of zoom level — see the fog-of-war perf fix this was pulled out
+ * for.
+ */
+export const computeVisibleMapRect = (
+  viewport: Viewport,
+  screenWidth: number,
+  screenHeight: number,
+  mediaWidth: number,
+  mediaHeight: number,
+): MapRect | null => {
+  const zoom = viewport.zoom || 1;
+  const left = Math.max(0, viewport.x);
+  const top = Math.max(0, viewport.y);
+  const right = Math.min(mediaWidth, viewport.x + screenWidth / zoom);
+  const bottom = Math.min(mediaHeight, viewport.y + screenHeight / zoom);
+
+  if (right <= left || bottom <= top) return null;
+
+  return { x: left, y: top, width: right - left, height: bottom - top };
+};
+
 /** Whether a map-space point falls inside a rectangle given as origin + size. */
 export const isPointInMapRect = (
   point: MapPoint,
