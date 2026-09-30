@@ -57,6 +57,19 @@ export const toCreatureSourceInput = (
   return 'all';
 };
 
+/**
+ * The Book/document filter has no meaning once narrowed to custom creatures
+ * only — the server drops any non-empty `documents` for `source: 'custom'`
+ * (mirroring `category`, see library.ts's `listCreatures`). Pure so this
+ * "keep the query honest regardless of whether the UI remembered to clear
+ * the selection" rule is testable without a React renderer, the same
+ * pattern `toCreatureSourceInput` already follows for a sibling decision.
+ */
+export const toDocumentsFilterInput = (
+  source: CreatureSource,
+  selectedDocuments: readonly string[],
+): string[] => (source === 'custom' ? [] : [...selectedDocuments]);
+
 type ToLibraryStateArgs = {
   isStatusPending: boolean;
   isListPending: boolean;
@@ -117,19 +130,15 @@ export const useCreatureLibrary = () => {
   const types = useQuery(trpc.library.listCreatureTypes.queryOptions());
   const documents = useQuery(trpc.library.listCreatureDocuments.queryOptions());
   const source = toCreatureSourceInput(selectedSources);
-  // A Book filter has no custom-creature equivalent — the server treats any
-  // non-empty `documents` as "not a match" for source: 'custom' (mirroring
-  // `category`, see library.ts's listCreatures). The Book control is only
-  // *disabled* while narrowed to Custom, not cleared, so a selection made
-  // before narrowing would otherwise still be sent and silently zero out the
-  // custom-creature list — dropping it here keeps the query honest regardless
-  // of whether the UI remembered to clear it.
+  // The Book control is only *disabled* while narrowed to Custom, not
+  // cleared, so a selection made before narrowing would otherwise still be
+  // sent — `toDocumentsFilterInput` is what keeps the query honest.
   const list = useQuery(
     trpc.library.listCreatures.queryOptions({
       search,
       source,
       types: selectedTypes,
-      documents: source === 'custom' ? [] : selectedDocuments,
+      documents: toDocumentsFilterInput(source, selectedDocuments),
     }),
   );
 

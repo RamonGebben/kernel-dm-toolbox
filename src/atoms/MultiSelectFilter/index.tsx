@@ -40,10 +40,23 @@ export const MultiSelectFilter = ({
 }: MultiSelectFilterProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const listId = useId();
-  const { triggerRef, menuRef } = useDismissableMenu(isOpen, () =>
+  // The trigger alone reading `disabled` isn't enough — an already-open
+  // dropdown's checkboxes are portalled away from it and stay interactive
+  // regardless, so a filter that becomes disabled while open must close
+  // itself rather than leave a "disabled" control still fully usable. Folded
+  // into the open state directly rather than a `useEffect` that calls
+  // `setIsOpen` — no external system to synchronize with here, just a value
+  // derivable from render-time props.
+  const effectiveIsOpen = isOpen && !disabled;
+  const { triggerRef, menuRef } = useDismissableMenu(effectiveIsOpen, () =>
     setIsOpen(false),
   );
-  const position = useFloatingPosition(isOpen, triggerRef, menuRef, 'start');
+  const position = useFloatingPosition(
+    effectiveIsOpen,
+    triggerRef,
+    menuRef,
+    'start',
+  );
 
   const toggleValue = (value: string) => {
     onChange(
@@ -58,7 +71,7 @@ export const MultiSelectFilter = ({
       <Trigger
         type="button"
         aria-haspopup="true"
-        aria-expanded={isOpen}
+        aria-expanded={effectiveIsOpen}
         aria-controls={listId}
         $isActive={selectedValues.length > 0}
         disabled={disabled}
@@ -68,7 +81,7 @@ export const MultiSelectFilter = ({
         {selectedValues.length > 0 ? ` (${selectedValues.length})` : ''}
         <Caret aria-hidden="true">▾</Caret>
       </Trigger>
-      {isOpen && (
+      {effectiveIsOpen && (
         <Portal>
           <Dropdown
             ref={menuRef}
@@ -87,6 +100,7 @@ export const MultiSelectFilter = ({
                   type="checkbox"
                   checked={selectedValues.includes(option.value)}
                   onChange={() => toggleValue(option.value)}
+                  disabled={disabled}
                 />
                 {option.label}
               </Option>
