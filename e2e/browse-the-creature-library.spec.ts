@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { srdYoungBlackDragon } from './support/library';
 
 /**
  * User task: find a monster in the library and read its statblock.
@@ -16,7 +17,7 @@ test.describe('browse the creature library', () => {
       .getByLabel('Filter creatures', { exact: true })
       .fill('young black dragon');
 
-    const result = page.getByRole('button', {
+    const result = srdYoungBlackDragon(page).getByRole('button', {
       name: 'Show the Young Black Dragon statblock',
     });
     await expect(result).toBeVisible();

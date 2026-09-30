@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { clearEncounter } from './support/reset';
+import { srdYoungBlackDragon } from './support/library';
 
 /**
  * User task: know whether the fight you have just built is going to be a
@@ -22,7 +23,7 @@ test.describe('rate the encounter', () => {
     await page
       .getByLabel('Filter creatures', { exact: true })
       .fill('young black dragon');
-    await page
+    await srdYoungBlackDragon(page)
       .getByRole('button', { name: 'Add Young Black Dragon to the encounter' })
       .click();
 
@@ -52,7 +53,7 @@ test.describe('rate the encounter', () => {
     await page
       .getByLabel('Filter creatures', { exact: true })
       .fill('young black dragon');
-    await page
+    await srdYoungBlackDragon(page)
       .getByRole('button', { name: 'Add Young Black Dragon to the encounter' })
       .click();
 
@@ -77,7 +78,7 @@ test.describe('rate the encounter', () => {
     await page
       .getByLabel('Filter creatures', { exact: true })
       .fill('young black dragon');
-    await page
+    await srdYoungBlackDragon(page)
       .getByRole('button', { name: 'Add Young Black Dragon to the encounter' })
       .click();
 

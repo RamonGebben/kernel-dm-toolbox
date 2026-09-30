@@ -30,7 +30,7 @@ test.describe('check the toolbox is running', () => {
     ).toBeVisible();
   });
 
-  test('offers the tool rail, with the unbuilt tools visibly unbuilt', async ({
+  test('offers the tool rail, with every built tool one click away', async ({
     page,
   }) => {
     await page.goto('/');
@@ -41,10 +41,10 @@ test.describe('check the toolbox is running', () => {
       rail.getByRole('link', { name: 'Initiative tracker' }),
     ).toHaveAttribute('aria-current', 'page');
     await expect(
-      rail.getByRole('button', { name: 'Maps — coming soon' }),
-    ).toBeDisabled();
+      rail.getByRole('link', { name: 'Battle maps and the second screen' }),
+    ).toHaveAttribute('href', '/maps');
     await expect(
-      rail.getByRole('button', { name: 'Spells — coming soon' }),
-    ).toBeDisabled();
+      rail.getByRole('link', { name: 'Quick spell lookup' }),
+    ).toHaveAttribute('href', '/spells');
   });
 });

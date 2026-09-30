@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { startFight } from './support/combat';
+import { startFight, stepThroughRound } from './support/combat';
+import { addMonsters } from './support/library';
 
 /**
  * User task: actually run the combat — step through turns, count rounds, apply
@@ -10,20 +11,30 @@ test.describe.configure({ mode: 'serial' });
 const order = (page: import('@playwright/test').Page) =>
   page.getByRole('region', { name: 'Combatants by Initiative' });
 
+/**
+ * Hit points are changed in a dialog opened from the HP readout on the
+ * combatant's own row, not from the statblock panel.
+ */
+const openHitPoints = async (
+  page: import('@playwright/test').Page,
+  name: string,
+) => {
+  await page
+    .getByRole('button', { name: `Edit hit points for ${name}`, exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: `Hit points — ${name}` });
+  await expect(dialog).toBeVisible();
+  return dialog;
+};
+
 test.describe('run a fight', () => {
   test.beforeEach(async ({ request, baseURL, page }) => {
     await request.post(
       `${baseURL}/api/trpc/encounter.clearNonPlayerCombatants`,
       { data: {} },
     );
+    await addMonsters(request, baseURL!, 'srd-2024_goblin-warrior', 3);
     await page.goto('/');
-    await page
-      .getByLabel('Filter creatures', { exact: true })
-      .fill('goblin warrior');
-    await page.getByLabel('How many to add', { exact: true }).fill('3');
-    await page
-      .getByRole('button', { name: 'Add Goblin Warrior to the encounter' })
-      .click();
     await expect(
       page.getByRole('button', { name: 'Select Goblin Warrior 3' }),
     ).toBeVisible();
@@ -43,12 +54,7 @@ test.describe('run a fight', () => {
     await startFight(page);
     await expect(page.getByText('Round 1')).toBeVisible();
 
-    // Three goblins plus whatever the party left behind; step past all of them.
-    // Scoped to the order: the creature list and the tool rail are lists too.
-    const rowCount = await order(page).getByRole('listitem').count();
-    for (let turn = 0; turn < rowCount; turn += 1) {
-      await page.getByRole('button', { name: 'Next turn' }).click();
-    }
+    await stepThroughRound(page);
 
     await expect(page.getByText('Round 2')).toBeVisible();
   });
@@ -57,16 +63,17 @@ test.describe('run a fight', () => {
     await startFight(page);
     await page.getByRole('button', { name: 'Next turn' }).click();
 
-    await page.getByRole('button', { name: 'Back' }).click();
+    // Exact: the library lists a "Backup Holler Spider" too.
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
 
     await expect(page.getByText('Round 1')).toBeVisible();
   });
 
-  test('applies damage to the selected combatant', async ({ page }) => {
-    await page.getByRole('button', { name: 'Select Goblin Warrior 1' }).click();
+  test('applies damage from the combatant row', async ({ page }) => {
+    const dialog = await openHitPoints(page, 'Goblin Warrior 1');
 
-    await page.getByLabel('Amount', { exact: true }).fill('4');
-    await page.getByRole('button', { name: 'Damage' }).click();
+    await dialog.getByLabel('Amount', { exact: true }).fill('4');
+    await dialog.getByRole('button', { name: 'Damage' }).click();
 
     const row = order(page)
       .locator('li')
@@ -75,12 +82,15 @@ test.describe('run a fight', () => {
   });
 
   test('heals back but never above the maximum', async ({ page }) => {
-    await page.getByRole('button', { name: 'Select Goblin Warrior 1' }).click();
-    await page.getByLabel('Amount', { exact: true }).fill('4');
-    await page.getByRole('button', { name: 'Damage' }).click();
+    const dialog = await openHitPoints(page, 'Goblin Warrior 1');
+    await dialog.getByLabel('Amount', { exact: true }).fill('4');
+    await dialog.getByRole('button', { name: 'Damage' }).click();
+    await expect(
+      order(page).locator('li').filter({ hasText: 'Goblin Warrior 1' }),
+    ).toContainText('6/10');
 
-    await page.getByLabel('Amount', { exact: true }).fill('99');
-    await page.getByRole('button', { name: 'Heal' }).click();
+    await dialog.getByLabel('Amount', { exact: true }).fill('99');
+    await dialog.getByRole('button', { name: 'Heal' }).click();
 
     const row = order(page)
       .locator('li')
