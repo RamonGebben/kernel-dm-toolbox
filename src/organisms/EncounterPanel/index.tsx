@@ -29,7 +29,16 @@ export const EncounterPanel = () => {
     ) ?? null;
 
   const isStarted = encounter.roundNumber > 0;
-  useTrackerHotkeys({ enabled: isStarted, onNextTurn: encounter.nextTurn });
+  // A dialog can land focus on a non-editable element (a Modal's panel, a
+  // button) that `isHotkeyEvent` has no way to recognize as "inside an open
+  // dialog" — so the hotkey has to be disabled at the source whenever one is
+  // open, or pressing "n" to type into the HP/initiative dialog silently
+  // advances the turn in the background instead.
+  const isDialogOpen = isRollingInitiative || hitPointsCombatant !== null;
+  useTrackerHotkeys({
+    enabled: isStarted && !isDialogOpen,
+    onNextTurn: encounter.nextTurn,
+  });
 
   return (
     <EncounterView
