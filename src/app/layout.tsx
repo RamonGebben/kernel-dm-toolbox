@@ -17,9 +17,21 @@ const monoFont = JetBrains_Mono({
 });
 
 /**
+ * Rendered per request, never prerendered — and set here, on the root layout,
+ * because this layout is what reads `env`, so every page beneath it inherits
+ * the dependency whether or not the page itself touches `env`.
+ *
+ * The image is built once with `SKIP_ENV_VALIDATION=1` and configured at
+ * `docker run` time. A prerendered page would bake the build-time
+ * `CAMPAIGN_NAME` into its `<title>` and ignore whatever the container was
+ * actually started with (DECISIONS #6).
+ */
+export const dynamic = 'force-dynamic';
+
+/**
  * A function rather than a static object: the title comes from a runtime
  * environment variable, so it must be resolved per request rather than frozen
- * into the build. See the note in `page.tsx`.
+ * into the build.
  */
 export const generateMetadata = async (): Promise<Metadata> => ({
   title: env.CAMPAIGN_NAME,
