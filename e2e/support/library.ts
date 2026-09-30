@@ -16,9 +16,18 @@ export const addMonsters = async (
   slug: string,
   count: number,
 ): Promise<void> => {
-  await request.post(`${baseURL}/api/trpc/encounter.addCreature`, {
-    data: { json: { source: 'library', slug, count } },
-  });
+  const response = await request.post(
+    `${baseURL}/api/trpc/encounter.addCreature`,
+    { data: { json: { source: 'library', slug, count } } },
+  );
+
+  // Fail here, not as a timeout on a row that never appears: a renamed slug or
+  // an empty library is a NOT_FOUND the request context does not throw on.
+  if (!response.ok()) {
+    throw new Error(
+      `addMonsters(${slug}, ${count}) failed: ${response.status()} ${await response.text()}`,
+    );
+  }
 };
 
 /**
