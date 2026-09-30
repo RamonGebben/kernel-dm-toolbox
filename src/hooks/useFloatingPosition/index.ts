@@ -23,7 +23,7 @@ const VIEWPORT_MARGIN = 8;
  * clamping math without a real DOM.
  *
  * `align: 'start'` anchors the dropdown's left edge to the trigger's left
- * edge (`MultiSelectFilter`'s old `left: 0`); `'end'` anchors the right
+ * edge (`FilterBar`'s popover); `'end'` anchors the right
  * edges (`MapRowMenu`'s old `right: 0`). Either way the result is clamped to
  * stay on screen on both axes — a static `left`/`right`/`top` never
  * guaranteed that once the dropdown was free to overflow whatever used to
@@ -86,7 +86,8 @@ const gapPx = () =>
  * instead, via `computeFloatingPosition`.
  *
  * Recomputed on open, and kept in sync with any ancestor's scroll (`capture:
- * true`, since `scroll` doesn't bubble) or a window resize while open.
+ * true`, since `scroll` doesn't bubble), a window resize, or a resize of the
+ * trigger or the menu itself while open.
  * `useLayoutEffect` (not `useEffect`) so the very first measured position
  * commits before the browser paints — otherwise the dropdown would flash at
  * its unmeasured default for one frame.
@@ -142,10 +143,22 @@ export const useFloatingPosition = (
       });
     };
 
+    // The content can change while the popover stays open — `FilterBar`
+    // swaps its "+ Filter" menu for an editor in the same element, and a new
+    // or longer tag can wrap the bar onto another line — without `isOpen`
+    // ever flipping, so size changes on either side re-measure too.
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(scheduleUpdate);
+    if (triggerRef.current) resizeObserver?.observe(triggerRef.current);
+    if (menuRef.current) resizeObserver?.observe(menuRef.current);
+
     update();
     document.addEventListener('scroll', scheduleUpdate, true);
     window.addEventListener('resize', scheduleUpdate);
     return () => {
+      resizeObserver?.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
       document.removeEventListener('scroll', scheduleUpdate, true);
       window.removeEventListener('resize', scheduleUpdate);

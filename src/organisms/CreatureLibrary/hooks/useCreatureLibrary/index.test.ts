@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CHALLENGE_RATING_OPTIONS,
   toAddCreatureInput,
   toCreatureSourceInput,
   toDocumentsFilterInput,
   toLibraryState,
+  withMaxChallengeRating,
+  withMinChallengeRating,
 } from '~/organisms/CreatureLibrary/hooks/useCreatureLibrary';
 
 const creature = {
@@ -130,5 +133,65 @@ describe('toDocumentsFilterInput', () => {
       'srd-2024',
     ]);
     expect(toDocumentsFilterInput('all', ['srd-2024'])).toEqual(['srd-2024']);
+  });
+});
+
+describe('CHALLENGE_RATING_OPTIONS', () => {
+  it('lists every rules CR in ascending order, fractions as fractions', () => {
+    expect(CHALLENGE_RATING_OPTIONS.slice(0, 5)).toEqual([
+      { value: 0, label: '0' },
+      { value: 0.125, label: '1/8' },
+      { value: 0.25, label: '1/4' },
+      { value: 0.5, label: '1/2' },
+      { value: 1, label: '1' },
+    ]);
+    expect(CHALLENGE_RATING_OPTIONS.at(-1)).toEqual({ value: 30, label: '30' });
+    expect(CHALLENGE_RATING_OPTIONS).toHaveLength(34);
+  });
+});
+
+describe('withMinChallengeRating', () => {
+  it('sets the minimum and leaves a compatible maximum alone', () => {
+    expect(withMinChallengeRating({ min: null, max: 5 }, 2)).toEqual({
+      min: 2,
+      max: 5,
+    });
+  });
+
+  it('drags the maximum up rather than inverting the range', () => {
+    expect(withMinChallengeRating({ min: 1, max: 3 }, 8)).toEqual({
+      min: 8,
+      max: 8,
+    });
+  });
+
+  it('clears the minimum without touching the maximum', () => {
+    expect(withMinChallengeRating({ min: 1, max: 3 }, null)).toEqual({
+      min: null,
+      max: 3,
+    });
+  });
+});
+
+describe('withMaxChallengeRating', () => {
+  it('sets the maximum and leaves a compatible minimum alone', () => {
+    expect(withMaxChallengeRating({ min: 0.25, max: null }, 4)).toEqual({
+      min: 0.25,
+      max: 4,
+    });
+  });
+
+  it('drags the minimum down rather than inverting the range', () => {
+    expect(withMaxChallengeRating({ min: 5, max: 10 }, 0.5)).toEqual({
+      min: 0.5,
+      max: 0.5,
+    });
+  });
+
+  it('clears the maximum without touching the minimum', () => {
+    expect(withMaxChallengeRating({ min: 5, max: 10 }, null)).toEqual({
+      min: 5,
+      max: null,
+    });
   });
 });

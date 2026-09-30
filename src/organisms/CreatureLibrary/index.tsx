@@ -43,12 +43,16 @@ export const CreatureLibrary = () => {
         selectedTypes={library.selectedTypes}
         documentOptions={library.documentOptions}
         selectedDocuments={library.selectedDocuments}
+        challengeRatingOptions={library.challengeRatingOptions}
+        challengeRatingRange={library.challengeRatingRange}
         selectedSlug={selectedCreatureSlug}
         selectedCustomCreatureId={selectedCustomCreatureId}
         onSearchChange={library.setSearch}
         onSourcesChange={library.setSelectedSources}
         onTypesChange={library.setSelectedTypes}
         onDocumentsChange={library.setSelectedDocuments}
+        onMinChallengeRatingChange={library.setMinChallengeRating}
+        onMaxChallengeRatingChange={library.setMaxChallengeRating}
         onSelect={handleSelect}
         onAdd={library.addCreature}
         onNewCreature={() => setIsWizardOpen(true)}

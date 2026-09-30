@@ -112,7 +112,7 @@ type MapRowMenuProps = {
 /**
  * The kebab menu: move to folder, rename, and remove, collapsed behind one
  * trigger. The menu itself renders through `Portal`, positioned against the
- * trigger by `useFloatingPosition` — see `MultiSelectFilter` for why a
+ * trigger by `useFloatingPosition` — see `FilterBar` for why a
  * `position: absolute` child stopped being safe once this sat inside a
  * scrolling gallery.
  */

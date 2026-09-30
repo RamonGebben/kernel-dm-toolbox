@@ -120,13 +120,15 @@ export const FilteringByLevelAndClass: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
-    // The checkbox list is portalled to `document.body`, so it's found via
-    // `screen`, not `canvas` — see `MultiSelectFilter`'s own doc comment.
-    await userEvent.click(canvas.getByRole('button', { name: /level/i }));
+    // The popover is portalled to `document.body`, so it's found via
+    // `screen`, not `canvas` — see `FilterBar`'s own doc comment.
+    await userEvent.click(canvas.getByRole('button', { name: '+ Filter' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Level' }));
     await userEvent.click(screen.getByRole('checkbox', { name: '1st-level' }));
     await expect(args.onLevelsChange).toHaveBeenCalledWith(['1']);
 
-    await userEvent.click(canvas.getByRole('button', { name: /class/i }));
+    await userEvent.click(canvas.getByRole('button', { name: '+ Filter' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Class' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Bard' }));
     await expect(args.onClassSlugsChange).toHaveBeenCalledWith([
       'srd-2024_bard',
@@ -134,16 +136,33 @@ export const FilteringByLevelAndClass: Story = {
   },
 };
 
+/** Applied filters collapse into tags; with both in use, nothing is left to add. */
 export const WithActiveFilters: Story = {
   args: { selectedLevels: ['1', '2'], selectedClassSlugs: ['srd-2024_wizard'] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(
-      canvas.getByRole('button', { name: /level \(2\)/i }),
+      canvas.getByRole('button', { name: 'Level: 1st-level, 2nd-level' }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole('button', { name: /class \(1\)/i }),
+      canvas.getByRole('button', { name: 'Class: Wizard' }),
     ).toBeVisible();
+    await expect(
+      canvas.queryByRole('button', { name: '+ Filter' }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const RemovingAFilter: Story = {
+  args: { selectedLevels: ['0'] },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Remove Level filter' }),
+    );
+
+    await expect(args.onLevelsChange).toHaveBeenCalledWith([]);
   },
 };
