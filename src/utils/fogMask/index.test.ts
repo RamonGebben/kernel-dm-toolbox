@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   compositeOperationForMode,
+  computeFogMaskScale,
+  computeFogMaskSize,
   FOG_COMPACTION_STROKE_THRESHOLD,
+  FOG_MASK_MAX_DIMENSION,
   innerRadiusForStroke,
   shouldCompactFog,
 } from '~/utils/fogMask';
@@ -21,6 +24,51 @@ describe('innerRadiusForStroke', () => {
 
   it('never goes negative for softness beyond 1', () => {
     expect(innerRadiusForStroke({ radius: 40, softness: 2 })).toBe(0);
+  });
+});
+
+describe('computeFogMaskScale', () => {
+  it('is 1 (no downscale) for a map already under the cap', () => {
+    expect(computeFogMaskScale(1024, 768)).toBe(1);
+  });
+
+  it('is 1 for a map exactly at the cap', () => {
+    expect(
+      computeFogMaskScale(FOG_MASK_MAX_DIMENSION, FOG_MASK_MAX_DIMENSION / 2),
+    ).toBe(1);
+  });
+
+  it('shrinks a map larger than the cap down to it, by its longer edge', () => {
+    expect(computeFogMaskScale(12450, 12450)).toBeCloseTo(
+      FOG_MASK_MAX_DIMENSION / 12450,
+    );
+  });
+
+  it('uses the longer edge for a non-square map', () => {
+    expect(computeFogMaskScale(4000, 8000)).toBeCloseTo(
+      FOG_MASK_MAX_DIMENSION / 8000,
+    );
+  });
+});
+
+describe('computeFogMaskSize', () => {
+  it('matches the map size 1:1 under the cap', () => {
+    expect(computeFogMaskSize(1024, 768)).toEqual({ width: 1024, height: 768 });
+  });
+
+  it('caps the longer edge and scales the other proportionally', () => {
+    expect(computeFogMaskSize(12450, 12450)).toEqual({
+      width: FOG_MASK_MAX_DIMENSION,
+      height: FOG_MASK_MAX_DIMENSION,
+    });
+    expect(computeFogMaskSize(4000, 8000)).toEqual({
+      width: FOG_MASK_MAX_DIMENSION / 2,
+      height: FOG_MASK_MAX_DIMENSION,
+    });
+  });
+
+  it('never rounds down to zero for a degenerate dimension', () => {
+    expect(computeFogMaskSize(0, 0)).toEqual({ width: 1, height: 1 });
   });
 });
 

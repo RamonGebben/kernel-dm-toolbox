@@ -8,6 +8,7 @@ import {
   type Viewport,
 } from '~/utils/mapViewport';
 import type { LensRect } from '~/utils/mapLens';
+import { computeFogMaskScale } from '~/utils/fogMask';
 import { useCanvasSize } from '~/organisms/MapCanvas/hooks/useCanvasSize';
 import { useMapMedia } from '~/organisms/MapCanvas/hooks/useMapMedia';
 import { useFogMask } from '~/organisms/MapCanvas/hooks/useFogMask';
@@ -678,13 +679,18 @@ export const MapCanvasView = ({
 
       const mask = fogMask.maskRef.current;
       if (fogRef.current?.enabled && mask) {
-        // The mask canvas is built at the map's own native resolution, which
-        // can be tens of megapixels — compositing all of it every frame
-        // regardless of zoom or what's actually on screen was the single
-        // biggest cost in a real profiling session on a 12450x12450 map
-        // (~65% of total CPU time). Clipping both the source and destination
-        // rect to what's actually visible makes the cost track the viewport
-        // instead of the map.
+        // Compositing the whole mask every frame regardless of zoom or what's
+        // actually on screen was the single biggest cost in a real profiling
+        // session on a 12450x12450 map (~65% of total CPU time) — clipping to
+        // what's actually visible (below) fixes that at a normal zoom level,
+        // but a DM zoomed out to see the whole map has "visible" cover nearly
+        // all of it again. `useFogMask` caps the mask's own backing-canvas
+        // resolution independently of the map's (see `FOG_MASK_MAX_DIMENSION`
+        // in `~/utils/fogMask`), which is what actually bounds the cost
+        // regardless of zoom — `maskScale` here converts the visible rect
+        // (still in map-space) into that smaller canvas's own pixel space for
+        // the source rect, while the destination stays in map-space, already
+        // handled by this context's own viewport transform.
         const visible = computeVisibleMapRect(
           currentViewport,
           rect.width,
@@ -693,14 +699,15 @@ export const MapCanvasView = ({
           mapSize.height,
         );
         if (visible) {
+          const maskScale = computeFogMaskScale(mapSize.width, mapSize.height);
           ctx.save();
           ctx.globalAlpha = fogOpacity ?? DEFAULT_FOG_OPACITY;
           ctx.drawImage(
             mask,
-            visible.x,
-            visible.y,
-            visible.width,
-            visible.height,
+            visible.x * maskScale,
+            visible.y * maskScale,
+            visible.width * maskScale,
+            visible.height * maskScale,
             visible.x,
             visible.y,
             visible.width,

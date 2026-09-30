@@ -3,6 +3,8 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import {
   compositeOperationForMode,
+  computeFogMaskScale,
+  computeFogMaskSize,
   innerRadiusForStroke,
   shouldCompactFog,
 } from '~/utils/fogMask';
@@ -56,10 +58,15 @@ const drawFogStroke = (
 };
 
 /**
- * Owns the offscreen fog mask: an alpha canvas at the map's native
- * resolution, rebuilt whenever the fog state or map size changes, drawn onto
- * the main canvas with `globalCompositeOperation` doing the reveal/cover
- * work.
+ * Owns the offscreen fog mask: an alpha canvas capped at
+ * `FOG_MASK_MAX_DIMENSION` regardless of the map's own resolution (see
+ * `~/utils/fogMask`), rebuilt whenever the fog state or map size changes,
+ * drawn onto the main canvas with `globalCompositeOperation` doing the
+ * reveal/cover work. Every draw call below still takes map-space (native
+ * pixel) coordinates — the same space a stroke's own x/y/radius are already
+ * in — and relies on the canvas context's own transform (set from
+ * `computeFogMaskScale`) to land them on the smaller backing store; nothing
+ * in this file needs to convert coordinates itself.
  *
  * Strokes still in progress (before the gesture's batched write commits) are
  * painted directly via `paintStroke`, so the brush feels live rather than
@@ -125,6 +132,8 @@ export const useFogMask = ({
       return;
     }
 
+    const maskSize = computeFogMaskSize(mapWidth, mapHeight);
+
     let canvas = maskRef.current;
     if (!canvas) {
       canvas = document.createElement('canvas');
@@ -132,13 +141,22 @@ export const useFogMask = ({
       maskCtxRef.current = canvas.getContext('2d');
     }
 
-    if (canvas.width !== mapWidth || canvas.height !== mapHeight) {
-      canvas.width = mapWidth;
-      canvas.height = mapHeight;
+    if (canvas.width !== maskSize.width || canvas.height !== maskSize.height) {
+      canvas.width = maskSize.width;
+      canvas.height = maskSize.height;
     }
 
     const ctx = maskCtxRef.current;
     if (!ctx) return;
+
+    // Everything below still draws in map-space (native pixel) coordinates —
+    // same as a stroke's own x/y/radius — so this transform is what actually
+    // maps them onto the mask's own, possibly much smaller, backing store.
+    // Assigning `canvas.width`/`.height` above resets the context's
+    // transform to the identity even when the size didn't change, so this
+    // has to be reapplied unconditionally, not just once at creation.
+    const maskScale = computeFogMaskScale(mapWidth, mapHeight);
+    ctx.setTransform(maskScale, 0, 0, maskScale, 0, 0);
 
     const strokes = fog.strokes;
     const baseState = fog.baseState;
@@ -165,9 +183,12 @@ export const useFogMask = ({
         shouldCompactFog(strokes.length)
       ) {
         // Deferred a tick so the paint `onScheduleDraw` just requested isn't
-        // delayed by `toDataURL`'s synchronous full-resolution PNG encode —
-        // both run on the main thread, so ordering them after the browser
-        // has had a chance to paint keeps this off the critical frame path.
+        // delayed by `toDataURL`'s synchronous PNG encode — both run on the
+        // main thread, so ordering them after the browser has had a chance
+        // to paint keeps this off the critical frame path. Cheaper than it
+        // used to be now that the canvas itself is capped at
+        // `FOG_MASK_MAX_DIMENSION` rather than the map's native resolution,
+        // but still real work worth keeping off the frame that just drew.
         setTimeout(() => {
           if (cancelled) return;
           onCompactionNeededRef.current?.(
