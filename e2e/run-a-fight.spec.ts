@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { startFight } from './support/combat';
+import { startFight, stepThroughRound } from './support/combat';
 import { addMonsters } from './support/library';
 
 /**
@@ -54,12 +54,7 @@ test.describe('run a fight', () => {
     await startFight(page);
     await expect(page.getByText('Round 1')).toBeVisible();
 
-    // Three goblins plus whatever the party left behind; step past all of them.
-    // Scoped to the order: the creature list and the tool rail are lists too.
-    const rowCount = await order(page).getByRole('listitem').count();
-    for (let turn = 0; turn < rowCount; turn += 1) {
-      await page.getByRole('button', { name: 'Next turn' }).click();
-    }
+    await stepThroughRound(page);
 
     await expect(page.getByText('Round 2')).toBeVisible();
   });

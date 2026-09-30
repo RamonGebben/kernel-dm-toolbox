@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { startFight } from './support/combat';
+import { startFight, stepThroughRound } from './support/combat';
 
 /**
  * User task: mark that a creature is poisoned for three rounds and have the
@@ -60,10 +60,7 @@ test.describe('track conditions', () => {
     await startFight(page);
     await expect(page.getByText('Round 1')).toBeVisible();
 
-    const rowCount = await order(page).getByRole('listitem').count();
-    for (let turn = 0; turn < rowCount; turn += 1) {
-      await page.getByRole('button', { name: 'Next turn' }).click();
-    }
+    await stepThroughRound(page);
     await expect(page.getByText('Round 2')).toBeVisible();
 
     const row = order(page).locator('li').filter({ hasText: 'Goblin Warrior' });
@@ -83,10 +80,7 @@ test.describe('track conditions', () => {
     await expect(row.getByText('Stunned')).toBeVisible();
 
     await startFight(page);
-    const rowCount = await order(page).getByRole('listitem').count();
-    for (let turn = 0; turn < rowCount; turn += 1) {
-      await page.getByRole('button', { name: 'Next turn' }).click();
-    }
+    await stepThroughRound(page);
     await expect(page.getByText('Round 2')).toBeVisible();
 
     await expect(row.getByText('Stunned')).toBeHidden();
