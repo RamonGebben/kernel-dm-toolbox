@@ -7,8 +7,11 @@ import {
   toLibraryImportState,
   type LibraryImportStatus,
 } from '~/utils/toLibraryImportState';
-import type { MultiSelectFilterOption } from '~/atoms/MultiSelectFilter';
+import type { CheckboxListOption } from '~/atoms/CheckboxList';
+import { experienceByChallengeRating } from '~/content/challengeRating';
+import { formatChallengeRating } from '~/utils/formatChallengeRating';
 import type {
+  ChallengeRatingRange,
   CreatureSource,
   CreatureSummary,
 } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
@@ -19,23 +22,62 @@ export type CreatureLibraryState = {
   creatures: CreatureSummary[];
   search: string;
   setSearch: (search: string) => void;
-  sourceOptions: MultiSelectFilterOption[];
+  sourceOptions: CheckboxListOption[];
   selectedSources: string[];
   setSelectedSources: (sources: string[]) => void;
-  typeOptions: MultiSelectFilterOption[];
+  typeOptions: CheckboxListOption[];
   selectedTypes: string[];
   setSelectedTypes: (types: string[]) => void;
-  documentOptions: MultiSelectFilterOption[];
+  documentOptions: CheckboxListOption[];
   selectedDocuments: string[];
   setSelectedDocuments: (documents: string[]) => void;
+  challengeRatingOptions: ChallengeRatingOption[];
+  challengeRatingRange: ChallengeRatingRange;
+  setMinChallengeRating: (min: number | null) => void;
+  setMaxChallengeRating: (max: number | null) => void;
 };
+
+export type ChallengeRatingOption = { value: number; label: string };
+
+/**
+ * Every challenge rating the rules define, ascending. Fixed rather than
+ * derived from the imported rows: the XP table is already the complete list,
+ * and a range bound doesn't need a creature to exist at exactly that CR.
+ */
+export const CHALLENGE_RATING_OPTIONS: ChallengeRatingOption[] = Object.keys(
+  experienceByChallengeRating,
+)
+  .map(Number)
+  .toSorted((a, b) => a - b)
+  .map(value => ({ value, label: formatChallengeRating(value) }));
+
+/**
+ * Setting a minimum above the current maximum drags the maximum up with it,
+ * so the range can never invert into a query that matches nothing.
+ */
+export const withMinChallengeRating = (
+  range: ChallengeRatingRange,
+  min: number | null,
+): ChallengeRatingRange => ({
+  min,
+  max: min != null && range.max != null && range.max < min ? min : range.max,
+});
+
+/** The mirror of `withMinChallengeRating`: a lower maximum drags the minimum down. */
+export const withMaxChallengeRating = (
+  range: ChallengeRatingRange,
+  max: number | null,
+): ChallengeRatingRange => ({
+  min: max != null && range.min != null && range.min > max ? max : range.min,
+  max,
+});
 
 /**
  * Fixed rather than derived: unlike creature type, "where did this row come
  * from" is exactly two values by construction, not something the data can
  * grow a third option for.
  */
-export const SOURCE_FILTER_OPTIONS: MultiSelectFilterOption[] = [
+export const SOURCE_FILTER_OPTIONS: CheckboxListOption[] = [
   { value: 'library', label: 'Library' },
   { value: 'custom', label: 'Custom' },
 ];
@@ -103,6 +145,10 @@ export const toLibraryState = ({
   | 'documentOptions'
   | 'selectedDocuments'
   | 'setSelectedDocuments'
+  | 'challengeRatingOptions'
+  | 'challengeRatingRange'
+  | 'setMinChallengeRating'
+  | 'setMaxChallengeRating'
 > => ({
   ...toLibraryImportState({ isStatusPending, isListPending, status }),
   creatures: creatures ?? [],
@@ -125,6 +171,8 @@ export const useCreatureLibrary = () => {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [challengeRatingRange, setChallengeRatingRange] =
+    useState<ChallengeRatingRange>({ min: null, max: null });
 
   const status = useQuery(trpc.library.status.queryOptions());
   const types = useQuery(trpc.library.listCreatureTypes.queryOptions());
@@ -139,6 +187,8 @@ export const useCreatureLibrary = () => {
       source,
       types: selectedTypes,
       documents: toDocumentsFilterInput(source, selectedDocuments),
+      minChallengeRating: challengeRatingRange.min ?? undefined,
+      maxChallengeRating: challengeRatingRange.max ?? undefined,
     }),
   );
 
@@ -169,6 +219,12 @@ export const useCreatureLibrary = () => {
     documentOptions: documents.data ?? [],
     selectedDocuments,
     setSelectedDocuments,
+    challengeRatingOptions: CHALLENGE_RATING_OPTIONS,
+    challengeRatingRange,
+    setMinChallengeRating: (min: number | null) =>
+      setChallengeRatingRange(range => withMinChallengeRating(range, min)),
+    setMaxChallengeRating: (max: number | null) =>
+      setChallengeRatingRange(range => withMaxChallengeRating(range, max)),
     addCreature: (creature: CreatureSummary) =>
       addCreature.mutate(toAddCreatureInput(creature)),
   };

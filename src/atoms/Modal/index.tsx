@@ -94,7 +94,7 @@ export const Modal = ({
 const Scrim = styled.div`
   position: fixed;
   inset: 0;
-  /* Above MultiSelectFilter's Dropdown and MapRow's Menu (both z-index: 10)
+  /* Above FilterBar's Popover and MapRow's Menu (both z-index: 10)
    * — all three now portal to document.body as siblings, so a modal opened
    * while a dropdown/menu is still open must win on stacking order alone
    * rather than on whichever one happened to mount last. */

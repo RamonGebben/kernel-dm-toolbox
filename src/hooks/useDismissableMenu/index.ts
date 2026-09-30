@@ -14,7 +14,7 @@ export type DismissableMenuRefs = {
 /**
  * Click-outside-or-Escape-to-close wiring shared by any open popover whose
  * content is portalled away from its trigger (`MapRowMenu`,
- * `MultiSelectFilter`) — a pointerdown only counts as "outside" once it
+ * `FilterBar`) — a pointerdown only counts as "outside" once it
  * misses both the trigger and the portalled menu. Only attaches its
  * listeners while `isOpen`, so a closed menu costs nothing.
  */

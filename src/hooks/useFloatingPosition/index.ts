@@ -23,7 +23,7 @@ const VIEWPORT_MARGIN = 8;
  * clamping math without a real DOM.
  *
  * `align: 'start'` anchors the dropdown's left edge to the trigger's left
- * edge (`MultiSelectFilter`'s old `left: 0`); `'end'` anchors the right
+ * edge (`FilterBar`'s popover); `'end'` anchors the right
  * edges (`MapRowMenu`'s old `right: 0`). Either way the result is clamped to
  * stay on screen on both axes — a static `left`/`right`/`top` never
  * guaranteed that once the dropdown was free to overflow whatever used to

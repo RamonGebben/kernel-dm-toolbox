@@ -10,7 +10,7 @@ import {
   toLibraryImportState,
   type LibraryImportStatus,
 } from '~/utils/toLibraryImportState';
-import type { MultiSelectFilterOption } from '~/atoms/MultiSelectFilter';
+import type { CheckboxListOption } from '~/atoms/CheckboxList';
 import type { SpellSummary } from '~/organisms/SpellLibrary/components/SpellLibraryView';
 
 type RawSpellSummary = {
@@ -28,10 +28,10 @@ export type SpellLibraryState = {
   spells: SpellSummary[];
   search: string;
   setSearch: (search: string) => void;
-  levelOptions: MultiSelectFilterOption[];
+  levelOptions: CheckboxListOption[];
   selectedLevels: string[];
   setSelectedLevels: (levels: string[]) => void;
-  classOptions: MultiSelectFilterOption[];
+  classOptions: CheckboxListOption[];
   selectedClassSlugs: string[];
   setSelectedClassSlugs: (classSlugs: string[]) => void;
 };
@@ -40,7 +40,7 @@ export type SpellLibraryState = {
  * Every spell level a filter can offer, `0` a cantrip — fixed by the ruleset,
  * so unlike the class list it needs no round trip to build.
  */
-export const SPELL_LEVEL_OPTIONS: MultiSelectFilterOption[] = Array.from(
+export const SPELL_LEVEL_OPTIONS: CheckboxListOption[] = Array.from(
   { length: 10 },
   (_, level) => ({ value: String(level), label: formatSpellLevel(level) }),
 );

@@ -11,7 +11,7 @@ export type PortalProps = {
  * Renders `children` at the end of `document.body`, escaping any ancestor's
  * `overflow`/clip — for floating content (a dropdown, a dialog) that must
  * never be cut off, or force a scrollbar onto, a scrolling panel. `Modal`,
- * `MultiSelectFilter` and `MapRowMenu` all render through this rather than
+ * `FilterBar` and `MapRowMenu` all render through this rather than
  * inline.
  *
  * Guarded for the server: `document` doesn't exist there, and nothing here

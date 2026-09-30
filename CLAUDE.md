@@ -215,6 +215,26 @@ text-align: center;` so tabs stretch to fill their container and split the
   `calc(100% - theme.space.lg)` instead of `100%` so it stops short of the
   footer rather than overlapping it.
 
+### Filters
+
+- **Facet filters go through `~/molecules/FilterBar`, not a row of always-
+  visible controls.** Nothing takes room until it's applied: a "+ Filter"
+  button lists the filters not yet in use, picking one opens its editor in a
+  portalled popover, and once set it collapses to a removable tag
+  (`Type: Dragon, Undead ×`). Both the creature library and the Spells tab
+  use it.
+- **A filter's "applied" state is derived from its `summary`, never tracked
+  in `FilterBar`.** `summary: null` means unapplied; the parent's own filter
+  state stays the single source of truth. Build tag text with
+  `~/utils/summarizeFilter` (`summarizeSelection` for multi-choice,
+  `summarizeRange` for a from–to pair) so every tag reads the same way.
+- The editor is any `ReactNode`: `~/atoms/CheckboxList` for a multi-choice
+  facet, a purpose-built control where ticking boxes would be busywork (the
+  creature library's `ChallengeRatingRangeFilter`). A single-choice facet
+  elsewhere still uses a plain `<select>`, like `ConditionPicker`.
+- A filter that stops making sense (Book, once Source is Custom-only) is
+  `disabled`: it can't be added or edited, but its tag can still be removed.
+
 ## Loading / empty / loaded branching
 
 Check loading **first**, then empty, then loaded — guard-clause early returns,
@@ -522,10 +542,8 @@ fixed-panel shape as the initiative tracker rather than a slide-in overlay.
 The list summary comes from `library.listSpells`; the detail panel's derived
 fields (subtitle, components string, duration prefix, casting-option labels,
 …) come from `buildSpellDetail`, which wraps `library.getSpell`. The list can
-be filtered by several levels and several classes at once, checkbox-in-a-
-dropdown style, via `~/atoms/MultiSelectFilter` — a generic atom, reusable
-wherever a facet is multi-choice rather than the single-choice `<select>`
-`ConditionPicker` uses. The class options come from `library.listSpellClasses`,
+be filtered by several levels and several classes at once through the same
+`FilterBar` the creature library uses (see Filters below). The class options come from `library.listSpellClasses`,
 which derives the list from the classes actually present on an imported spell
 (`buildSpellClassOptions`) rather than a hardcoded roster, since which classes
 have spells depends on what got imported.

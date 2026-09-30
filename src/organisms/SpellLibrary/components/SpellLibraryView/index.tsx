@@ -3,11 +3,10 @@
 import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
-import {
-  MultiSelectFilter,
-  type MultiSelectFilterOption,
-} from '~/atoms/MultiSelectFilter';
+import { CheckboxList, type CheckboxListOption } from '~/atoms/CheckboxList';
+import { FilterBar } from '~/molecules/FilterBar';
 import { SpellListItem } from '~/molecules/SpellListItem';
+import { summarizeSelection } from '~/utils/summarizeFilter';
 
 export type SpellSummary = {
   slug: string;
@@ -25,10 +24,10 @@ export type SpellLibraryViewProps = {
   selectedSlug: string | null;
   onSearchChange: (search: string) => void;
   onSelect: (slug: string) => void;
-  levelOptions: readonly MultiSelectFilterOption[];
+  levelOptions: readonly CheckboxListOption[];
   selectedLevels: readonly string[];
   onLevelsChange: (levels: string[]) => void;
-  classOptions: readonly MultiSelectFilterOption[];
+  classOptions: readonly CheckboxListOption[];
   selectedClassSlugs: readonly string[];
   onClassSlugsChange: (classSlugs: string[]) => void;
 };
@@ -61,22 +60,39 @@ export const SpellLibraryView = ({
       aria-label="Filter spells"
       disabled={!isLibraryImported}
     />
-    <Filters>
-      <MultiSelectFilter
-        label="Level"
-        options={levelOptions}
-        selectedValues={selectedLevels}
-        onChange={onLevelsChange}
-        disabled={!isLibraryImported}
-      />
-      <MultiSelectFilter
-        label="Class"
-        options={classOptions}
-        selectedValues={selectedClassSlugs}
-        onChange={onClassSlugsChange}
-        disabled={!isLibraryImported}
-      />
-    </Filters>
+    <FilterBar
+      disabled={!isLibraryImported}
+      filters={[
+        {
+          key: 'level',
+          label: 'Level',
+          summary: summarizeSelection(levelOptions, selectedLevels),
+          onClear: () => onLevelsChange([]),
+          editor: (
+            <CheckboxList
+              label="Level"
+              options={levelOptions}
+              selectedValues={selectedLevels}
+              onChange={onLevelsChange}
+            />
+          ),
+        },
+        {
+          key: 'class',
+          label: 'Class',
+          summary: summarizeSelection(classOptions, selectedClassSlugs),
+          onClear: () => onClassSlugsChange([]),
+          editor: (
+            <CheckboxList
+              label="Class"
+              options={classOptions}
+              selectedValues={selectedClassSlugs}
+              onChange={onClassSlugsChange}
+            />
+          ),
+        },
+      ]}
+    />
     <Results>
       <ResultsBody
         isPending={isPending}
@@ -157,12 +173,6 @@ const Wrapper = styled.div`
   gap: ${props => props.theme.space.md};
   min-height: 0;
   height: 100%;
-`;
-
-const Filters = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${props => props.theme.space.sm};
 `;
 
 /** The scroll container, so the filter box above it stays put. */

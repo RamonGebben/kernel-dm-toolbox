@@ -49,6 +49,17 @@ const documentOptions = [
   { value: 'srd-2024', label: 'System Reference Document 5.2' },
 ];
 
+const challengeRatingOptions = [
+  { value: 0, label: '0' },
+  { value: 0.125, label: '1/8' },
+  { value: 0.25, label: '1/4' },
+  { value: 0.5, label: '1/2' },
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 7, label: '7' },
+  { value: 10, label: '10' },
+];
+
 const meta = {
   title: 'Organisms/CreatureLibrary/CreatureLibraryView',
   component: CreatureLibraryView,
@@ -63,12 +74,16 @@ const meta = {
     selectedTypes: [],
     documentOptions,
     selectedDocuments: [],
+    challengeRatingOptions,
+    challengeRatingRange: { min: null, max: null },
     selectedSlug: null,
     selectedCustomCreatureId: null,
     onSearchChange: fn(),
     onSourcesChange: fn(),
     onTypesChange: fn(),
     onDocumentsChange: fn(),
+    onMinChallengeRatingChange: fn(),
+    onMaxChallengeRatingChange: fn(),
     onSelect: fn(),
     onAdd: fn(),
     onNewCreature: fn(),
@@ -141,13 +156,29 @@ export const CustomCreatureSelected: Story = {
   },
 };
 
+/** With nothing applied, every filter hides behind one "+ Filter" button. */
+export const FiltersCollapsed: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: '+ Filter' }),
+    ).toBeVisible();
+    await expect(canvas.queryByRole('checkbox')).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByLabelText('Minimum challenge rating'),
+    ).not.toBeInTheDocument();
+  },
+};
+
 export const FilteringByType: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Type' }));
-    // The checkbox list is portalled to `document.body`, so it's found via
-    // `screen`, not `canvas` — see `MultiSelectFilter`'s own doc comment.
+    await userEvent.click(canvas.getByRole('button', { name: '+ Filter' }));
+    // The popover is portalled to `document.body`, so it's found via
+    // `screen`, not `canvas` — see `FilterBar`'s own doc comment.
+    await userEvent.click(screen.getByRole('button', { name: 'Type' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Dragon' }));
 
     await expect(args.onTypesChange).toHaveBeenCalledWith(['dragon']);
@@ -158,12 +189,70 @@ export const FilteringByBook: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Book' }));
+    await userEvent.click(canvas.getByRole('button', { name: '+ Filter' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Book' }));
     await userEvent.click(
       screen.getByRole('checkbox', { name: 'Monstrous Menagerie' }),
     );
 
     await expect(args.onDocumentsChange).toHaveBeenCalledWith(['a5e-mm']);
+  },
+};
+
+export const FilteringByChallengeRating: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: '+ Filter' }));
+    await userEvent.click(screen.getByRole('button', { name: 'CR' }));
+    await userEvent.selectOptions(
+      screen.getByLabelText('Minimum challenge rating'),
+      '1/4',
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText('Maximum challenge rating'),
+      '2',
+    );
+
+    await expect(args.onMinChallengeRatingChange).toHaveBeenCalledWith(0.25);
+    await expect(args.onMaxChallengeRatingChange).toHaveBeenCalledWith(2);
+  },
+};
+
+/** Applied filters collapse into tags that summarise their value. */
+export const FiltersApplied: Story = {
+  args: {
+    selectedTypes: ['dragon', 'undead', 'aberration'],
+    challengeRatingRange: { min: 0.125, max: 1 },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: 'Type: Aberration, Dragon +1' }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: 'CR: 1/8–1' }));
+
+    await expect(
+      screen.getByLabelText('Minimum challenge rating'),
+    ).toHaveDisplayValue('1/8');
+    await expect(
+      screen.getByLabelText('Maximum challenge rating'),
+    ).toHaveDisplayValue('1');
+  },
+};
+
+export const RemovingAFilter: Story = {
+  args: { challengeRatingRange: { min: 2, max: null } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Remove CR filter' }),
+    );
+
+    await expect(args.onMinChallengeRatingChange).toHaveBeenCalledWith(null);
+    await expect(args.onMaxChallengeRatingChange).toHaveBeenCalledWith(null);
   },
 };
 
@@ -173,7 +262,9 @@ export const CustomSourceDisablesBook: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByRole('button', { name: 'Book' })).toBeDisabled();
+    await userEvent.click(canvas.getByRole('button', { name: '+ Filter' }));
+
+    await expect(screen.getByRole('button', { name: 'Book' })).toBeDisabled();
   },
 };
 

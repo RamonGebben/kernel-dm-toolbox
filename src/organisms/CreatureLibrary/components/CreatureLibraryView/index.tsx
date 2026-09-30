@@ -4,11 +4,16 @@ import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
 import { Button } from '~/atoms/Button';
-import {
-  MultiSelectFilter,
-  type MultiSelectFilterOption,
-} from '~/atoms/MultiSelectFilter';
+import { CheckboxList, type CheckboxListOption } from '~/atoms/CheckboxList';
 import { CreatureListItem } from '~/molecules/CreatureListItem';
+import { FilterBar } from '~/molecules/FilterBar';
+import { summarizeRange, summarizeSelection } from '~/utils/summarizeFilter';
+import {
+  ChallengeRatingRangeFilter,
+  type ChallengeRatingRange,
+} from '~/organisms/CreatureLibrary/components/CreatureLibraryView/components/ChallengeRatingRangeFilter';
+
+export type { ChallengeRatingRange };
 
 export type CreatureSource = 'library' | 'custom' | 'all';
 
@@ -32,18 +37,22 @@ export type CreatureLibraryViewProps = {
   isLibraryImported: boolean;
   creatures: readonly CreatureSummary[];
   search: string;
-  sourceOptions: readonly MultiSelectFilterOption[];
+  sourceOptions: readonly CheckboxListOption[];
   selectedSources: readonly string[];
-  typeOptions: readonly MultiSelectFilterOption[];
+  typeOptions: readonly CheckboxListOption[];
   selectedTypes: readonly string[];
-  documentOptions: readonly MultiSelectFilterOption[];
+  documentOptions: readonly CheckboxListOption[];
   selectedDocuments: readonly string[];
+  challengeRatingOptions: readonly { value: number; label: string }[];
+  challengeRatingRange: ChallengeRatingRange;
   selectedSlug: string | null;
   selectedCustomCreatureId: string | null;
   onSearchChange: (search: string) => void;
   onSourcesChange: (sources: string[]) => void;
   onTypesChange: (types: string[]) => void;
   onDocumentsChange: (documents: string[]) => void;
+  onMinChallengeRatingChange: (min: number | null) => void;
+  onMaxChallengeRatingChange: (max: number | null) => void;
   onSelect: (creature: CreatureSummary) => void;
   onAdd: (creature: CreatureSummary) => void;
   onNewCreature: () => void;
@@ -67,12 +76,16 @@ export const CreatureLibraryView = ({
   selectedTypes,
   documentOptions,
   selectedDocuments,
+  challengeRatingOptions,
+  challengeRatingRange,
   selectedSlug,
   selectedCustomCreatureId,
   onSearchChange,
   onSourcesChange,
   onTypesChange,
   onDocumentsChange,
+  onMinChallengeRatingChange,
+  onMaxChallengeRatingChange,
   onSelect,
   onAdd,
   onNewCreature,
@@ -95,29 +108,74 @@ export const CreatureLibraryView = ({
         aria-label="Filter creatures"
         disabled={!isUsable}
       />
-      <Filters>
-        <MultiSelectFilter
-          label="Source"
-          options={sourceOptions}
-          selectedValues={selectedSources}
-          onChange={onSourcesChange}
-          disabled={!isUsable}
-        />
-        <MultiSelectFilter
-          label="Type"
-          options={typeOptions}
-          selectedValues={selectedTypes}
-          onChange={onTypesChange}
-          disabled={!isUsable}
-        />
-        <MultiSelectFilter
-          label="Book"
-          options={documentOptions}
-          selectedValues={selectedDocuments}
-          onChange={onDocumentsChange}
-          disabled={!isUsable || isCustomOnlySource}
-        />
-      </Filters>
+      <FilterBar
+        disabled={!isUsable}
+        filters={[
+          {
+            key: 'source',
+            label: 'Source',
+            summary: summarizeSelection(sourceOptions, selectedSources),
+            onClear: () => onSourcesChange([]),
+            editor: (
+              <CheckboxList
+                label="Source"
+                options={sourceOptions}
+                selectedValues={selectedSources}
+                onChange={onSourcesChange}
+              />
+            ),
+          },
+          {
+            key: 'type',
+            label: 'Type',
+            summary: summarizeSelection(typeOptions, selectedTypes),
+            onClear: () => onTypesChange([]),
+            editor: (
+              <CheckboxList
+                label="Type"
+                options={typeOptions}
+                selectedValues={selectedTypes}
+                onChange={onTypesChange}
+              />
+            ),
+          },
+          {
+            key: 'book',
+            label: 'Book',
+            summary: summarizeSelection(documentOptions, selectedDocuments),
+            onClear: () => onDocumentsChange([]),
+            disabled: isCustomOnlySource,
+            editor: (
+              <CheckboxList
+                label="Book"
+                options={documentOptions}
+                selectedValues={selectedDocuments}
+                onChange={onDocumentsChange}
+              />
+            ),
+          },
+          {
+            key: 'challengeRating',
+            label: 'CR',
+            summary: summarizeRange(
+              challengeRatingOptions,
+              challengeRatingRange,
+            ),
+            onClear: () => {
+              onMinChallengeRatingChange(null);
+              onMaxChallengeRatingChange(null);
+            },
+            editor: (
+              <ChallengeRatingRangeFilter
+                options={challengeRatingOptions}
+                range={challengeRatingRange}
+                onMinChange={onMinChallengeRatingChange}
+                onMaxChange={onMaxChallengeRatingChange}
+              />
+            ),
+          },
+        ]}
+      />
       <Results>
         <ResultsBody
           isPending={isPending}
@@ -151,6 +209,10 @@ type ResultsBodyProps = Omit<
   | 'documentOptions'
   | 'selectedDocuments'
   | 'onDocumentsChange'
+  | 'challengeRatingOptions'
+  | 'challengeRatingRange'
+  | 'onMinChallengeRatingChange'
+  | 'onMaxChallengeRatingChange'
   | 'onNewCreature'
 >;
 
@@ -220,12 +282,6 @@ const ResultsBody = ({
     </List>
   );
 };
-
-const Filters = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${props => props.theme.space.sm};
-`;
 
 const Footer = styled.div`
   padding-top: ${props => props.theme.space.sm};

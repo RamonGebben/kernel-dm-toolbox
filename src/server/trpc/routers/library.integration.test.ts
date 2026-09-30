@@ -128,6 +128,26 @@ describe('library.listCreatures source merge', () => {
     expect(rows).toEqual([]);
   });
 
+  it('filters both sources by a challenge rating range', async () => {
+    const atLeastHalf = await caller.library.listCreatures({
+      search: '',
+      minChallengeRating: 0.5,
+    });
+    const atMostHalf = await caller.library.listCreatures({
+      search: '',
+      maxChallengeRating: 0.5,
+    });
+    const exactlyOne = await caller.library.listCreatures({
+      search: '',
+      minChallengeRating: 1,
+      maxChallengeRating: 1,
+    });
+
+    expect(atLeastHalf.map(row => row.name)).toEqual(['Goblin Boss']);
+    expect(atMostHalf.map(row => row.name)).toEqual(['Goblin']);
+    expect(exactlyOne.map(row => row.name)).toEqual(['Goblin Boss']);
+  });
+
   it('excludes a removed custom creature', async () => {
     const [customRow] = await caller.library.listCreatures({
       search: '',
