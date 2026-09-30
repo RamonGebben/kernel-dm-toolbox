@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { clearEncounter, clearSavedEncounters } from './support/reset';
+import { addMonsters } from './support/library';
 
 /**
  * User task: the DM has built a fight they will run again — the same ambush in
@@ -14,20 +15,25 @@ const library = (page: import('@playwright/test').Page) =>
 const order = (page: import('@playwright/test').Page) =>
   page.getByRole('region', { name: 'Combatants by Initiative' });
 
+/**
+ * Characters outlive a run — the e2e database is reused — so a fixed name would
+ * collide with the one the previous run created.
+ */
+const uniqueName = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+
 /** Presets outlive an encounter, so both have to be cleared to isolate a spec. */
 const openEncountersTab = async (page: import('@playwright/test').Page) => {
   await library(page).getByRole('tab', { name: 'Encounters' }).click();
   await expect(page.getByLabel('Loading saved encounters')).toBeHidden();
 };
 
-const addTwoGoblins = async (page: import('@playwright/test').Page) => {
-  await page
-    .getByLabel('Filter creatures', { exact: true })
-    .fill('goblin warrior');
-  await page.getByLabel('How many to add', { exact: true }).fill('2');
-  await page
-    .getByRole('button', { name: 'Add Goblin Warrior to the encounter' })
-    .click();
+const addTwoGoblins = async (
+  page: import('@playwright/test').Page,
+  request: import('@playwright/test').APIRequestContext,
+  baseURL: string,
+) => {
+  await addMonsters(request, baseURL, 'srd-2024_goblin-warrior', 2);
   await expect(
     page.getByRole('button', { name: 'Select Goblin Warrior 2' }),
   ).toBeVisible();
@@ -48,8 +54,10 @@ test.describe('save an encounter', () => {
 
   test('saves the monsters on the board and adds them back later', async ({
     page,
+    request,
+    baseURL,
   }) => {
-    await addTwoGoblins(page);
+    await addTwoGoblins(page, request, baseURL!);
 
     await openEncountersTab(page);
     await page.getByLabel('Name for the saved encounter').fill('Goblin patrol');
@@ -74,17 +82,20 @@ test.describe('save an encounter', () => {
 
   test('leaves the party out — a preset is the opposition', async ({
     page,
+    request,
+    baseURL,
   }) => {
+    const name = uniqueName('Sigrid');
     await library(page).getByRole('tab', { name: 'Characters' }).click();
     await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name', { exact: true }).fill('Sigrid');
+    await page.getByLabel('Name', { exact: true }).fill(name);
     await page.getByRole('button', { name: 'Add character' }).click();
     await page
-      .getByRole('button', { name: 'Add Sigrid to the encounter' })
+      .getByRole('button', { name: `Add ${name} to the encounter` })
       .click();
 
     await library(page).getByRole('tab', { name: 'Creatures' }).click();
-    await addTwoGoblins(page);
+    await addTwoGoblins(page, request, baseURL!);
 
     await openEncountersTab(page);
     await page.getByLabel('Name for the saved encounter').fill('Just goblins');
@@ -92,11 +103,11 @@ test.describe('save an encounter', () => {
 
     const card = page.getByRole('listitem').filter({ hasText: 'Just goblins' });
     await expect(card).toContainText('2 creatures');
-    await expect(card).not.toContainText('Sigrid');
+    await expect(card).not.toContainText(name);
   });
 
-  test('deletes a saved encounter', async ({ page }) => {
-    await addTwoGoblins(page);
+  test('deletes a saved encounter', async ({ page, request, baseURL }) => {
+    await addTwoGoblins(page, request, baseURL!);
     await openEncountersTab(page);
     await page.getByLabel('Name for the saved encounter').fill('Goblin patrol');
     await page.getByRole('button', { name: 'Save current' }).click();

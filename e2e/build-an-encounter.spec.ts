@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { srdYoungBlackDragon } from './support/library';
 
 /**
  * User task: build the fight — drop monsters and the party into the order,
@@ -31,7 +32,7 @@ test.describe('build an encounter', () => {
     await page
       .getByLabel('Filter creatures', { exact: true })
       .fill('young black dragon');
-    await page
+    await srdYoungBlackDragon(page)
       .getByRole('button', { name: 'Add Young Black Dragon to the encounter' })
       .click();
 
@@ -52,14 +53,22 @@ test.describe('build an encounter', () => {
     await page
       .getByLabel('Filter creatures', { exact: true })
       .fill('goblin warrior');
-    await page.getByLabel('How many to add', { exact: true }).fill('4');
-    await page
-      .getByRole('button', { name: 'Add Goblin Warrior to the encounter' })
-      .click();
 
-    for (const number of [1, 2, 3, 4]) {
+    // One click, one goblin. The first keeps the bare name and later ones
+    // continue from it — existing rows are never renamed (DECISIONS #16).
+    // Each add waits for its row, because numbering reads the names already
+    // on the board.
+    for (const name of [
+      'Goblin Warrior',
+      'Goblin Warrior 2',
+      'Goblin Warrior 3',
+      'Goblin Warrior 4',
+    ]) {
+      await page
+        .getByRole('button', { name: 'Add Goblin Warrior to the encounter' })
+        .click();
       await expect(
-        page.getByRole('button', { name: `Select Goblin Warrior ${number}` }),
+        page.getByRole('button', { name: `Select ${name}`, exact: true }),
       ).toBeVisible();
     }
   });
@@ -72,7 +81,7 @@ test.describe('build an encounter', () => {
     await page
       .getByLabel('Filter creatures', { exact: true })
       .fill('young black dragon');
-    await page
+    await srdYoungBlackDragon(page)
       .getByRole('button', { name: 'Add Young Black Dragon to the encounter' })
       .click();
 

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { startFight } from './support/combat';
 import { clearEncounter } from './support/reset';
+import { addMonsters, srdYoungBlackDragon } from './support/library';
 
 /**
  * User task: put the initiative order on a second screen the table can watch,
@@ -39,16 +40,12 @@ test.describe('watch the player screen', () => {
   test('updates live when the DM advances a turn', async ({
     page,
     context,
+    request,
+    baseURL,
   }) => {
+    await addMonsters(request, baseURL!, 'srd-2024_goblin-warrior', 2);
     const dm = await context.newPage();
     await dm.goto('/');
-    await dm
-      .getByLabel('Filter creatures', { exact: true })
-      .fill('goblin warrior');
-    await dm.getByLabel('How many to add', { exact: true }).fill('2');
-    await dm
-      .getByRole('button', { name: 'Add Goblin Warrior to the encounter' })
-      .click();
 
     await page.goto('/player');
     await expect(page.getByText('Goblin Warrior 1')).toBeVisible();
@@ -66,7 +63,7 @@ test.describe('watch the player screen', () => {
     await dm
       .getByLabel('Filter creatures', { exact: true })
       .fill('young black dragon');
-    await dm
+    await srdYoungBlackDragon(dm)
       .getByRole('button', { name: 'Add Young Black Dragon to the encounter' })
       .click();
 
