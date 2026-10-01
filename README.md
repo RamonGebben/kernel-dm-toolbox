@@ -15,10 +15,10 @@ library, pick tonight's party into the fight, build an encounter, roll for
 initiative, run it round by round with damage and conditions, and save the
 fights you will run again. **Party**: the characters themselves — class,
 species, passive scores and notes — plus the party's shared treasury, with
-members who have left benched rather than deleted. **Bastions**: each
-character's 2024 bastion — special facilities checked against the rules,
-rooms, walls and defenders, construction paid from the treasury, and a
-storage log. **Spells**: a searchable
+members who have left benched rather than deleted. **Bastions**: the 2024
+bastion rules, one per character or one shared by the whole party — special
+facilities checked against each member's rules, rooms, walls and defenders,
+construction paid from the treasury, and a storage log. **Spells**: a searchable
 lookup of the SRD 5.2 spell list, filterable by level and class. **Maps**: a
 pan/zoom virtual tabletop with grid calibration and fog of war. The tracker and
 Maps share a read-only second screen for the table to watch.
@@ -186,8 +186,7 @@ animated effect clip when a matched spell is placed.
 Next, in rough order:
 
 1. **The bastion turn**, as a guided step-by-step wizard — orders, Maintain
-   events, attacks — and then an optional one-bastion-per-party mode where
-   members' bastions share one location.
+   events, attacks — member by member in a shared party bastion.
 2. **Dice rolling from attack rows.** The structured attack data
    (`creature_action_attacks`: to-hit, damage dice, reach) isn't wired to its
    own roll button yet; only dice mentioned in prose text is.

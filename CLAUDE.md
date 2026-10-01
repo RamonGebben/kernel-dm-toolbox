@@ -595,16 +595,19 @@ benched or removed (DECISIONS #32).
 
 ## The Bastions tool
 
-`/bastions`: every character's bastion (2024 DMG chapter 8) in a list beside
+`/bastions`: the campaign's bastions (2024 DMG chapter 8) in a list beside
 the selected one — special facilities, basic facilities, defenses,
-construction and storage. One live bastion per character (a partial unique
-index ignores tombstones). DECISIONS #33 has the reasoning.
+construction and storage. `parties.bastion_mode` decides the shape: one
+bastion per character (a partial unique index ignores tombstones), or one
+bastion the whole party shares. DECISIONS #33 and #34 have the reasoning.
 
 ```
-bastions                    owner_character_id, name, notes, defender_count,
-                            wall_squares, is_fully_enclosed
-bastion_special_facilities  facility_key (catalog), space, variant
-bastion_basic_facilities    type, space
+bastions                    owner_character_id (null = the party's),
+                            name, notes, defender_count, wall_squares,
+                            is_fully_enclosed
+bastion_special_facilities  facility_key (catalog), holder_character_id,
+                            space, variant
+bastion_basic_facilities    type, space, contributed_by_character_id
 bastion_projects            construction paid for and under way:
                             add-basic | enlarge-basic | enlarge-special | walls,
                             cost_gp, days_remaining, completed_at
@@ -635,9 +638,22 @@ bastion_storage_items       produced, not yet collected; claimed_by_character_id
   `CONFLICT`.
 - **Defenders are one count per bastion**; barrack capacity
   (`defenderCapacity`) is shown as a guide, not enforced.
+- **In a party bastion, everything per-character is per _holder_.** A
+  facility counts against its holder's allowance and only they order it;
+  eligibility is checked against the holder and the facilities _they_ hold
+  there. `addSpecialFacility` needs `holderCharacterId` in party mode; in a
+  per-character bastion the owner always holds it, whatever is sent.
+  Defenders are one pool either way.
+- **Each member brings two free rooms**, recorded by
+  `contributed_by_character_id`. `pendingFreeRooms` lists members who
+  reached level 5 later; `addFreeRooms` takes them once.
+- **Switching mode merges or splits, never drops.** `bastions.setMode` uses
+  the pure `planBastionMerge` / `planBastionSplit`
+  (`~/server/trpc/helpers/planBastionModeChange`). Founding is refused in
+  the wrong mode, and party mode allows one live bastion.
 - **The bastion turn is not built yet.** Orders, Maintain events and
-  attacks are milestone 3 (a guided wizard); combined party bastions are
-  milestone 4.
+  attacks are the next milestone — a guided wizard that, in a party
+  bastion, walks through each member in turn.
 
 ## The Maps tool
 

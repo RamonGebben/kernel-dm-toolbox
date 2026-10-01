@@ -957,7 +957,57 @@ days. Defenders are one count per bastion rather than per Barrack — the
 attack maths only ever needs the total — with the barracks' capacity shown
 as a guide, not a cap, since a guest mercenary needs no bunk.
 
-**Left for the next milestones.** Orders, Maintain events and attacks belong
-to the guided bastion turn (milestone 3); a shared party location, with
-members' bastions combined under the 2024 rules, is milestone 4. Named
-hirelings are not tracked — only the count each facility comes with.
+**Left for later.** Orders, Maintain events and attacks belong to the guided
+bastion turn. One bastion shared by the whole party is #34. Named hirelings
+are not tracked — only the count each facility comes with.
+
+---
+
+## 34. One bastion for the whole party, as a campaign setting
+
+**Decision.** `parties.bastion_mode` is `'per-character'` (the 2024 default)
+or `'party'`. In party mode there is one live bastion with no owner
+(`bastions.owner_character_id` is null): the party holds it. Each special
+facility records the member who holds it (`holder_character_id`), every
+member's allowance is checked separately, and each member brings their own
+two free rooms (`contributed_by_character_id`) — which is what makes the
+shared bastion bigger. Defenders are one pool.
+
+**Why it was built before the bastion turn, not after.** It was first
+planned as the last bastion milestone. That was the wrong order: a model
+with one owner per bastion has nowhere to say which member holds a facility,
+and the bastion turn — where each member gives orders to their own
+facilities and rolls their own Maintain event — is built on exactly that.
+Ownership had to be settled first.
+
+**Why per-member facilities and allowances.** The DM's table plays it as the
+2024 rules' combined bastions: one location, but each character still gets
+their two facilities at level 5 (and more as they level) and still orders
+them as if the bastion were their own. So eligibility is
+`findEligibilityProblems` against the _holder_, with the holder's own held
+facilities — two members can each hold a Library.
+
+**Why defenders pool.** Under the combined-bastion rules any member may
+absorb another's defender losses, which makes separate rosters bookkeeping
+with no effect. Asked directly, the DM chose one pool.
+
+**Why switching merges and splits rather than refusing.** A campaign may
+start one way and change its mind. Switching to party mode merges every
+bastion into one (`planBastionMerge`: defenders and walls add up, notes are
+kept); switching back splits it by holder (`planBastionSplit`): each
+facility to its holder, each room to whoever brought it, an enlargement to
+the owner of what it enlarges, and everything else — defenders, walls,
+storage, unclaimed rooms — to a keeper the DM picks, defaulting to whoever
+holds the most. Nothing is lost either way. Both planners are pure; the
+resolver only re-points rows.
+
+**Late joiners.** A member who reaches level 5 after the party bastion was
+founded is listed in `pendingFreeRooms` and the page offers to add their
+two rooms, once.
+
+**A migration fixed by hand.** `0021` rebuilds `parties` to add the mode's
+check constraint, and drizzle-kit generated a copy step that read
+`bastion_mode` from the old table, which does not have it. The generated
+SQL was corrected, and a backfill was added so existing bastions' owners
+hold their facilities and brought their rooms. Tested against a database
+migrated to `0020` with data in it.
