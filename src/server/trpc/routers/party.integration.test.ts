@@ -71,3 +71,20 @@ describe('party.adjustTreasury', () => {
     expect(row?.version).toBe(3);
   });
 });
+
+describe('party.adjustTreasury racing other changes', () => {
+  it('never lets two withdrawals both spend the same gold', async () => {
+    await caller.party.adjustTreasury({ delta: 100 });
+
+    const results = await Promise.allSettled([
+      caller.party.adjustTreasury({ delta: -60 }),
+      caller.party.adjustTreasury({ delta: -60 }),
+    ]);
+
+    expect(results.map(({ status }) => status).sort()).toEqual([
+      'fulfilled',
+      'rejected',
+    ]);
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 40 });
+  });
+});

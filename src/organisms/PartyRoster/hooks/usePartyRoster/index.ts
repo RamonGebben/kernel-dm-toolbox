@@ -127,7 +127,18 @@ export const usePartyRoster = () => {
   );
 
   const remove = useMutation(
-    trpc.characters.remove.mutationOptions({ onSuccess: invalidateAndClose }),
+    trpc.characters.remove.mutationOptions({
+      // Their bastion goes with them, and its construction is refunded.
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.party.get.queryKey(),
+          }),
+          queryClient.invalidateQueries({ queryKey: trpc.bastions.pathKey() }),
+        ]);
+        await invalidateAndClose();
+      },
+    }),
   );
 
   const setActive = useMutation(

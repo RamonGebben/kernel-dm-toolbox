@@ -86,7 +86,8 @@ const RemoveCharacter = ({
   return (
     <Footer>
       <Warning>
-        Remove {name}? They leave the roster for good; a character already in a
+        Remove {name}? They leave the roster for good, and their own bastion is
+        abandoned, with any construction refunded. A character already in a
         fight stays in it.
       </Warning>
       <Button

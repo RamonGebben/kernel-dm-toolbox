@@ -619,3 +619,75 @@ describe('planTurnCommit history lines', () => {
     expect(result.lines).toContain('Sigrid rolled 12: All Is Well.');
   });
 });
+
+describe('planTurnCommit on a stale draft', () => {
+  const GONE = '00000000-0000-4000-8000-0000000000aa';
+  const NEW = '00000000-0000-4000-8000-0000000000bb';
+  const hall = {
+    id: NEW,
+    name: 'The New Hall',
+    ownerCharacterId: null,
+    defenderCount: 0,
+    isFullyEnclosed: false,
+    isArmoryStocked: false,
+    hasGuestMonster: false,
+  };
+
+  it('refuses events for a bastion abandoned since the turn started', () => {
+    const result = planTurnCommit(
+      draftFor({
+        events: [
+          eventFor(SIGRID, {
+            bastionId: GONE,
+            goldGained: 500,
+            storageItem: 'A lost crown',
+          }),
+        ],
+      }),
+      contextWith(),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      problems: [expect.stringMatching(/abandoned or merged/)],
+    });
+  });
+
+  it('refuses a draft whose bastions were merged into a new one', () => {
+    const result = planTurnCommit(
+      draftFor({
+        actors: [
+          {
+            bastionId: GONE,
+            characterId: SIGRID,
+            isPresent: true,
+            maintain: false,
+            facilityOrders: [],
+          },
+        ],
+      }),
+      contextWith([], { bastions: [hall] }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      problems: [expect.stringMatching(/abandoned or merged/)],
+    });
+  });
+
+  it('refuses a draft that leaves out a bastion founded since', () => {
+    const result = planTurnCommit(
+      draftFor({}),
+      contextWith(undefined, {
+        bastions: [{ ...hall, id: B, name: 'The Hall' }, hall],
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      problems: [
+        expect.stringMatching(/The New Hall is not part of this turn/),
+      ],
+    });
+  });
+});

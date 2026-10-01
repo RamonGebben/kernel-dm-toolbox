@@ -290,3 +290,42 @@ describe('bastionTurns.preview', () => {
     });
   });
 });
+
+describe('a turn started before a bastion changed', () => {
+  it('refuses to commit events for a bastion abandoned since', async () => {
+    const { wren, bastion } = await setUp();
+    const { id } = await caller.bastionTurns.start();
+    const { draft } = await currentDraft();
+    await caller.bastionTurns.saveDraft({
+      id,
+      draft: {
+        ...draft,
+        actors: draft.actors.map(actor => ({ ...actor, maintain: true })),
+        events: [
+          {
+            bastionId: bastion.id,
+            characterId: wren.id,
+            roll: 80,
+            key: 'treasure',
+            goldGained: 0,
+            goldPaid: 0,
+            defendersGained: 0,
+            defendersLost: 0,
+            outOfActionFacilityId: null,
+            storageItem: 'A golden idol',
+            guestKind: null,
+            note: '',
+            inputs: {},
+          },
+        ],
+      },
+    });
+
+    await caller.bastions.abandon({ id: bastion.id });
+
+    await expect(caller.bastionTurns.commit({ id })).rejects.toThrow(
+      /abandoned or merged/,
+    );
+    expect(await db.query.bastionStorageItems.findMany()).toEqual([]);
+  });
+});

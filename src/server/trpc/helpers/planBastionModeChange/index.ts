@@ -13,12 +13,15 @@ type BastionSummary = {
   defenderCount: number;
   wallSquares: number;
   isFullyEnclosed: boolean;
+  isArmoryStocked: boolean;
+  hasGuestMonster: boolean;
 };
 
 /**
  * The single party bastion that several per-character ones become. Defenders
  * pool (any member may absorb another's losses), walls add up, and it only
- * counts as fully enclosed if every part already was.
+ * counts as fully enclosed if every part already was. A stocked Armory and a
+ * friendly guest monster come along: they still guard the merged bastion.
  */
 export const planBastionMerge = (
   bastions: readonly BastionSummary[],
@@ -34,6 +37,8 @@ export const planBastionMerge = (
   wallSquares: bastions.reduce((total, b) => total + b.wallSquares, 0),
   isFullyEnclosed:
     bastions.length > 0 && bastions.every(bastion => bastion.isFullyEnclosed),
+  isArmoryStocked: bastions.some(bastion => bastion.isArmoryStocked),
+  hasGuestMonster: bastions.some(bastion => bastion.hasGuestMonster),
 });
 
 type SplitInput = {
@@ -43,8 +48,16 @@ type SplitInput = {
    * one member's facility.
    */
   keeperId: string;
+  /**
+   * Characters who can still own a bastion. A facility held — or a room
+   * brought — by anyone else (a removed character) goes to the keeper.
+   */
+  liveCharacterIds: ReadonlySet<string>;
+  /** The shared bastion's stocked Armory follows the Armory itself. */
+  isArmoryStocked: boolean;
   specialFacilities: readonly {
     id: string;
+    facilityKey: string;
     holderCharacterId: string | null;
   }[];
   basicFacilities: readonly {
@@ -64,23 +77,30 @@ export type BastionSplit = {
   basicFacilities: Map<string, string>;
   projects: Map<string, string>;
   storageItems: Map<string, string>;
+  /** Whose new bastion has the stocked Armory; null when none is stocked. */
+  stockedArmoryOwnerId: string | null;
 };
 
 /** Where each part of a party bastion goes when it is split back up. */
 export const planBastionSplit = ({
   keeperId,
+  liveCharacterIds,
+  isArmoryStocked,
   specialFacilities,
   basicFacilities,
   projects,
   storageItems,
 }: SplitInput): BastionSplit => {
+  const ownerFor = (characterId: string | null) =>
+    characterId && liveCharacterIds.has(characterId) ? characterId : keeperId;
+
   const special = new Map(
-    specialFacilities.map(row => [row.id, row.holderCharacterId ?? keeperId]),
+    specialFacilities.map(row => [row.id, ownerFor(row.holderCharacterId)]),
   );
   const basic = new Map(
     basicFacilities.map(row => [
       row.id,
-      row.contributedByCharacterId ?? keeperId,
+      ownerFor(row.contributedByCharacterId),
     ]),
   );
   // An enlargement follows the facility it enlarges.
@@ -98,11 +118,19 @@ export const planBastionSplit = ({
     ...new Set([keeperId, ...special.values(), ...basic.values()]),
   ];
 
+  const armory = specialFacilities.find(row => row.facilityKey === 'armory');
+  const stockedArmoryOwnerId = isArmoryStocked
+    ? armory
+      ? special.get(armory.id)!
+      : keeperId
+    : null;
+
   return {
     ownerIds,
     specialFacilities: special,
     basicFacilities: basic,
     projects: project,
     storageItems: storage,
+    stockedArmoryOwnerId,
   };
 };

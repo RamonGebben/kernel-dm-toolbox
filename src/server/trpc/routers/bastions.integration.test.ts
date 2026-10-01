@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { eq, isNull } from 'drizzle-orm';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
@@ -788,5 +789,164 @@ describe('bastions.setMode', () => {
 
     expect(await caller.party.get()).toMatchObject({ bastionMode: 'party' });
     expect(await caller.bastions.list()).toEqual([]);
+  });
+});
+
+describe('giving a bastion up', () => {
+  const withConstruction = async () => {
+    const owner = await addCharacter(5);
+    const bastion = await foundFor(owner.id);
+    await caller.party.adjustTreasury({ delta: 5000 });
+    await caller.bastions.startProject({
+      bastionId: bastion.id,
+      request: { kind: 'add-basic', basicType: 'parlor', space: 'roomy' },
+    });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 4000 });
+
+    return { owner, bastion };
+  };
+
+  it('abandoning refunds construction still under way', async () => {
+    const { bastion } = await withConstruction();
+
+    await caller.bastions.abandon({ id: bastion.id });
+
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 5000 });
+    const [project] = await db.query.bastionProjects.findMany();
+    expect(project?.deletedAt).not.toBeNull();
+  });
+
+  it('removing a character abandons their bastion and refunds its work', async () => {
+    const { owner, bastion } = await withConstruction();
+
+    await caller.characters.remove({ id: owner.id });
+
+    expect(await caller.bastions.list()).toEqual([]);
+    await expect(caller.bastions.get({ id: bastion.id })).rejects.toThrow(
+      /no longer exists/,
+    );
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 5000 });
+  });
+
+  it('hides a bastion left ownerless by a removal from before', async () => {
+    const owner = await addCharacter(5);
+    const bastion = await foundFor(owner.id);
+    await db
+      .update(schema.playerCharacters)
+      .set({ deletedAt: new Date() })
+      .where(eq(schema.playerCharacters.id, owner.id));
+
+    expect(await caller.bastions.list()).toEqual([]);
+    await expect(caller.bastions.get({ id: bastion.id })).rejects.toThrow(
+      /no longer exists/,
+    );
+  });
+});
+
+describe('bastions.setMode keeps what a turn left behind', () => {
+  const rooms = {
+    crampedBasicType: 'bedroom',
+    roomyBasicType: 'kitchen',
+  } as const;
+
+  const setFlags = (
+    id: string,
+    flags: { isArmoryStocked?: boolean; hasGuestMonster?: boolean },
+  ) => db.update(schema.bastions).set(flags).where(eq(schema.bastions.id, id));
+
+  it('carries a stocked Armory and a guest monster into the merge', async () => {
+    const sigrid = await addCharacter(9, 'Fighter');
+    const wizard = await addCharacter(5);
+    const highwatch = await foundFor(sigrid.id);
+    const tower = await caller.bastions.found({
+      mode: 'per-character',
+      ownerCharacterId: wizard.id,
+      name: 'Tower',
+      ...rooms,
+    });
+    await setFlags(highwatch.id, { isArmoryStocked: true });
+    await setFlags(tower.id, { hasGuestMonster: true });
+
+    await caller.bastions.setMode({ mode: 'party', name: 'The Hall' });
+
+    const [merged] = await db.query.bastions.findMany({
+      where: isNull(schema.bastions.deletedAt),
+    });
+    expect(merged).toMatchObject({
+      isArmoryStocked: true,
+      hasGuestMonster: true,
+    });
+  });
+
+  it('sends the stocked Armory with the Armory, the guest with the keeper', async () => {
+    const sigrid = await addCharacter(9, 'Fighter');
+    const fighter = await addCharacter(9, 'Fighter');
+    await caller.bastions.setMode({ mode: 'party', name: 'Unused' });
+    const hall = await caller.bastions.found({
+      mode: 'party',
+      name: 'The Hall',
+      members: [
+        { characterId: sigrid.id, ...rooms },
+        { characterId: fighter.id, ...rooms },
+      ],
+    });
+    await caller.bastions.addSpecialFacility({
+      bastionId: hall.id,
+      facilityKey: 'armory',
+      holderCharacterId: fighter.id,
+      ignoreRequirements: true,
+    });
+    await setFlags(hall.id, { isArmoryStocked: true, hasGuestMonster: true });
+
+    await caller.bastions.setMode({
+      mode: 'per-character',
+      keeperCharacterId: sigrid.id,
+    });
+
+    const live = await db.query.bastions.findMany({
+      where: isNull(schema.bastions.deletedAt),
+    });
+    expect(
+      live.find(({ ownerCharacterId }) => ownerCharacterId === fighter.id),
+    ).toMatchObject({ isArmoryStocked: true, hasGuestMonster: false });
+    expect(
+      live.find(({ ownerCharacterId }) => ownerCharacterId === sigrid.id),
+    ).toMatchObject({ isArmoryStocked: false, hasGuestMonster: true });
+  });
+
+  it('gives the keeper what a removed member held, not a bastion of their own', async () => {
+    const sigrid = await addCharacter(9);
+    const wizard = await addCharacter(5);
+    await caller.bastions.setMode({ mode: 'party', name: 'Unused' });
+    const hall = await caller.bastions.found({
+      mode: 'party',
+      name: 'The Hall',
+      members: [
+        { characterId: sigrid.id, ...rooms },
+        { characterId: wizard.id, ...rooms },
+      ],
+    });
+    await caller.bastions.addSpecialFacility({
+      bastionId: hall.id,
+      facilityKey: 'arcane-study',
+      holderCharacterId: wizard.id,
+    });
+    await caller.characters.remove({ id: wizard.id });
+
+    await caller.bastions.setMode({
+      mode: 'per-character',
+      keeperCharacterId: sigrid.id,
+    });
+
+    const list = await caller.bastions.list();
+    expect(list.map(row => row.ownerId)).toEqual([sigrid.id]);
+    const kept = await caller.bastions.get({ id: list[0]!.id });
+    expect(
+      kept.specialFacilities.map(facility => [
+        facility.name,
+        facility.holder?.id,
+      ]),
+    ).toEqual([['Arcane Study', sigrid.id]]);
+    expect(kept.basicFacilities).toHaveLength(4);
   });
 });

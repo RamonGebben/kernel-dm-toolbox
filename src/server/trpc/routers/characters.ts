@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
-import { playerCharacters } from '~/server/db/schema';
+import { bastions, playerCharacters } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import {
   characterIdInputSchema,
@@ -14,6 +14,7 @@ import {
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { toCharacterColumns } from '~/server/trpc/helpers/toCharacterColumns';
+import { abandonBastion } from '~/server/bastions/rows';
 
 /** Live rows only — a tombstoned character is gone as far as the app cares. */
 const isLive = isNull(playerCharacters.deletedAt);
@@ -91,15 +92,29 @@ export const charactersRouter = createTRPCRouter({
       return updated;
     }),
 
-  /** Soft delete. There is no hard delete anywhere in this app. */
+  /**
+   * Soft delete. There is no hard delete anywhere in this app. A character's
+   * own bastion goes with them — abandoned, its construction refunded — so it
+   * cannot linger ownerless. What they held in the party's bastion stays
+   * there; splitting it later hands that to the keeper.
+   */
   remove: publicProcedure
     .input(characterIdInputSchema)
     .mutation(async ({ ctx, input }) => {
       const existing = await loadLiveCharacter(ctx.db, input.id);
+      const now = new Date();
+
+      const ownBastion = await ctx.db.query.bastions.findFirst({
+        where: and(
+          eq(bastions.ownerCharacterId, existing.id),
+          isNull(bastions.deletedAt),
+        ),
+      });
+      if (ownBastion) await abandonBastion(ctx.db, ownBastion, now);
 
       await ctx.db
         .update(playerCharacters)
-        .set(tombstoneSyncMeta({ version: existing.version, now: new Date() }))
+        .set(tombstoneSyncMeta({ version: existing.version, now }))
         .where(eq(playerCharacters.id, input.id));
 
       return { id: input.id };

@@ -217,6 +217,43 @@ type FacilityState = { outOfActionTurns: number } & Omit<
   'outOfActionTurns'
 >;
 
+const STALE_DRAFT_ADVICE = 'Discard this turn and start a new one.';
+
+/**
+ * A draft fixes which bastions take the turn when it is started. Abandoning
+ * a bastion or switching bastion mode after that leaves it describing
+ * bastions that are not there any more — their gold, defenders and stored
+ * items would land on a tombstone — and missing the ones that are, so nobody
+ * could act for them. Refused rather than half-applied.
+ */
+export const findStaleDraftProblems = (
+  draft: TurnDraft,
+  context: TurnContext,
+): string[] => {
+  const liveIds = new Set(context.bastions.map(({ id }) => id));
+  const draftedIds = new Set(draft.actors.map(({ bastionId }) => bastionId));
+
+  const isGone =
+    draft.actors.some(({ bastionId }) => !liveIds.has(bastionId)) ||
+    draft.events.some(({ bastionId }) => !liveIds.has(bastionId));
+  if (isGone) {
+    return [
+      `A bastion in this turn has been abandoned or merged since it was started. ${STALE_DRAFT_ADVICE}`,
+    ];
+  }
+
+  const added = context.bastions.filter(
+    bastion => bastion.actors.length > 0 && !draftedIds.has(bastion.id),
+  );
+  if (added.length) {
+    return [
+      `${added.map(({ name }) => name).join(', ')} ${added.length === 1 ? 'is' : 'are'} not part of this turn — ${added.length === 1 ? 'it was' : 'they were'} founded after the turn was started. ${STALE_DRAFT_ADVICE}`,
+    ];
+  }
+
+  return [];
+};
+
 /**
  * Everything a committed turn changes, or the reasons it cannot be
  * committed. In order: seven days pass (construction and jobs count down,
@@ -240,6 +277,9 @@ export const planTurnCommit = (
     context.bastions
       .find(({ id }) => id === bastionId)
       ?.actors.find(({ id }) => id === characterId)?.name ?? 'Someone';
+
+  const stale = findStaleDraftProblems(draft, context);
+  if (stale.length) return { ok: false, problems: stale };
 
   const problems: string[] = [];
   const lines: string[] = [];

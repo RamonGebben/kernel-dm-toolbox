@@ -9,13 +9,18 @@ import {
   bastions,
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
-import { touchSyncMeta } from '~/server/trpc/helpers/touchSyncMeta';
+import {
+  tombstoneSyncMeta,
+  touchSyncMeta,
+} from '~/server/trpc/helpers/touchSyncMeta';
 import { toProjectCompletion } from '~/server/trpc/helpers/planBastionProject';
+import { refundToTreasury } from '~/server/party/treasury';
 
 /**
- * Bastion row access shared by the bastions and bastion-turn routers: the
- * live-row loaders, and finishing a construction project — which the DM can
- * do by hand, and a bastion turn does when the days run out.
+ * Bastion row access shared by the bastions, bastion-turn and character
+ * routers: the live-row loaders, finishing a construction project — which the
+ * DM can do by hand, and a bastion turn does when the days run out — and
+ * giving a bastion up.
  */
 
 export const notFound = (what: string) =>
@@ -114,4 +119,40 @@ export const completeProject = async (
       ...touchSyncMeta({ version: project.version, now }),
     })
     .where(eq(bastionProjects.id, project.id));
+};
+
+/**
+ * Gives a bastion up: the bastion is tombstoned, and construction still under
+ * way in it is cancelled and its full cost refunded — a turn only advances
+ * projects in live bastions, so left open it would never finish and the gold
+ * would be gone.
+ */
+export const abandonBastion = async (
+  db: Database,
+  bastion: typeof bastions.$inferSelect,
+  now: Date,
+) => {
+  const open = await db
+    .select()
+    .from(bastionProjects)
+    .where(
+      and(
+        eq(bastionProjects.bastionId, bastion.id),
+        isNull(bastionProjects.completedAt),
+        isNull(bastionProjects.deletedAt),
+      ),
+    );
+
+  for (const project of open) {
+    await db
+      .update(bastionProjects)
+      .set(tombstoneSyncMeta({ version: project.version, now }))
+      .where(eq(bastionProjects.id, project.id));
+    await refundToTreasury(db, project.costGp);
+  }
+
+  await db
+    .update(bastions)
+    .set(tombstoneSyncMeta({ version: bastion.version, now }))
+    .where(eq(bastions.id, bastion.id));
 };

@@ -11,6 +11,8 @@ const bastion = (overrides: object) => ({
   defenderCount: 0,
   wallSquares: 0,
   isFullyEnclosed: false,
+  isArmoryStocked: false,
+  hasGuestMonster: false,
   ...overrides,
 });
 
@@ -63,21 +65,40 @@ describe('planBastionMerge', () => {
       defenderCount: 0,
       wallSquares: 0,
       isFullyEnclosed: false,
+      isArmoryStocked: false,
+      hasGuestMonster: false,
     });
+  });
+
+  it('keeps a stocked Armory and a guest monster from any part', () => {
+    expect(
+      planBastionMerge(
+        [
+          bastion({ isArmoryStocked: true }),
+          bastion({ hasGuestMonster: true }),
+        ],
+        'X',
+      ),
+    ).toMatchObject({ isArmoryStocked: true, hasGuestMonster: true });
   });
 });
 
 describe('planBastionSplit', () => {
   const split = planBastionSplit({
     keeperId: 'sigrid',
+    liveCharacterIds: new Set(['sigrid', 'hammie']),
+    isArmoryStocked: true,
     specialFacilities: [
-      { id: 'barrack', holderCharacterId: 'sigrid' },
-      { id: 'library', holderCharacterId: 'hammie' },
-      { id: 'orphan', holderCharacterId: null },
+      { id: 'barrack', facilityKey: 'barrack', holderCharacterId: 'sigrid' },
+      { id: 'library', facilityKey: 'library', holderCharacterId: 'hammie' },
+      { id: 'armory', facilityKey: 'armory', holderCharacterId: 'hammie' },
+      { id: 'orphan', facilityKey: 'garden', holderCharacterId: null },
+      { id: 'ghost', facilityKey: 'pub', holderCharacterId: 'removed' },
     ],
     basicFacilities: [
       { id: 'hammie-bed', contributedByCharacterId: 'hammie' },
       { id: 'built-later', contributedByCharacterId: null },
+      { id: 'ghost-bed', contributedByCharacterId: 'removed' },
     ],
     projects: [
       { id: 'enlarge-library', facilityId: 'library' },
@@ -108,5 +129,15 @@ describe('planBastionSplit', () => {
   it('lets an enlargement follow its facility; other work stays with the keeper', () => {
     expect(split.projects.get('enlarge-library')).toBe('hammie');
     expect(split.projects.get('walls')).toBe('sigrid');
+  });
+
+  it('gives the keeper what a removed character held or brought', () => {
+    expect(split.ownerIds).not.toContain('removed');
+    expect(split.specialFacilities.get('ghost')).toBe('sigrid');
+    expect(split.basicFacilities.get('ghost-bed')).toBe('sigrid');
+  });
+
+  it('sends a stocked Armory with the Armory', () => {
+    expect(split.stockedArmoryOwnerId).toBe('hammie');
   });
 });

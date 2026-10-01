@@ -1,11 +1,8 @@
-import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
-import { CURRENT_PARTY_ID, parties } from '~/server/db/schema';
 import { adjustTreasuryInputSchema } from '~/server/trpc/schemas/party';
 import { ensureParty } from '~/server/party/state';
-import { touchSyncMeta } from '~/server/trpc/helpers/touchSyncMeta';
-import { applyGoldChange } from '~/utils/applyGoldChange';
+import { changeTreasury } from '~/server/party/treasury';
 
 /**
  * What belongs to the party as a whole. Its members are `characters.*`; this
@@ -21,28 +18,22 @@ export const partyRouter = createTRPCRouter({
     };
   }),
 
+  /**
+   * A relative, guarded write — never read-then-write an absolute balance,
+   * or a turn commit or construction spend landing in between is undone.
+   */
   adjustTreasury: publicProcedure
     .input(adjustTreasuryInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const party = await ensureParty(ctx.db);
-      const change = applyGoldChange(party.treasuryGold, input.delta);
+      const treasuryGold = await changeTreasury(ctx.db, input.delta);
 
-      if (!change.ok) {
+      if (treasuryGold === null) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'The treasury does not hold that much gold.',
         });
       }
 
-      const [updated] = await ctx.db
-        .update(parties)
-        .set({
-          treasuryGold: change.balance,
-          ...touchSyncMeta({ version: party.version, now: new Date() }),
-        })
-        .where(eq(parties.id, CURRENT_PARTY_ID))
-        .returning();
-
-      return { treasuryGold: updated!.treasuryGold };
+      return { treasuryGold };
     }),
 });

@@ -586,12 +586,17 @@ benched or removed (DECISIONS #32).
 - **The treasury is the only gold the app tracks.** Characters have no
   purse — do not add one back (DECISIONS #32). It is whole gold pieces and
   never negative: go through `applyGoldChange` (`~/utils/applyGoldChange`),
-  which refuses an overdraft rather than clamping.
+  which refuses an overdraft rather than clamping. On the server every
+  balance change is `changeTreasury` (`~/server/party/treasury`) — one
+  relative, guarded `UPDATE` — never read the balance and write back an
+  absolute value, or a concurrent spend or refund is lost.
 - **Class is one of twelve; subclass and species are free text** with SRD
   suggestions from `~/content/characterOptions`.
 - **Removing a character asks twice** (in the editor, not on the card) and
   leaves a combatant already in a fight where it is — a combatant copies HP
-  and AC when it joins (DECISIONS #15).
+  and AC when it joins (DECISIONS #15). Their own bastion is abandoned with
+  them (`abandonBastion`); what they held in a party bastion stays, and a
+  later split hands it to the keeper, never to the removed character.
 
 ## The Bastions tool
 
@@ -634,6 +639,10 @@ bastion_storage_items       produced, not yet collected; claimed_by_character_id
   the in-memory test databases) — and writes the row. Finishing applies
   `toProjectCompletion`; cancelling, or removing the facility being
   enlarged, refunds the full cost.
+- **Giving a bastion up goes through `abandonBastion`**
+  (`~/server/bastions/rows`), which refunds its open projects — a turn only
+  advances projects in live bastions, so a tombstoned one's gold is
+  otherwise gone.
 - **A facility has at most one open project.** Enlarging twice at once is a
   `CONFLICT`.
 - **Defenders are one count per bastion**; barrack capacity
@@ -653,14 +662,17 @@ bastion_storage_items       produced, not yet collected; claimed_by_character_id
 - **Each member brings two free rooms**, recorded by
   `contributed_by_character_id`. `pendingFreeRooms` lists members who
   reached level 5 later; `addFreeRooms` takes them once.
-- **Switching mode merges or splits, never drops.** `bastions.setMode` uses
-  the pure `planBastionMerge` / `planBastionSplit`
+- **Switching mode merges or splits, never drops** — turn state included: a
+  stocked Armory follows the Armory, a guest monster stays with the keeper.
+  `bastions.setMode` uses the pure `planBastionMerge` / `planBastionSplit`
   (`~/server/trpc/helpers/planBastionModeChange`). Founding is refused in
   the wrong mode, and party mode allows one live bastion.
 - **The bastion turn is a wizard over a saved draft** (DECISIONS #35).
   `bastion_turns` holds one `draft` row at a time — the wizard's JSON,
   validated by `turnDraftSchema`, saved on every step — and committed rows as
-  history. Nothing changes until `bastionTurns.commit`.
+  history. Nothing changes until `bastionTurns.commit`. A draft started
+  before a bastion was abandoned, merged or founded is refused at review and
+  commit (`findStaleDraftProblems`) — discard it and start again.
 - **Turn logic is pure and lives in two places.** `~/utils/bastionTurn`
   (dice: `eventForRoll`, `attackDice`, `resolveEventOutcome`, …) is shared
   by client and server. `~/server/trpc/helpers/bastionTurnPlan` builds the
