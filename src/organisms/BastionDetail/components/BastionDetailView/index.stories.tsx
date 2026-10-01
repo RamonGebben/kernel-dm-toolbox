@@ -31,6 +31,8 @@ const facility = (
       : null,
     isBeingEnlarged: false,
     holder,
+    job: null,
+    isOutOfAction: false,
   };
 };
 

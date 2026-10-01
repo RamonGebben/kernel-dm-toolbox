@@ -53,6 +53,16 @@ export const SpecialFacilityCard = ({
         {showHolder ? (
           <Holder>Held by {facility.holder?.name ?? 'nobody'}</Holder>
         ) : null}
+        {facility.job ? (
+          <Status>
+            Working on {facility.job.label}
+            {facility.job.note ? ` (${facility.job.note})` : ''} —{' '}
+            {facility.job.daysRemaining} days left
+          </Status>
+        ) : null}
+        {facility.isOutOfAction ? (
+          <Status>Out of action for the next bastion turn</Status>
+        ) : null}
       </div>
       <ConfirmButton
         label="Remove"
@@ -173,6 +183,12 @@ const Holder = styled.p`
   font-size: ${props => props.theme.fontSize.sm};
   font-weight: 600;
   color: ${props => props.theme.color.accent};
+`;
+
+const Status = styled.p`
+  margin: 0;
+  font-size: ${props => props.theme.fontSize.sm};
+  color: ${props => props.theme.color.warning};
 `;
 
 const VariantRow = styled.div`

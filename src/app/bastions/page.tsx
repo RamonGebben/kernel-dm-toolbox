@@ -1,5 +1,6 @@
 import { BastionList } from '~/organisms/BastionList';
 import { BastionDetail } from '~/organisms/BastionDetail';
+import { BastionTurn } from '~/organisms/BastionTurn';
 import { BastionsTemplate } from '~/templates/BastionsTemplate';
 import { NavigationRail } from '~/molecules/NavigationRail';
 import { tools } from '~/content/tools';
@@ -8,7 +9,12 @@ import { tools } from '~/content/tools';
 const BastionsPage = () => (
   <BastionsTemplate
     navigationSlot={<NavigationRail tools={tools} activeToolId="bastions" />}
-    listSlot={<BastionList />}
+    listSlot={
+      <>
+        <BastionTurn />
+        <BastionList />
+      </>
+    }
     detailSlot={<BastionDetail />}
   />
 );

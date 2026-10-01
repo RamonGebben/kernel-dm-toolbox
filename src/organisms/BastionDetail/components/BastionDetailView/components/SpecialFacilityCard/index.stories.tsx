@@ -26,6 +26,8 @@ const fromCatalog = (key: string, overrides = {}) => {
       : null,
     isBeingEnlarged: false,
     holder: { id: 'sigrid', name: 'Sigrid' },
+    job: null,
+    isOutOfAction: false,
     ...overrides,
   };
 };
@@ -57,6 +59,39 @@ export const ArcaneStudy: Story = {
     await expect(
       canvas.queryByRole('button', { name: /Enlarge/ }),
     ).not.toBeInTheDocument();
+  },
+};
+
+/** Between bastion turns: what it was set to, and how long is left. */
+export const Working: Story = {
+  args: {
+    facility: fromCatalog('arcane-study', {
+      job: {
+        label: 'Magic item (Arcana)',
+        note: 'Wand of Magic Missiles',
+        daysRemaining: 13,
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByText(
+        /Working on Magic item \(Arcana\) \(Wand of Magic Missiles\) — 13 days left/,
+      ),
+    ).toBeVisible();
+  },
+};
+
+export const OutOfAction: Story = {
+  args: { facility: fromCatalog('arcane-study', { isOutOfAction: true }) },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByText('Out of action for the next bastion turn'),
+    ).toBeVisible();
   },
 };
 
