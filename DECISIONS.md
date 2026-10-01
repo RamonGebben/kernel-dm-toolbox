@@ -909,3 +909,55 @@ of the twelve SRD classes because bastion prerequisites will key off it.
 Subclass and species are suggestions only (`~/content/characterOptions`): a
 table's subclass is usually a PHB one, and PHB species are not in the SRD.
 A multiclass character records their main class and the rest in notes.
+
+---
+
+## 33. Bastions: the catalog ships in the repo, the rules advise, the treasury pays
+
+**Decision.** The Bastions tool (`/bastions`, 2024 DMG chapter 8) tracks one
+bastion per character: special facilities, basic facilities, defenders,
+walls, construction and a storage log. The 29 core special facilities and
+the building tables are static content in `~/content/bastion`. Facility
+level, prerequisite, duplicate and allowance rules are checked by
+`findEligibilityProblems` and refused by the server — unless the DM ticks an
+explicit "ignore the rules". Construction is paid up front from the party
+treasury and finishes after a number of days.
+
+**Why the catalog is in the repo, in our own words.** Bastions are not in
+SRD 5.2 or 5.2.1, and no open-licensed dataset carries them (Open5e,
+5e-database and Foundry's packs were all checked), so there is nothing to
+import. Asked directly, the DM chose bundling over typing the catalog in by
+hand. Because the repository is public, the catalog is written as a cheat
+sheet: every number the rules run on (costs, dice, durations, capacities,
+level scaling) with one- or two-line summaries in our own words — never the
+book's text. Setting-book facilities (Faerûn, Eberron, Ravenloft) are left
+out.
+
+**Why prerequisites are advice the DM can override.** A prerequisite like
+"can use a Holy Symbol as a Spellcasting Focus" is checked by class
+(`~/content/bastion/prerequisites`), which is only an approximation — a
+feat, a subclass or a magic item can grant it too. The same goes for the
+allowance when a DM hands out an extra facility as a quest reward. So the
+server refuses by default, with the reasons, and accepts an explicit
+`ignoreRequirements`: the rules are the default, never a wall.
+
+**Why construction is a project row.** Adding a basic facility, enlarging
+one, enlarging a special facility and building walls all cost gold now and
+pay off later. One `bastion_projects` table holds all four, with
+`daysRemaining`, so the coming bastion-turn wizard counts down one list and
+reports what finished. The DM can finish a project on the spot or cancel it
+for a full refund. The spend is one guarded `UPDATE … WHERE treasury_gold >=
+cost`, not a `transaction()`: libsql hands a transaction its connection,
+which on the in-memory test databases leaves later queries on a fresh,
+empty one.
+
+**Calls the book leaves open.** Enlarging a special facility has a cost
+(2,000 GP) but no build time; we borrow the basic Roomy → Vast step's 80
+days. Defenders are one count per bastion rather than per Barrack — the
+attack maths only ever needs the total — with the barracks' capacity shown
+as a guide, not a cap, since a guest mercenary needs no bunk.
+
+**Left for the next milestones.** Orders, Maintain events and attacks belong
+to the guided bastion turn (milestone 3); a shared party location, with
+members' bastions combined under the 2024 rules, is milestone 4. Named
+hirelings are not tracked — only the count each facility comes with.

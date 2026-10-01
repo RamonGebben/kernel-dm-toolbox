@@ -366,7 +366,7 @@ disabled control — which is also what keeps `typedRoutes` honest, since there
 is no route to get wrong. Icons are inline SVG in `src/atoms/Icon/`; adding one
 is a key in that map, not a dependency.
 
-The rail holds Initiative, Party, Maps and Spells.
+The rail holds Initiative, Party, Bastions, Maps and Spells.
 
 There is **no campaign header**. The campaign name is in the browser tab title
 only (DECISIONS #25).
@@ -556,7 +556,8 @@ which derives the list from the classes actually present on an imported spell
 have spells depends on what got imported.
 
 Then the roster moved out of the tracker onto its own Party page (see The
-Party page below), as groundwork for the bastion tracker.
+Party page below), and the Bastions tool landed on top of it (see The
+Bastions tool below).
 
 Not started, in rough order of usefulness: drag-to-reorder the initiative
 list, in-app dice rolling for attacks, and a rules glossary from Open5e's
@@ -591,6 +592,52 @@ benched or removed (DECISIONS #32).
 - **Removing a character asks twice** (in the editor, not on the card) and
   leaves a combatant already in a fight where it is — a combatant copies HP
   and AC when it joins (DECISIONS #15).
+
+## The Bastions tool
+
+`/bastions`: every character's bastion (2024 DMG chapter 8) in a list beside
+the selected one — special facilities, basic facilities, defenses,
+construction and storage. One live bastion per character (a partial unique
+index ignores tombstones). DECISIONS #33 has the reasoning.
+
+```
+bastions                    owner_character_id, name, notes, defender_count,
+                            wall_squares, is_fully_enclosed
+bastion_special_facilities  facility_key (catalog), space, variant
+bastion_basic_facilities    type, space
+bastion_projects            construction paid for and under way:
+                            add-basic | enlarge-basic | enlarge-special | walls,
+                            cost_gp, days_remaining, completed_at
+bastion_storage_items       produced, not yet collected; claimed_by_character_id
+```
+
+- **The catalog is static content, not a table.** `~/content/bastion`
+  holds the 29 special facilities, the building tables and the prerequisite
+  map; a row stores only `facility_key` and what is particular to it.
+  `toBastionDetail` joins the two for the page. Bastions are not in the
+  SRD, so the catalog is **our own words** — numbers kept, the book's text
+  never copied (the repo is public). Keep it that way when adding to it.
+- **The rules refuse by default; the DM can override explicitly.**
+  `findEligibilityProblems` (`~/utils/bastionRules`) reports every level,
+  prerequisite, duplicate and allowance problem; `addSpecialFacility`
+  refuses with those reasons unless `ignoreRequirements` is set. Never turn
+  a rule into a silent block or silently skip it.
+- **Prerequisites are checked by class, as an approximation** — see
+  `~/content/bastion/prerequisites`. That is why they are overridable.
+- **All construction goes through `bastion_projects`.** `startProject` plans
+  it with `planBastionProject` (pure), spends from the treasury with
+  `spendFromTreasury` — a single guarded `UPDATE`, never a
+  `transaction()` (libsql hands a transaction its connection, which breaks
+  the in-memory test databases) — and writes the row. Finishing applies
+  `toProjectCompletion`; cancelling, or removing the facility being
+  enlarged, refunds the full cost.
+- **A facility has at most one open project.** Enlarging twice at once is a
+  `CONFLICT`.
+- **Defenders are one count per bastion**; barrack capacity
+  (`defenderCapacity`) is shown as a guide, not enforced.
+- **The bastion turn is not built yet.** Orders, Maintain events and
+  attacks are milestone 3 (a guided wizard); combined party bastions are
+  milestone 4.
 
 ## The Maps tool
 
