@@ -66,7 +66,16 @@ export const findEligibilityProblems = (
     'key' | 'level' | 'prerequisite' | 'allowMultiple'
   >,
   owner: Owner,
-  heldFacilityKeys: readonly string[],
+  held: {
+    /** What this owner holds — counted against their allowance. */
+    byOwner: readonly string[];
+    /**
+     * Everything in the bastion, whoever holds it. Each facility type is
+     * there once, for everyone to use — only Barrack, Garden, Stable and
+     * Training Area may repeat (DECISIONS #34).
+     */
+    inBastion: readonly string[];
+  },
 ): EligibilityProblem[] => {
   const allowance = allowanceForLevel(owner.level);
 
@@ -82,12 +91,10 @@ export const findEligibilityProblems = (
             ? facilityPrerequisites[facility.prerequisite].label
             : '',
         },
-    !facility.allowMultiple && heldFacilityKeys.includes(facility.key)
+    !facility.allowMultiple && held.inBastion.includes(facility.key)
       ? { kind: 'duplicate' }
       : null,
-    heldFacilityKeys.length >= allowance
-      ? { kind: 'allowance', allowance }
-      : null,
+    held.byOwner.length >= allowance ? { kind: 'allowance', allowance } : null,
   ];
 
   return problems.filter((problem): problem is EligibilityProblem =>

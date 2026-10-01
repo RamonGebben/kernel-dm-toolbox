@@ -9,12 +9,15 @@ import type {
   TurnContextFacility,
 } from '~/server/trpc/helpers/bastionTurnPlan';
 import type {
-  TurnActor,
   TurnDraft,
   TurnFacilityOrder,
 } from '~/server/trpc/schemas/bastionTurns';
 import { formatGold } from '~/utils/applyGoldChange';
 import { isMaintaining } from '~/utils/bastionTurn';
+import {
+  findFacilityOrder,
+  setFacilityOrder,
+} from '~/organisms/BastionTurn/hooks/useBastionTurn';
 
 export type OrdersStepProps = {
   context: TurnContext;
@@ -31,36 +34,21 @@ const unavailableBecause = (facility: TurnContextFacility): string | null => {
 };
 
 /**
- * Step 3: each character at home gives orders to the facilities they hold —
- * in a party bastion, one member at a time. A facility left on "No order"
- * simply idles.
+ * Step 3: orders, facility by facility. Every facility in a bastion is there
+ * for everyone (DECISIONS #34), so whoever is home can give it its one order
+ * this turn — the DM picks who when more than one is. A facility left on
+ * "No order" idles.
  */
 export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
-  const giving = draft.actors.filter(actor => !isMaintaining(actor));
+  const ordering = (bastionId: string) =>
+    draft.actors.filter(
+      actor => actor.bastionId === bastionId && !isMaintaining(actor),
+    );
+  const bastions = context.bastions.filter(
+    bastion => ordering(bastion.id).length > 0,
+  );
 
-  const setOrder = (
-    target: TurnActor,
-    facilityId: string,
-    order: TurnFacilityOrder | null,
-  ) =>
-    onChange({
-      ...draft,
-      actors: draft.actors.map(actor =>
-        actor === target
-          ? {
-              ...actor,
-              facilityOrders: [
-                ...actor.facilityOrders.filter(
-                  o => o.facilityId !== facilityId,
-                ),
-                ...(order ? [order] : []),
-              ],
-            }
-          : actor,
-      ),
-    });
-
-  if (!giving.length) {
+  if (!bastions.length) {
     return (
       <Muted>
         Nobody is giving orders this turn — everyone maintains. On to the
@@ -71,134 +59,178 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
 
   return (
     <Wrapper>
-      {giving.map(actor => {
-        const bastion = context.bastions.find(
-          ({ id }) => id === actor.bastionId,
-        );
-        if (!bastion) return null;
-        const name =
-          bastion.actors.find(({ id }) => id === actor.characterId)?.name ??
-          'Someone';
-        const held = bastion.facilities.filter(
-          facility => facility.holderId === actor.characterId,
-        );
+      {bastions.map(bastion => {
+        const home = ordering(bastion.id).map(actor => ({
+          id: actor.characterId,
+          name:
+            bastion.actors.find(({ id }) => id === actor.characterId)?.name ??
+            'Someone',
+        }));
 
         return (
-          <Actor
-            key={`${actor.bastionId}-${actor.characterId}`}
-            aria-label={`${name}'s orders`}
-          >
+          <Actor key={bastion.id} aria-label={`Orders for ${bastion.name}`}>
             <Heading>
-              {name}&apos;s orders
-              {bastion.kind === 'character' ? ` · ${bastion.name}` : ''}
+              {bastion.name}
+              <Muted as="span">
+                {' '}
+                · giving orders: {home.map(({ name }) => name).join(', ')}
+              </Muted>
             </Heading>
-            {held.length ? null : (
-              <Muted>{name} holds no special facilities here.</Muted>
+            {bastion.facilities.length ? null : (
+              <Muted>There are no special facilities here yet.</Muted>
             )}
-            {held.map(facility => {
-              const blocked = unavailableBecause(facility);
-              const order = actor.facilityOrders.find(
-                ({ facilityId }) => facilityId === facility.id,
-              );
-              const option = facility.orderOptions.find(
-                ({ key }) => key === order?.optionKey,
-              );
-
-              return (
-                <Facility key={facility.id}>
-                  <Row>
-                    <FacilityName>
-                      {facility.name}{' '}
-                      <Muted as="span">
-                        · {bastionOrderLabels[facility.order]}
-                      </Muted>
-                    </FacilityName>
-                    {blocked ? (
-                      <Muted as="span">{blocked}</Muted>
-                    ) : (
-                      <Select
-                        aria-label={`Order for the ${facility.name}`}
-                        value={order?.optionKey ?? ''}
-                        onChange={event => {
-                          const picked = facility.orderOptions.find(
-                            ({ key }) => key === event.target.value,
-                          );
-                          setOrder(
-                            actor,
-                            facility.id,
-                            picked
-                              ? {
-                                  facilityId: facility.id,
-                                  optionKey: picked.key,
-                                  costGp: picked.costGp ?? 0,
-                                  note: '',
-                                }
-                              : null,
-                          );
-                        }}
-                      >
-                        <option value="">No order</option>
-                        {facility.orderOptions.map(choice => (
-                          <option key={choice.key} value={choice.key}>
-                            {choice.label}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </Row>
-                  {order && option ? (
-                    <Detail>
-                      <Muted>
-                        {option.summary}{' '}
-                        {option.durationDays
-                          ? `Takes ${option.durationDays} days.`
-                          : 'Time per the crafting rules — 7 days unless you change it later.'}
-                      </Muted>
-                      <Row>
-                        <label>
-                          Cost (gp)
-                          <Small
-                            aria-label={`Cost of the ${facility.name} order`}
-                            type="number"
-                            min={0}
-                            value={order.costGp}
-                            onChange={event =>
-                              setOrder(actor, facility.id, {
-                                ...order,
-                                costGp: Math.max(
-                                  0,
-                                  Number(event.target.value) || 0,
-                                ),
-                              })
-                            }
-                          />
-                        </label>
-                        <TextInput
-                          aria-label={`Details for the ${facility.name} order`}
-                          placeholder="Details — which item, which topic…"
-                          value={order.note}
-                          onChange={event =>
-                            setOrder(actor, facility.id, {
-                              ...order,
-                              note: event.target.value,
-                            })
-                          }
-                        />
-                      </Row>
-                      {order.costGp ? (
-                        <Muted>
-                          Paid from the treasury: {formatGold(order.costGp)}.
-                        </Muted>
-                      ) : null}
-                    </Detail>
-                  ) : null}
-                </Facility>
-              );
-            })}
+            {bastion.facilities.map(facility => (
+              <FacilityOrder
+                key={facility.id}
+                facility={facility}
+                home={home}
+                current={findFacilityOrder(draft, facility.id)}
+                onChange={order =>
+                  onChange(
+                    setFacilityOrder(draft, bastion.id, facility.id, order),
+                  )
+                }
+              />
+            ))}
           </Actor>
         );
       })}
     </Wrapper>
+  );
+};
+
+type FacilityOrderProps = {
+  facility: TurnContextFacility;
+  /** Who is home to give it an order. */
+  home: readonly { id: string; name: string }[];
+  current: { characterId: string; order: TurnFacilityOrder } | null;
+  onChange: (
+    order: { characterId: string; order: TurnFacilityOrder } | null,
+  ) => void;
+};
+
+/** One facility's order: what it does, and — if several are home — who said so. */
+const FacilityOrder = ({
+  facility,
+  home,
+  current,
+  onChange,
+}: FacilityOrderProps) => {
+  const blocked = unavailableBecause(facility);
+  const option = facility.orderOptions.find(
+    ({ key }) => key === current?.order.optionKey,
+  );
+  // Whoever took it gives the order by default, if they are home.
+  const defaultGiver =
+    home.find(({ id }) => id === facility.holderId)?.id ?? home[0]?.id ?? '';
+  const giver = current?.characterId ?? defaultGiver;
+
+  return (
+    <Facility>
+      <Row>
+        <FacilityName>
+          {facility.name}{' '}
+          <Muted as="span">· {bastionOrderLabels[facility.order]}</Muted>
+        </FacilityName>
+        {blocked ? (
+          <Muted as="span">{blocked}</Muted>
+        ) : (
+          <Select
+            aria-label={`Order for the ${facility.name}`}
+            value={current?.order.optionKey ?? ''}
+            onChange={event => {
+              const picked = facility.orderOptions.find(
+                ({ key }) => key === event.target.value,
+              );
+              onChange(
+                picked
+                  ? {
+                      characterId: giver,
+                      order: {
+                        facilityId: facility.id,
+                        optionKey: picked.key,
+                        costGp: picked.costGp ?? 0,
+                        note: '',
+                      },
+                    }
+                  : null,
+              );
+            }}
+          >
+            <option value="">No order</option>
+            {facility.orderOptions.map(choice => (
+              <option key={choice.key} value={choice.key}>
+                {choice.label}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Row>
+      {current && option ? (
+        <Detail>
+          <Muted>
+            {option.summary}{' '}
+            {option.durationDays
+              ? `Takes ${option.durationDays} days.`
+              : 'Time per the crafting rules — 7 days unless you change it later.'}
+          </Muted>
+          <Row>
+            {home.length > 1 ? (
+              <label>
+                Given by
+                <Select
+                  aria-label={`Who gives the ${facility.name} its order`}
+                  value={current.characterId}
+                  onChange={event =>
+                    onChange({ ...current, characterId: event.target.value })
+                  }
+                >
+                  {home.map(member => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : null}
+            <label>
+              Cost (gp)
+              <Small
+                aria-label={`Cost of the ${facility.name} order`}
+                type="number"
+                min={0}
+                value={current.order.costGp}
+                onChange={event =>
+                  onChange({
+                    ...current,
+                    order: {
+                      ...current.order,
+                      costGp: Math.max(0, Number(event.target.value) || 0),
+                    },
+                  })
+                }
+              />
+            </label>
+            <TextInput
+              aria-label={`Details for the ${facility.name} order`}
+              placeholder="Details — which item, which topic…"
+              value={current.order.note}
+              onChange={event =>
+                onChange({
+                  ...current,
+                  order: { ...current.order, note: event.target.value },
+                })
+              }
+            />
+          </Row>
+          {current.order.costGp ? (
+            <Muted>
+              Paid from the treasury: {formatGold(current.order.costGp)}.
+            </Muted>
+          ) : null}
+        </Detail>
+      ) : null}
+    </Facility>
   );
 };
 

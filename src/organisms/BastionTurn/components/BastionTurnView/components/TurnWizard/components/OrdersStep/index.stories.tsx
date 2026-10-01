@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { OrdersStep } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/OrdersStep';
 import {
+  SIGRID,
   STUDY,
   WREN,
   turnContext,
@@ -22,14 +23,17 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** Each member orders only the facilities they hold. */
-export const EachMembersOwnFacilities: Story = {
+/** Every facility is there for everyone at home to order. */
+export const EveryFacilityForEveryone: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const wren = within(canvas.getByLabelText("Wren's orders"));
+    const hall = within(canvas.getByLabelText('Orders for The Hall'));
 
-    await expect(wren.getByText('Arcane Study')).toBeVisible();
-    await expect(wren.queryByText('Barrack')).not.toBeInTheDocument();
+    await expect(hall.getByText(/giving orders: Sigrid, Wren/)).toBeVisible();
+    await expect(
+      hall.getByLabelText('Order for the Arcane Study'),
+    ).toBeVisible();
+    await expect(hall.getByLabelText('Order for the Barrack')).toBeVisible();
   },
 };
 
@@ -52,6 +56,45 @@ export const GivingAnOrder: Story = {
             ],
           }),
         ]),
+      }),
+    );
+  },
+};
+
+/** Sigrid gives Wren's Arcane Study its order this turn. */
+export const SomeoneElseGivesTheOrder: Story = {
+  args: {
+    draft: turnDraft({
+      step: 'orders',
+      actors: turnDraft().actors.map(actor =>
+        actor.characterId === WREN
+          ? {
+              ...actor,
+              facilityOrders: [
+                { facilityId: STUDY, optionKey: 'book', costGp: 10, note: '' },
+              ],
+            }
+          : actor,
+      ),
+    }),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.selectOptions(
+      canvas.getByLabelText('Who gives the Arcane Study its order'),
+      SIGRID,
+    );
+
+    await expect(args.onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actors: [
+          expect.objectContaining({
+            characterId: SIGRID,
+            facilityOrders: [expect.objectContaining({ facilityId: STUDY })],
+          }),
+          expect.objectContaining({ characterId: WREN, facilityOrders: [] }),
+        ],
       }),
     );
   },

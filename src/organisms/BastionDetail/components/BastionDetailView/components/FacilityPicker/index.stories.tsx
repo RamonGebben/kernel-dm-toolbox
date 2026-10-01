@@ -15,6 +15,7 @@ const meta = {
         heldKeys: ['barrack'],
       },
     ],
+    bastionKeys: ['barrack'],
     isSaving: false,
     onAdd: fn(),
   },
@@ -79,6 +80,7 @@ export const AllowanceFull: Story = {
         heldKeys: ['barrack', 'garden'],
       },
     ],
+    bastionKeys: ['barrack', 'garden'],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -145,5 +147,29 @@ export const StartsOnSomeoneWithRoom: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByLabelText('For')).toHaveValue('sigrid');
+  },
+};
+
+/** One Library for the whole bastion: once Sigrid has it, Wren cannot add another. */
+export const AlreadyInTheBastion: Story = {
+  args: {
+    members: [
+      { id: 'wren', name: 'Wren', level: 5, className: 'Wizard', heldKeys: [] },
+    ],
+    bastionKeys: ['library', 'barrack'],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: 'Add Library' }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getAllByText('Already in this bastion').length,
+    ).toBeGreaterThan(0);
+    // Barrack is one of the four that may repeat.
+    await expect(
+      canvas.getByRole('button', { name: 'Add Barrack' }),
+    ).toBeEnabled();
   },
 };

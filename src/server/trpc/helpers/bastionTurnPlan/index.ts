@@ -325,11 +325,10 @@ export const planTurnCommit = (
         );
         continue;
       }
-      if (
-        facility.bastionId !== actor.bastionId ||
-        facility.holderId !== actor.characterId
-      ) {
-        problems.push(`${who} does not hold the ${facility.name}.`);
+      // Any facility in the bastion: in a party bastion everyone uses all of
+      // them, whoever took it (DECISIONS #34) — one order each per turn.
+      if (facility.bastionId !== actor.bastionId) {
+        problems.push(`The ${facility.name} is not in ${who}'s bastion.`);
         continue;
       }
       if (facility.isBusy) {

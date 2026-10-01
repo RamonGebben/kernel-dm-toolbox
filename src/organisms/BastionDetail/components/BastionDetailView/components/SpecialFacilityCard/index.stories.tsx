@@ -28,6 +28,7 @@ const fromCatalog = (key: string, overrides = {}) => {
     holder: { id: 'sigrid', name: 'Sigrid' },
     job: null,
     isOutOfAction: false,
+    isDuplicate: false,
     ...overrides,
   };
 };
@@ -81,6 +82,18 @@ export const Working: Story = {
         /Working on Magic item \(Arcana\) \(Wand of Magic Missiles\) — 13 days left/,
       ),
     ).toBeVisible();
+  },
+};
+
+/** Left over from merging two members' bastions into the party's. */
+export const Duplicate: Story = {
+  args: { facility: fromCatalog('arcane-study', { isDuplicate: true }) },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByRole('note')).toHaveTextContent(
+      'A second Arcane Study',
+    );
   },
 };
 

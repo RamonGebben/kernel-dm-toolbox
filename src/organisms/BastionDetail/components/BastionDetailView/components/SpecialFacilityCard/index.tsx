@@ -60,6 +60,11 @@ export const SpecialFacilityCard = ({
             {facility.job.daysRemaining} days left
           </Status>
         ) : null}
+        {facility.isDuplicate ? (
+          <Status role="note">
+            A second {facility.name}: a bastion keeps one of each — remove one.
+          </Status>
+        ) : null}
         {facility.isOutOfAction ? (
           <Status>Out of action for the next bastion turn</Status>
         ) : null}

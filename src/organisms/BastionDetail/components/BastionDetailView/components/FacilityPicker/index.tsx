@@ -29,6 +29,11 @@ export type FacilityPickerProps = {
    * member in the party's — each checked against their own allowance.
    */
   members: readonly PickerMember[];
+  /**
+   * Every facility already in the bastion, whoever holds it — each type is
+   * there once for everyone (bar the four that may repeat).
+   */
+  bastionKeys: readonly string[];
   isSaving: boolean;
   onAdd: (
     facilityKey: string,
@@ -46,6 +51,7 @@ const levels: readonly FacilityLevel[] = [5, 9, 13, 17];
  */
 export const FacilityPicker = ({
   members,
+  bastionKeys,
   isSaving,
   onAdd,
 }: FacilityPickerProps) => {
@@ -107,11 +113,10 @@ export const FacilityPicker = ({
             {specialFacilities
               .filter(facility => facility.level === level)
               .map(facility => {
-                const problems = findEligibilityProblems(
-                  facility,
-                  owner,
-                  heldKeys,
-                );
+                const problems = findEligibilityProblems(facility, owner, {
+                  byOwner: heldKeys,
+                  inBastion: bastionKeys,
+                });
 
                 return (
                   <Row key={facility.key}>

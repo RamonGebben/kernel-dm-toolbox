@@ -7,6 +7,7 @@ import {
   turnSteps,
   type TurnDraft,
   type TurnEvent,
+  type TurnFacilityOrder,
   type TurnStep,
 } from '~/server/trpc/schemas/bastionTurns';
 import {
@@ -98,6 +99,43 @@ export const updateEvent = (
     ...resolveEventOutcome(key, inputs, bastion),
   };
 };
+
+/** The order a facility has this turn, and who gave it — or null. */
+export const findFacilityOrder = (draft: TurnDraft, facilityId: string) => {
+  for (const actor of draft.actors) {
+    const order = actor.facilityOrders.find(o => o.facilityId === facilityId);
+    if (order) return { characterId: actor.characterId, order };
+  }
+  return null;
+};
+
+/**
+ * Gives a facility its one order for the turn, from whichever member at home
+ * the DM picks — clearing any order someone else had given it. Null clears
+ * it, leaving the facility idle.
+ */
+export const setFacilityOrder = (
+  draft: TurnDraft,
+  bastionId: string,
+  facilityId: string,
+  order: { characterId: string; order: TurnFacilityOrder } | null,
+): TurnDraft => ({
+  ...draft,
+  actors: draft.actors.map(actor => {
+    if (actor.bastionId !== bastionId) return actor;
+
+    const others = actor.facilityOrders.filter(
+      o => o.facilityId !== facilityId,
+    );
+    return {
+      ...actor,
+      facilityOrders:
+        order && order.characterId === actor.characterId
+          ? [...others, order.order]
+          : others,
+    };
+  }),
+});
 
 /**
  * Why the wizard cannot move past this step yet, or null when it can. The

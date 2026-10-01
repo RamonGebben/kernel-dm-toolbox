@@ -638,12 +638,18 @@ bastion_storage_items       produced, not yet collected; claimed_by_character_id
   `CONFLICT`.
 - **Defenders are one count per bastion**; barrack capacity
   (`defenderCapacity`) is shown as a guide, not enforced.
-- **In a party bastion, everything per-character is per _holder_.** A
-  facility counts against its holder's allowance and only they order it;
-  eligibility is checked against the holder and the facilities _they_ hold
-  there. `addSpecialFacility` needs `holderCharacterId` in party mode; in a
-  per-character bastion the owner always holds it, whatever is sent.
-  Defenders are one pool either way.
+- **One of each facility per bastion, shared by everyone.** Only Barrack,
+  Garden, Stable and Training Area repeat. In a party bastion a facility
+  records who took it (`holder_character_id`) and counts against _their_
+  allowance, but every member uses it. `findEligibilityProblems` takes
+  `{ byOwner, inBastion }`: allowance against the first, duplicates against
+  the second — never check duplicates per holder. `addSpecialFacility`
+  needs `holderCharacterId` in party mode; in a per-character bastion the
+  owner always holds it. A merge can leave two copies; `isDuplicate` flags
+  the second for the DM to remove. Defenders are one pool either way.
+- **In the bastion turn, any member at home may order any facility in
+  their bastion** — one order per facility per turn, whoever gives it
+  (`setFacilityOrder`).
 - **Each member brings two free rooms**, recorded by
   `contributed_by_character_id`. `pendingFreeRooms` lists members who
   reached level 5 later; `addFreeRooms` takes them once.

@@ -190,6 +190,48 @@ describe('toBastionDetail', () => {
   });
 });
 
+describe('toBastionDetail duplicates', () => {
+  it('flags a second copy of a one-of facility, but not of a Garden', () => {
+    const detail = toBastionDetail({
+      ...base,
+      specialFacilities: [
+        {
+          id: 'l1',
+          facilityKey: 'library',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
+        {
+          id: 'l2',
+          facilityKey: 'library',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
+        {
+          id: 'g1',
+          facilityKey: 'garden',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
+        {
+          id: 'g2',
+          facilityKey: 'garden',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
+      ],
+    });
+
+    expect(
+      detail.specialFacilities.map(facility => facility.isDuplicate),
+    ).toEqual([false, true, false, false]);
+  });
+});
+
 describe('toBastionDetail for a party bastion', () => {
   const hammie = {
     id: 'h1',

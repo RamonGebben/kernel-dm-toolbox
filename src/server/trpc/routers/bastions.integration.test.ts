@@ -593,14 +593,33 @@ describe('the party bastion', () => {
     ]);
   });
 
-  it('lets two members each hold the same one-of facility', async () => {
+  it('has one of each facility for the whole party', async () => {
+    const { sigrid, hammie } = await partyOf();
+    const hall = await foundParty([sigrid.id, hammie.id]);
+
+    await caller.bastions.addSpecialFacility({
+      bastionId: hall.id,
+      facilityKey: 'library',
+      holderCharacterId: sigrid.id,
+    });
+
+    await expect(
+      caller.bastions.addSpecialFacility({
+        bastionId: hall.id,
+        facilityKey: 'library',
+        holderCharacterId: hammie.id,
+      }),
+    ).rejects.toThrow(/Already in this bastion/);
+  });
+
+  it('still lets the four repeatable facilities appear more than once', async () => {
     const { sigrid, hammie } = await partyOf();
     const hall = await foundParty([sigrid.id, hammie.id]);
 
     for (const holderCharacterId of [sigrid.id, hammie.id]) {
       await caller.bastions.addSpecialFacility({
         bastionId: hall.id,
-        facilityKey: 'library',
+        facilityKey: 'garden',
         holderCharacterId,
       });
     }

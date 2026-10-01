@@ -33,6 +33,7 @@ const facility = (
     holder,
     job: null,
     isOutOfAction: false,
+    isDuplicate: false,
   };
 };
 

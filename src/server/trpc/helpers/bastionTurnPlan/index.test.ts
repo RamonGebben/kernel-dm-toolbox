@@ -248,8 +248,8 @@ describe('planTurnCommit', () => {
     });
   });
 
-  it("refuses an order to someone else's facility", () => {
-    const result = planTurnCommit(
+  it('lets any member at home order a facility someone else took', () => {
+    const result = plan(
       draftFor({
         actors: [
           {
@@ -258,8 +258,37 @@ describe('planTurnCommit', () => {
             isPresent: true,
             maintain: false,
             facilityOrders: [
-              { facilityId: STUDY, optionKey: 'book', costGp: 0, note: '' },
+              { facilityId: STUDY, optionKey: 'book', costGp: 10, note: '' },
             ],
+          },
+        ],
+      }),
+    );
+
+    expect(result.facilities[0]).toMatchObject({ jobOptionKey: 'book' });
+    expect(result.lines).toContain(
+      'Sigrid: Arcane Study — Blank book (10 gp).',
+    );
+  });
+
+  it('still allows one order per facility, whoever gives it', () => {
+    const order = { facilityId: STUDY, optionKey: 'book', costGp: 0, note: '' };
+    const result = planTurnCommit(
+      draftFor({
+        actors: [
+          {
+            bastionId: B,
+            characterId: SIGRID,
+            isPresent: true,
+            maintain: false,
+            facilityOrders: [order],
+          },
+          {
+            bastionId: B,
+            characterId: WREN,
+            isPresent: true,
+            maintain: false,
+            facilityOrders: [order],
           },
         ],
       }),
@@ -268,7 +297,7 @@ describe('planTurnCommit', () => {
 
     expect(result).toEqual({
       ok: false,
-      problems: ['Sigrid does not hold the Arcane Study.'],
+      problems: ['The Arcane Study was given two orders.'],
     });
   });
 

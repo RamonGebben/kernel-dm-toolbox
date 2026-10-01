@@ -78,13 +78,18 @@ describe('findEligibilityProblems', () => {
   const wizard = { level: 5, className: 'Wizard' };
 
   it('finds nothing wrong with an eligible pick', () => {
-    expect(findEligibilityProblems(arcaneStudy, wizard, [])).toEqual([]);
+    expect(
+      findEligibilityProblems(arcaneStudy, wizard, {
+        byOwner: [],
+        inBastion: [],
+      }),
+    ).toEqual([]);
   });
 
   it('flags a facility above the owner level', () => {
-    expect(findEligibilityProblems(archive, wizard, [])).toEqual([
-      { kind: 'level', requiredLevel: 13 },
-    ]);
+    expect(
+      findEligibilityProblems(archive, wizard, { byOwner: [], inBastion: [] }),
+    ).toEqual([{ kind: 'level', requiredLevel: 13 }]);
   });
 
   it('flags an unmet prerequisite', () => {
@@ -92,7 +97,7 @@ describe('findEligibilityProblems', () => {
       findEligibilityProblems(
         arcaneStudy,
         { level: 5, className: 'Rogue' },
-        [],
+        { byOwner: [], inBastion: [] },
       ),
     ).toEqual([
       {
@@ -104,26 +109,56 @@ describe('findEligibilityProblems', () => {
 
   it('flags a second copy of a one-of facility', () => {
     expect(
-      findEligibilityProblems(arcaneStudy, wizard, ['arcane-study']),
+      findEligibilityProblems(arcaneStudy, wizard, {
+        byOwner: ['arcane-study'],
+        inBastion: ['arcane-study'],
+      }),
     ).toContainEqual({ kind: 'duplicate' });
   });
 
   it('allows a second Barrack', () => {
-    expect(findEligibilityProblems(barrack, wizard, ['barrack'])).toEqual([]);
+    expect(
+      findEligibilityProblems(barrack, wizard, {
+        byOwner: ['barrack'],
+        inBastion: ['barrack'],
+      }),
+    ).toEqual([]);
   });
 
   it('flags a full allowance', () => {
     expect(
-      findEligibilityProblems(barrack, wizard, ['barrack', 'garden']),
+      findEligibilityProblems(barrack, wizard, {
+        byOwner: ['barrack', 'garden'],
+        inBastion: ['barrack', 'garden'],
+      }),
     ).toEqual([{ kind: 'allowance', allowance: 2 }]);
+  });
+
+  it('refuses a one-of facility someone else already holds here', () => {
+    expect(
+      findEligibilityProblems(arcaneStudy, wizard, {
+        byOwner: [],
+        inBastion: ['arcane-study'],
+      }),
+    ).toEqual([{ kind: 'duplicate' }]);
+  });
+
+  it("counts only the owner's own facilities against their allowance", () => {
+    expect(
+      findEligibilityProblems(barrack, wizard, {
+        byOwner: [],
+        inBastion: ['library', 'garden', 'smithy'],
+      }),
+    ).toEqual([]);
   });
 
   it('reports every problem at once', () => {
     expect(
-      findEligibilityProblems(archive, { level: 5, className: null }, [
-        'archive',
-        'garden',
-      ]).map(problem => problem.kind),
+      findEligibilityProblems(
+        archive,
+        { level: 5, className: null },
+        { byOwner: ['archive', 'garden'], inBastion: ['archive', 'garden'] },
+      ).map(problem => problem.kind),
     ).toEqual(['level', 'duplicate', 'allowance']);
   });
 });

@@ -271,6 +271,9 @@ const LoadedBastion = ({
               .filter(facility => facility.holder?.id === member.id)
               .map(facility => facility.facilityKey),
           }))}
+          bastionKeys={detail.specialFacilities.map(
+            facility => facility.facilityKey,
+          )}
           isSaving={isSaving}
           onAdd={(key, ignore, holderId) =>
             void addFacility(key, ignore, holderId)

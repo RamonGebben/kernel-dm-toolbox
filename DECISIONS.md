@@ -976,16 +976,25 @@ shared bastion bigger. Defenders are one pool.
 **Why it was built before the bastion turn, not after.** It was first
 planned as the last bastion milestone. That was the wrong order: a model
 with one owner per bastion has nowhere to say which member holds a facility,
-and the bastion turn — where each member gives orders to their own
-facilities and rolls their own Maintain event — is built on exactly that.
+and the bastion turn — where each member takes their own turn and rolls
+their own Maintain event — is built on exactly that.
 Ownership had to be settled first.
 
-**Why per-member facilities and allowances.** The DM's table plays it as the
-2024 rules' combined bastions: one location, but each character still gets
-their two facilities at level 5 (and more as they level) and still orders
-them as if the bastion were their own. So eligibility is
-`findEligibilityProblems` against the _holder_, with the holder's own held
-facilities — two members can each hold a Library.
+**Why allowances are per member but facilities are shared.** Each character
+still gets their two facilities at level 5 (and more as they level), so a
+facility records who took it and counts against _their_ allowance. But the
+bastion keeps **one of each facility type, for everyone**: one Library, one
+Arcane Study, whoever took it. Only Barrack, Garden, Stable and Training
+Area may repeat, as the rules allow. `findEligibilityProblems` therefore
+checks level, prerequisite and allowance against the member taking it, and
+duplicates against the whole bastion. In the bastion turn any member at
+home may give any facility its one order (#35).
+
+This replaced a first version where each member could hold their own copy
+of anything; asked directly, the DM wanted one shared facility of each kind.
+Merging per-character bastions into the party's can still bring two copies
+together — the second is flagged on its card for the DM to remove, never
+dropped silently.
 
 **Why defenders pool.** Under the combined-bastion rules any member may
 absorb another's defender losses, which makes separate rosters bookkeeping
@@ -1064,8 +1073,10 @@ spent first, through the guarded treasury update, so a short treasury
 refuses the turn before anything else changes.
 
 **In a party bastion** every member takes the turn in their own right: their
-own presence, their own facilities' orders, their own Maintain event. The
-defender pool is shared (#34).
+own presence and their own Maintain event. Facilities are shared (#34), so
+the orders step lists every facility once and any member at home can give
+it its one order — the one who took it by default, the DM picks otherwise.
+The defender pool is shared too.
 
 **Left out.** Neglect (a bastion lost after a character's level in turns
 without orders) is not tracked. War Room lieutenants do not reduce attack

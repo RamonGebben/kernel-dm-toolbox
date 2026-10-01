@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   blankEvent,
+  findFacilityOrder,
+  setFacilityOrder,
   stepAfter,
   stepBefore,
   stepBlocker,
@@ -129,5 +131,47 @@ describe('stepBlocker', () => {
 
   it('never holds the other steps', () => {
     expect(stepBlocker(draft({ step: 'orders' }))).toBeNull();
+  });
+});
+
+describe('setFacilityOrder / findFacilityOrder', () => {
+  const book = { facilityId: 'study', optionKey: 'book', costGp: 10, note: '' };
+  const start = draft({ actors: [actor('sigrid'), actor('wren')] });
+
+  it('gives the order from the member the DM picks', () => {
+    const ordered = setFacilityOrder(start, 'b', 'study', {
+      characterId: 'sigrid',
+      order: book,
+    });
+
+    expect(findFacilityOrder(ordered, 'study')).toEqual({
+      characterId: 'sigrid',
+      order: book,
+    });
+  });
+
+  it('moves the order when someone else gives it instead', () => {
+    const bySigrid = setFacilityOrder(start, 'b', 'study', {
+      characterId: 'sigrid',
+      order: book,
+    });
+    const byWren = setFacilityOrder(bySigrid, 'b', 'study', {
+      characterId: 'wren',
+      order: book,
+    });
+
+    expect(byWren.actors.map(a => a.facilityOrders.length)).toEqual([0, 1]);
+    expect(findFacilityOrder(byWren, 'study')?.characterId).toBe('wren');
+  });
+
+  it('clears it, leaving the facility idle', () => {
+    const ordered = setFacilityOrder(start, 'b', 'study', {
+      characterId: 'sigrid',
+      order: book,
+    });
+
+    expect(
+      findFacilityOrder(setFacilityOrder(ordered, 'b', 'study', null), 'study'),
+    ).toBeNull();
   });
 });

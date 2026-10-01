@@ -655,13 +655,12 @@ export const bastionsRouter = createTRPCRouter({
 
       if (!input.ignoreRequirements) {
         const held = await liveSpecialFacilities(ctx.db, bastion.id);
-        const problems = findEligibilityProblems(
-          facility,
-          holder,
-          held
+        const problems = findEligibilityProblems(facility, holder, {
+          byOwner: held
             .filter(row => row.holderCharacterId === holder.id)
             .map(row => row.facilityKey),
-        );
+          inBastion: held.map(row => row.facilityKey),
+        });
 
         if (problems.length) {
           throw new TRPCError({

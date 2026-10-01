@@ -194,8 +194,15 @@ export const toBastionDetail = ({
           )
           .map(({ id, name }) => ({ id, name })),
     defenderCapacity: defenderCapacity(specialFacilities),
-    specialFacilities: specialFacilities.map(facility => {
+    specialFacilities: specialFacilities.map((facility, index) => {
       const definition = definitionFor(facility.facilityKey);
+      // A second copy of a one-of facility — left behind when two members'
+      // bastions merged into the party's. Flagged, never silently dropped.
+      const isDuplicate =
+        !findSpecialFacility(facility.facilityKey)?.allowMultiple &&
+        specialFacilities
+          .slice(0, index)
+          .some(earlier => earlier.facilityKey === facility.facilityKey);
       const isEnlarged =
         facility.space === 'vast' && Boolean(definition.enlarge);
       const isBeingEnlarged = beingEnlarged.has(facility.id);
@@ -239,6 +246,7 @@ export const toBastionDetail = ({
               }
             : null,
         isOutOfAction: (facility.outOfActionTurns ?? 0) > 0,
+        isDuplicate,
       };
     }),
     basicFacilities: basicFacilities.map(facility => {
