@@ -5,7 +5,10 @@ import {
   integer,
   real,
   check,
+  index,
+  uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
+import type { BasicFacilityType, FacilitySpace } from '~/content/bastion/types';
 
 /**
  * Every table in this app spreads `syncMeta`.
@@ -1133,3 +1136,177 @@ export const mapMeasurementShapes = sqliteTable(
 
 export type MapMeasurementShape = typeof mapMeasurementShapes.$inferSelect;
 export type NewMapMeasurementShape = typeof mapMeasurementShapes.$inferInsert;
+
+/* ---------------------------------------------------------------------------
+ * Bastions (2024 DMG, chapter 8)
+ *
+ * Session state like everything else here: `syncMeta`, soft deletes. The
+ * facility catalog itself is static content in `~/content/bastion` — a row
+ * stores only the catalog key and what is particular to this bastion.
+ * ------------------------------------------------------------------------- */
+
+/** SQL list of the three facility sizes, for check constraints. */
+const facilitySpaceList = sql`('cramped', 'roomy', 'vast')`;
+
+/**
+ * One character's bastion. One live bastion per owner — the partial unique
+ * index ignores tombstoned rows, so an abandoned bastion does not block
+ * founding a new one.
+ */
+export const bastions = sqliteTable(
+  'bastions',
+  {
+    ...syncMeta,
+    ownerCharacterId: text('owner_character_id')
+      .notNull()
+      .references(() => playerCharacters.id),
+    name: text('name').notNull(),
+    notes: text('notes'),
+    /** Bastion Defenders on the roster. Barracks house them; see `defenderCapacity`. */
+    defenderCount: integer('defender_count').notNull().default(0),
+    /** Defensive wall built so far, in 5-foot squares. */
+    wallSquares: integer('wall_squares').notNull().default(0),
+    /** A fully enclosed bastion rolls two fewer dice for Attack losses. */
+    isFullyEnclosed: integer('is_fully_enclosed', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+  },
+  table => [
+    uniqueIndex('bastions_one_live_per_owner')
+      .on(table.ownerCharacterId)
+      .where(sql`${table.deletedAt} is null`),
+    check('bastions_defenders_not_negative', sql`${table.defenderCount} >= 0`),
+    check('bastions_walls_not_negative', sql`${table.wallSquares} >= 0`),
+  ],
+);
+
+export type Bastion = typeof bastions.$inferSelect;
+
+/**
+ * A special facility in a bastion, by catalog key (`specialFacilityByKey`).
+ * `space` starts at the catalog's size and becomes `vast` once enlarged.
+ */
+export const bastionSpecialFacilities = sqliteTable(
+  'bastion_special_facilities',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    facilityKey: text('facility_key').notNull(),
+    space: text('space').$type<FacilitySpace>().notNull(),
+    /** The chosen variant — a Garden's type, a Guildhall's guild — if any. */
+    variant: text('variant'),
+  },
+  table => [
+    index('bastion_special_facilities_bastion').on(table.bastionId),
+    check(
+      'bastion_special_facilities_space_is_valid',
+      sql`${table.space} in ${facilitySpaceList}`,
+    ),
+  ],
+);
+
+export type BastionSpecialFacility =
+  typeof bastionSpecialFacilities.$inferSelect;
+
+/** A flavour room: no mechanics, only a type and a size. */
+export const bastionBasicFacilities = sqliteTable(
+  'bastion_basic_facilities',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    type: text('type').$type<BasicFacilityType>().notNull(),
+    space: text('space').$type<FacilitySpace>().notNull(),
+  },
+  table => [
+    index('bastion_basic_facilities_bastion').on(table.bastionId),
+    check(
+      'bastion_basic_facilities_type_is_valid',
+      sql`${table.type} in ('bedroom', 'dining-room', 'parlor', 'courtyard', 'kitchen', 'storage')`,
+    ),
+    check(
+      'bastion_basic_facilities_space_is_valid',
+      sql`${table.space} in ${facilitySpaceList}`,
+    ),
+  ],
+);
+
+export type BastionBasicFacility = typeof bastionBasicFacilities.$inferSelect;
+
+export type BastionProjectKind =
+  'add-basic' | 'enlarge-basic' | 'enlarge-special' | 'walls';
+
+/**
+ * Construction under way: paid for up front from the party treasury, done
+ * after `daysRemaining` days. Bastion turns count it down (7 days each); the
+ * DM can also finish it on the spot. On completion its effect is applied —
+ * a new basic facility, a bigger one, more wall — and `completedAt` is set.
+ * A cancelled project is tombstoned.
+ */
+export const bastionProjects = sqliteTable(
+  'bastion_projects',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    kind: text('kind').$type<BastionProjectKind>().notNull(),
+    /** add-basic: which room. */
+    basicType: text('basic_type').$type<BasicFacilityType>(),
+    /** add-basic: its size; enlarge-*: the size it grows to. */
+    space: text('space').$type<FacilitySpace>(),
+    /** enlarge-*: the facility being enlarged (basic or special row id). */
+    facilityId: text('facility_id'),
+    /** walls: how many 5-foot squares. */
+    wallSquares: integer('wall_squares'),
+    costGp: integer('cost_gp').notNull(),
+    daysRemaining: integer('days_remaining').notNull(),
+    completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
+  },
+  table => [
+    index('bastion_projects_bastion').on(table.bastionId),
+    check(
+      'bastion_projects_kind_is_valid',
+      sql`${table.kind} in ('add-basic', 'enlarge-basic', 'enlarge-special', 'walls')`,
+    ),
+    check(
+      'bastion_projects_days_not_negative',
+      sql`${table.daysRemaining} >= 0`,
+    ),
+  ],
+);
+
+export type BastionProject = typeof bastionProjects.$inferSelect;
+
+/**
+ * What a bastion has produced and nobody has collected yet — a crafted
+ * focus, harvested potions, event treasure. Claiming records who took it.
+ */
+export const bastionStorageItems = sqliteTable(
+  'bastion_storage_items',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    name: text('name').notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    note: text('note'),
+    claimedByCharacterId: text('claimed_by_character_id').references(
+      () => playerCharacters.id,
+    ),
+    claimedAt: integer('claimed_at', { mode: 'timestamp_ms' }),
+  },
+  table => [
+    index('bastion_storage_items_bastion').on(table.bastionId),
+    check(
+      'bastion_storage_items_quantity_positive',
+      sql`${table.quantity} >= 1`,
+    ),
+  ],
+);
+
+export type BastionStorageItem = typeof bastionStorageItems.$inferSelect;
