@@ -1,21 +1,44 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
-import { playerCharacters } from '~/server/db/schema';
+import { bastions, playerCharacters } from '~/server/db/schema';
+import type { Database } from '~/server/db';
 import {
   characterIdInputSchema,
   createCharacterInputSchema,
+  setCharacterActiveInputSchema,
   updateCharacterInputSchema,
 } from '~/server/trpc/schemas/characters';
 import {
   tombstoneSyncMeta,
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
+import { toCharacterColumns } from '~/server/trpc/helpers/toCharacterColumns';
+import { abandonBastion } from '~/server/bastions/rows';
 
 /** Live rows only — a tombstoned character is gone as far as the app cares. */
 const isLive = isNull(playerCharacters.deletedAt);
 
+const loadLiveCharacter = async (db: Database, id: string) => {
+  const existing = await db.query.playerCharacters.findFirst({
+    where: and(eq(playerCharacters.id, id), isLive),
+  });
+
+  if (!existing) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'That character no longer exists.',
+    });
+  }
+
+  return existing;
+};
+
 export const charactersRouter = createTRPCRouter({
+  /**
+   * Every member, benched ones included — the Party page shows both, and the
+   * tracker's pick list filters to `isActive` itself.
+   */
   list: publicProcedure.query(({ ctx }) =>
     ctx.db
       .select()
@@ -29,14 +52,7 @@ export const charactersRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const [created] = await ctx.db
         .insert(playerCharacters)
-        .values({
-          name: input.name,
-          playerName: input.playerName || null,
-          armorClass: input.armorClass,
-          maxHitPoints: input.maxHitPoints,
-          initiativeModifier: input.initiativeModifier,
-          level: input.level,
-        })
+        .values(toCharacterColumns(input))
         .returning();
 
       return created;
@@ -45,26 +61,12 @@ export const charactersRouter = createTRPCRouter({
   update: publicProcedure
     .input(updateCharacterInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db.query.playerCharacters.findFirst({
-        where: and(eq(playerCharacters.id, input.id), isLive),
-      });
-
-      if (!existing) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That character no longer exists.',
-        });
-      }
+      const existing = await loadLiveCharacter(ctx.db, input.id);
 
       const [updated] = await ctx.db
         .update(playerCharacters)
         .set({
-          name: input.name,
-          playerName: input.playerName || null,
-          armorClass: input.armorClass,
-          maxHitPoints: input.maxHitPoints,
-          initiativeModifier: input.initiativeModifier,
-          level: input.level,
+          ...toCharacterColumns(input),
           ...touchSyncMeta({ version: existing.version, now: new Date() }),
         })
         .where(eq(playerCharacters.id, input.id))
@@ -73,24 +75,46 @@ export const charactersRouter = createTRPCRouter({
       return updated;
     }),
 
-  /** Soft delete. There is no hard delete anywhere in this app. */
+  setActive: publicProcedure
+    .input(setCharacterActiveInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await loadLiveCharacter(ctx.db, input.id);
+
+      const [updated] = await ctx.db
+        .update(playerCharacters)
+        .set({
+          isActive: input.isActive,
+          ...touchSyncMeta({ version: existing.version, now: new Date() }),
+        })
+        .where(eq(playerCharacters.id, input.id))
+        .returning();
+
+      return updated;
+    }),
+
+  /**
+   * Soft delete. There is no hard delete anywhere in this app. A character's
+   * own bastion goes with them — abandoned, its construction refunded — so it
+   * cannot linger ownerless. What they held in the party's bastion stays
+   * there; splitting it later hands that to the keeper.
+   */
   remove: publicProcedure
     .input(characterIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db.query.playerCharacters.findFirst({
-        where: and(eq(playerCharacters.id, input.id), isLive),
-      });
+      const existing = await loadLiveCharacter(ctx.db, input.id);
+      const now = new Date();
 
-      if (!existing) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That character no longer exists.',
-        });
-      }
+      const ownBastion = await ctx.db.query.bastions.findFirst({
+        where: and(
+          eq(bastions.ownerCharacterId, existing.id),
+          isNull(bastions.deletedAt),
+        ),
+      });
+      if (ownBastion) await abandonBastion(ctx.db, ownBastion, now);
 
       await ctx.db
         .update(playerCharacters)
-        .set(tombstoneSyncMeta({ version: existing.version, now: new Date() }))
+        .set(tombstoneSyncMeta({ version: existing.version, now }))
         .where(eq(playerCharacters.id, input.id));
 
       return { id: input.id };

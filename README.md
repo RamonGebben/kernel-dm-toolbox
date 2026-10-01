@@ -10,13 +10,19 @@ One container runs one campaign. There is no login and no accounts: it is meant
 to sit on a machine on your home network and be opened from a laptop or tablet
 in the same room. Running a second campaign means running a second container.
 
-Three tools are built. The **initiative tracker**: browse the SRD 5.2 creature
-library, keep a reusable party roster, build an encounter, roll for initiative,
-run it round by round with damage and conditions, and save the fights you will
-run again. **Spells**: a searchable lookup of the SRD 5.2 spell list, filterable
-by level and class. **Maps**: a pan/zoom virtual tabletop with grid calibration
-and fog of war. All three put a read-only view on a second screen for the table
-to watch.
+Five tools are built. The **initiative tracker**: browse the SRD 5.2 creature
+library, pick tonight's party into the fight, build an encounter, roll for
+initiative, run it round by round with damage and conditions, and save the
+fights you will run again. **Party**: the characters themselves — class,
+species, passive scores and notes — plus the party's shared treasury, with
+members who have left benched rather than deleted. **Bastions**: the 2024
+bastion rules, one per character or one shared by the whole party — special
+facilities checked against each member's rules, rooms, walls and defenders,
+construction paid from the treasury, a storage log, and a guided bastion
+turn: who's home, their orders, their Bastion Events, then commit. **Spells**: a searchable
+lookup of the SRD 5.2 spell list, filterable by level and class. **Maps**: a
+pan/zoom virtual tabletop with grid calibration and fog of war. The tracker and
+Maps share a read-only second screen for the table to watch.
 
 ## Running it for real
 
@@ -118,6 +124,12 @@ Wizards of the Coast, as published in the
 [Open5e API](https://github.com/open5e/open5e-api) fixtures, and is licensed
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
+The bastion catalog (`src/content/bastion`) is not SRD content: bastions
+appear only in the 2024 _Dungeon Master's Guide_, which is not openly
+licensed. It is our own short summary of the rules' numbers, written so a
+DM who owns the book can run bastions at the table; it reproduces none of
+the book's text. See `DECISIONS.md` #33.
+
 ### Open Game License content
 
 The creature library also pulls from several supplementary bestiaries — see
@@ -167,8 +179,8 @@ Publishing, Kobold Press, Green Ronin, or Jack Kerouac.
 
 ## Roadmap
 
-Built and in use: the initiative tracker, spell lookup and virtual tabletop, end
-to end. Dice expressions inside statblock and spell text are already clickable
+Built and in use: the initiative tracker, party page, bastions, spell lookup
+and virtual tabletop, end to end. Dice expressions inside statblock and spell text are already clickable
 and roll in place. The Maps tool's ruler and spell-area templates play an
 animated effect clip when a matched spell is placed.
 

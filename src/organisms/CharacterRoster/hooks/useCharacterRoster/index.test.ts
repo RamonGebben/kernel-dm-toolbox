@@ -1,58 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  toCharacterInput,
+  hasCharactersToAdd,
   toCombatantCharacterIds,
+  toPickableCharacters,
 } from '~/organisms/CharacterRoster/hooks/useCharacterRoster';
-
-const values = {
-  name: 'Sigrid',
-  playerName: 'Anna',
-  armorClass: 20,
-  maxHitPoints: 45,
-  initiativeModifier: 2,
-  level: 5,
-};
-
-describe('toCharacterInput', () => {
-  it('passes the numbers through untouched', () => {
-    expect(toCharacterInput(values)).toMatchObject({
-      armorClass: 20,
-      maxHitPoints: 45,
-      initiativeModifier: 2,
-      level: 5,
-    });
-  });
-
-  it('trims a name that was typed with stray whitespace', () => {
-    expect(toCharacterInput({ ...values, name: '  Sigrid  ' }).name).toBe(
-      'Sigrid',
-    );
-  });
-
-  it('turns an empty player name into undefined, not an empty string', () => {
-    // Otherwise "no player" has two representations and every reader of the
-    // field has to know about both.
-    expect(
-      toCharacterInput({ ...values, playerName: '' }).playerName,
-    ).toBeUndefined();
-    expect(
-      toCharacterInput({ ...values, playerName: '   ' }).playerName,
-    ).toBeUndefined();
-  });
-
-  it('keeps a real player name, trimmed', () => {
-    expect(
-      toCharacterInput({ ...values, playerName: ' Anna ' }).playerName,
-    ).toBe('Anna');
-  });
-
-  it('does not mutate the form values', () => {
-    const original = { ...values };
-    toCharacterInput(values);
-
-    expect(values).toEqual(original);
-  });
-});
 
 describe('toCombatantCharacterIds', () => {
   it('reads an unloaded encounter as nobody in the fight', () => {
@@ -88,5 +39,32 @@ describe('toCombatantCharacterIds', () => {
         combatants: [{ playerCharacterId: null }],
       }),
     ).toEqual([]);
+  });
+});
+
+describe('toPickableCharacters', () => {
+  it('offers active members only', () => {
+    const roster = [
+      { id: 'sigrid', isActive: true },
+      { id: 'benched', isActive: false },
+    ];
+
+    expect(toPickableCharacters(roster)).toEqual([roster[0]]);
+  });
+});
+
+describe('hasCharactersToAdd', () => {
+  const party = [{ id: 'sigrid' }, { id: 'hammie' }];
+
+  it('is true while someone is not yet in the fight', () => {
+    expect(hasCharactersToAdd(party, ['sigrid'])).toBe(true);
+  });
+
+  it('is false once everyone is in', () => {
+    expect(hasCharactersToAdd(party, ['sigrid', 'hammie'])).toBe(false);
+  });
+
+  it('is false with nobody to pick from', () => {
+    expect(hasCharactersToAdd([], [])).toBe(false);
   });
 });

@@ -861,3 +861,223 @@ tool tweak. Asked directly rather than assumed either way: ship the
 placeable, animated shape now: with drag-to-move already built, "the DM
 nudges it each round" costs nothing new to support, and revisit true
 token-following if a real token layer gets built for its own sake.
+
+---
+
+## 32. The party gets its own page; the tracker only picks from it
+
+**Decision.** A Party tool on the rail (`/party`) is now the one place
+characters are created, edited, benched and removed, alongside a shared
+party treasury. The tracker's Characters tab became a pick list: a per-row
+Add, an "Add all active" button, and an Edit that is a _link_ to
+`/party?edit=<id>`, never a form of its own. One party per campaign — a
+singleton `parties` row (`CURRENT_PARTY_ID`), the same shape as `encounters`
+(#14) — holds what belongs to the group; members are simply every live
+`player_characters` row.
+
+**Why move management out of the tracker.** The bastion tracker needs the
+same characters (owners, class-based facility prerequisites), and a
+roster that lives inside the combat tool's left panel would either be
+duplicated or reached into from a tool it has nothing to do with. The
+tracker's own need is narrower than "manage the party": on the night, pick
+who is at the table.
+
+**Why the editor is URL-driven.** `?edit=<id>` (or `?edit=new`) is the only
+state that opens the modal — `toPartyEditorTarget` resolves it against the
+roster. That is what lets the tracker's Edit button deep-link into the right
+character, and makes an open editor survive a reload. It is the app's first
+URL-held UI state; everything else stays in component state or a zustand
+store, because nothing else needs to be linkable.
+
+**Benched is not absent.** `isActive` is stored, for someone who left the
+group, retired, or died: they drop out of the tracker's pick list and "Add
+all active", and stay on the record. Being sick for one session is never
+stored — the DM just doesn't add them that night. Recording per-session
+attendance was considered and rejected as bookkeeping with no consumer.
+
+**Gold lives in one place: the party treasury.** Characters have no purse.
+A per-character purse was built and then taken out at the DM's request:
+keeping every player's coins current is bookkeeping the DM does not want to
+do, and the players track their own. The treasury is the one number the DM
+does keep, so bastion costs and income will go through it. It is whole gold
+pieces and never goes negative — `applyGoldChange` refuses an overdraft
+rather than clamping, so the DM finds out instead of the party silently
+paying less.
+
+**Class is a fixed list; subclass and species are free text.** Class is one
+of the twelve SRD classes because bastion prerequisites will key off it.
+Subclass and species are suggestions only (`~/content/characterOptions`): a
+table's subclass is usually a PHB one, and PHB species are not in the SRD.
+A multiclass character records their main class and the rest in notes.
+
+---
+
+## 33. Bastions: the catalog ships in the repo, the rules advise, the treasury pays
+
+**Decision.** The Bastions tool (`/bastions`, 2024 DMG chapter 8) tracks one
+bastion per character: special facilities, basic facilities, defenders,
+walls, construction and a storage log. The 29 core special facilities and
+the building tables are static content in `~/content/bastion`. Facility
+level, prerequisite, duplicate and allowance rules are checked by
+`findEligibilityProblems` and refused by the server — unless the DM ticks an
+explicit "ignore the rules". Construction is paid up front from the party
+treasury and finishes after a number of days.
+
+**Why the catalog is in the repo, in our own words.** Bastions are not in
+SRD 5.2 or 5.2.1, and no open-licensed dataset carries them (Open5e,
+5e-database and Foundry's packs were all checked), so there is nothing to
+import. Asked directly, the DM chose bundling over typing the catalog in by
+hand. Because the repository is public, the catalog is written as a cheat
+sheet: every number the rules run on (costs, dice, durations, capacities,
+level scaling) with one- or two-line summaries in our own words — never the
+book's text. Setting-book facilities (Faerûn, Eberron, Ravenloft) are left
+out.
+
+**Why prerequisites are advice the DM can override.** A prerequisite like
+"can use a Holy Symbol as a Spellcasting Focus" is checked by class
+(`~/content/bastion/prerequisites`), which is only an approximation — a
+feat, a subclass or a magic item can grant it too. The same goes for the
+allowance when a DM hands out an extra facility as a quest reward. So the
+server refuses by default, with the reasons, and accepts an explicit
+`ignoreRequirements`: the rules are the default, never a wall.
+
+**Why construction is a project row.** Adding a basic facility, enlarging
+one, enlarging a special facility and building walls all cost gold now and
+pay off later. One `bastion_projects` table holds all four, with
+`daysRemaining`, so the coming bastion-turn wizard counts down one list and
+reports what finished. The DM can finish a project on the spot or cancel it
+for a full refund. The spend is one guarded `UPDATE … WHERE treasury_gold >=
+cost`, not a `transaction()`: libsql hands a transaction its connection,
+which on the in-memory test databases leaves later queries on a fresh,
+empty one.
+
+**Calls the book leaves open.** Enlarging a special facility has a cost
+(2,000 GP) but no build time; we borrow the basic Roomy → Vast step's 80
+days. Defenders are one count per bastion rather than per Barrack — the
+attack maths only ever needs the total — with the barracks' capacity shown
+as a guide, not a cap, since a guest mercenary needs no bunk.
+
+**Left for later.** Orders, Maintain events and attacks belong to the guided
+bastion turn. One bastion shared by the whole party is #34. Named hirelings
+are not tracked — only the count each facility comes with.
+
+---
+
+## 34. One bastion for the whole party, as a campaign setting
+
+**Decision.** `parties.bastion_mode` is `'per-character'` (the 2024 default)
+or `'party'`. In party mode there is one live bastion with no owner
+(`bastions.owner_character_id` is null): the party holds it. Each special
+facility records the member who holds it (`holder_character_id`), every
+member's allowance is checked separately, and each member brings their own
+two free rooms (`contributed_by_character_id`) — which is what makes the
+shared bastion bigger. Defenders are one pool.
+
+**Why it was built before the bastion turn, not after.** It was first
+planned as the last bastion milestone. That was the wrong order: a model
+with one owner per bastion has nowhere to say which member holds a facility,
+and the bastion turn — where each member takes their own turn and rolls
+their own Maintain event — is built on exactly that.
+Ownership had to be settled first.
+
+**Why allowances are per member but facilities are shared.** Each character
+still gets their two facilities at level 5 (and more as they level), so a
+facility records who took it and counts against _their_ allowance. But the
+bastion keeps **one of each facility type, for everyone**: one Library, one
+Arcane Study, whoever took it. Only Barrack, Garden, Stable and Training
+Area may repeat, as the rules allow. `findEligibilityProblems` therefore
+checks level, prerequisite and allowance against the member taking it, and
+duplicates against the whole bastion. In the bastion turn any member at
+home may give any facility its one order (#35).
+
+This replaced a first version where each member could hold their own copy
+of anything; asked directly, the DM wanted one shared facility of each kind.
+Merging per-character bastions into the party's can still bring two copies
+together — the second is flagged on its card for the DM to remove, never
+dropped silently.
+
+**Why defenders pool.** Under the combined-bastion rules any member may
+absorb another's defender losses, which makes separate rosters bookkeeping
+with no effect. Asked directly, the DM chose one pool.
+
+**Why switching merges and splits rather than refusing.** A campaign may
+start one way and change its mind. Switching to party mode merges every
+bastion into one (`planBastionMerge`: defenders and walls add up, notes are
+kept); switching back splits it by holder (`planBastionSplit`): each
+facility to its holder, each room to whoever brought it, an enlargement to
+the owner of what it enlarges, and everything else — defenders, walls,
+storage, unclaimed rooms — to a keeper the DM picks, defaulting to whoever
+holds the most. Nothing is lost either way. Both planners are pure; the
+resolver only re-points rows.
+
+**Late joiners.** A member who reaches level 5 after the party bastion was
+founded is listed in `pendingFreeRooms` and the page offers to add their
+two rooms, once.
+
+**A migration fixed by hand.** `0021` rebuilds `parties` to add the mode's
+check constraint, and drizzle-kit generated a copy step that read
+`bastion_mode` from the old table, which does not have it. The generated
+SQL was corrected, and a backfill was added so existing bastions' owners
+hold their facilities and brought their rooms. Tested against a database
+migrated to `0020` with data in it.
+
+---
+
+## 35. The bastion turn is a guided wizard over a saved draft
+
+**Decision.** A bastion turn is seven days for every bastion in the campaign
+at once, run as a five-step wizard: _Since last turn_ (finished work and
+what it produced), _Who's home_, _Orders_, _Bastion Events_, _Review_. The
+wizard's state is a `bastion_turns` row with `status = 'draft'` and the
+choices as JSON (`turnDraftSchema`), saved at every step; committing applies
+it and keeps a summary as history. One draft at a time (a partial unique
+index).
+
+**Why a wizard.** Asked for directly: at the table the DM asks the players,
+types in what they say and roll, and moves on. Every step says whom to ask
+for what ("Ask Wren's player to roll for the Bastion Event"); each Bastion
+Event then asks for exactly its own dice and choices.
+
+**Why a saved draft, not client state.** A turn takes a while at the table.
+A refresh, a closed laptop or a second device must not lose it, and nothing
+should change until the DM commits. The draft is the whole wizard; discarding
+it changes nothing.
+
+**Why dice are entered, "roll for me" is the fallback.** The players roll
+real dice. `DieInput` is a box for what they rolled with a "Roll for me"
+button for anyone not at the table — never the default.
+
+**Why the draft stores outcomes, not event logic.** Each event's dice and
+choices sit in `inputs`; one pure function, `resolveEventOutcome`, turns them
+into plain outcomes — gold in and out, defenders gained and lost, a facility
+put out of action, an item stored. `planTurnCommit` (pure, server-side) then
+applies outcomes without knowing one event from another, and the review
+step runs the very same planner through `bastionTurns.preview`, so what the
+DM approves is what happens.
+
+**Orders are generic on purpose.** A facility order is an option from the
+catalog plus a cost (prefilled, editable) and a free-text detail. It runs
+for the option's days — 7 when the book times it some other way — and when
+it finishes, the next turn's first step asks what it produced: an item for
+storage, gold earned, defenders recruited. Encoding every facility's own
+dice (a Gaming Hall's winnings, a Theater's checks) would multiply the
+catalog for little gain; the DM reads the option's summary and types the
+result.
+
+**What a commit does, in order.** Seven days pass: construction and running
+jobs count down, finished construction is applied (`completeProject`, shared
+with the bastion page's "Finish now"), out-of-action facilities recover a
+turn. New orders start and are paid from the treasury. Then the events land.
+An Attack uses up a stocked Armory and a friendly-monster guest. The gold is
+spent first, through the guarded treasury update, so a short treasury
+refuses the turn before anything else changes.
+
+**In a party bastion** every member takes the turn in their own right: their
+own presence and their own Maintain event. Facilities are shared (#34), so
+the orders step lists every facility once and any member at home can give
+it its one order — the one who took it by default, the DM picks otherwise.
+The defender pool is shared too.
+
+**Left out.** Neglect (a bastion lost after a character's level in turns
+without orders) is not tracked. War Room lieutenants do not reduce attack
+dice automatically — the dice count is shown, and the DM enters the result.

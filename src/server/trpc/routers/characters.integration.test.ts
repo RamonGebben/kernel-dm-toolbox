@@ -72,6 +72,42 @@ describe('characters.create', () => {
     expect(created.initiativeModifier).toBe(0);
     expect(created.level).toBe(1);
     expect(created.playerName).toBeNull();
+    expect(created.className).toBeNull();
+    expect(created.isActive).toBe(true);
+    expect(created.passivePerception).toBeNull();
+  });
+
+  it('stores the Party page fields', async () => {
+    const created = await caller.characters.create({
+      ...validCharacter,
+      className: 'Paladin',
+      subclass: 'Oath of Glory',
+      species: 'Goliath',
+      passivePerception: 13,
+      passiveInsight: 11,
+      passiveInvestigation: 10,
+      notes: 'Owes the Harpers a favour.',
+    });
+
+    expect(created).toMatchObject({
+      className: 'Paladin',
+      subclass: 'Oath of Glory',
+      species: 'Goliath',
+      passivePerception: 13,
+      passiveInsight: 11,
+      passiveInvestigation: 10,
+      notes: 'Owes the Harpers a favour.',
+    });
+  });
+
+  it('rejects a class that is not one of the twelve', async () => {
+    await expect(
+      caller.characters.create({
+        ...validCharacter,
+        // @ts-expect-error -- the point is that the schema refuses it
+        className: 'Artificer',
+      }),
+    ).rejects.toThrow();
   });
 
   it('rejects a blank name', async () => {
@@ -172,5 +208,43 @@ describe('characters.remove', () => {
     await expect(caller.characters.remove({ id: created.id })).rejects.toThrow(
       /no longer exists/,
     );
+  });
+});
+
+describe('characters.setActive', () => {
+  it('benches a member without removing them from the roster', async () => {
+    const created = await caller.characters.create(validCharacter);
+
+    const benched = await caller.characters.setActive({
+      id: created.id,
+      isActive: false,
+    });
+
+    expect(benched?.isActive).toBe(false);
+    expect(benched?.version).toBe(2);
+    expect(await caller.characters.list()).toHaveLength(1);
+  });
+
+  it('brings a benched member back', async () => {
+    const created = await caller.characters.create({
+      ...validCharacter,
+      isActive: false,
+    });
+
+    const recalled = await caller.characters.setActive({
+      id: created.id,
+      isActive: true,
+    });
+
+    expect(recalled?.isActive).toBe(true);
+  });
+
+  it('refuses a character that was removed', async () => {
+    const created = await caller.characters.create(validCharacter);
+    await caller.characters.remove({ id: created.id });
+
+    await expect(
+      caller.characters.setActive({ id: created.id, isActive: false }),
+    ).rejects.toThrow(/no longer exists/);
   });
 });

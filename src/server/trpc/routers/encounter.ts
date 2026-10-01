@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
@@ -25,6 +25,10 @@ import {
   nextSortOrder,
 } from '~/server/encounter/addCreatures';
 import { publishEncounterChanged } from '~/server/encounter/events';
+import {
+  pickCharactersToAdd,
+  toCharacterCombatant,
+} from '~/server/encounter/characterCombatants';
 import {
   tombstoneSyncMeta,
   touchSyncMeta,
@@ -120,22 +124,70 @@ export const encounterRouter = createTRPCRouter({
 
       const [created] = await ctx.db
         .insert(combatants)
-        .values({
-          encounterId: CURRENT_ENCOUNTER_ID,
-          playerCharacterId: character.id,
-          displayName: character.name,
-          initiative: input.initiative,
-          currentHitPoints: character.maxHitPoints,
-          maxHitPoints: character.maxHitPoints,
-          armorClass: character.armorClass,
-          sortOrder: await nextSortOrder(ctx.db),
-        })
+        .values(
+          toCharacterCombatant(character, {
+            encounterId: CURRENT_ENCOUNTER_ID,
+            initiative: input.initiative,
+            sortOrder: await nextSortOrder(ctx.db),
+          }),
+        )
         .returning();
 
       publishEncounterChanged();
 
       return created;
     }),
+
+  /**
+   * Brings in every active party member who is not already in the fight —
+   * the tracker's "Add all active". Initiative starts at each character's
+   * modifier, a placeholder the DM overwrites at "Roll for initiative", the
+   * same as adding them one by one.
+   */
+  addActiveCharacters: publicProcedure.mutation(async ({ ctx }) => {
+    await ensureEncounter(ctx.db);
+
+    const roster = await ctx.db
+      .select()
+      .from(playerCharacters)
+      .where(isNull(playerCharacters.deletedAt))
+      .orderBy(asc(playerCharacters.name));
+
+    const present = await ctx.db
+      .select({ playerCharacterId: combatants.playerCharacterId })
+      .from(combatants)
+      .where(inCurrentEncounter);
+
+    const toAdd = pickCharactersToAdd(
+      roster,
+      new Set(
+        present
+          .map(row => row.playerCharacterId)
+          .filter((id): id is string => id !== null),
+      ),
+    );
+
+    if (!toAdd.length) return [];
+
+    const firstSortOrder = await nextSortOrder(ctx.db);
+
+    const created = await ctx.db
+      .insert(combatants)
+      .values(
+        toAdd.map((character, index) =>
+          toCharacterCombatant(character, {
+            encounterId: CURRENT_ENCOUNTER_ID,
+            initiative: character.initiativeModifier,
+            sortOrder: firstSortOrder + index,
+          }),
+        ),
+      )
+      .returning();
+
+    publishEncounterChanged();
+
+    return created;
+  }),
 
   update: publicProcedure
     .input(updateCombatantInputSchema)

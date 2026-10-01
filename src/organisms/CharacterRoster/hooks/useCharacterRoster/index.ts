@@ -1,28 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import type { RosterCharacter } from '~/organisms/CharacterRoster/components/CharacterRosterView';
-import type { CharacterFormValues } from '~/molecules/CharacterForm';
-
-export type EditingTarget = RosterCharacter | 'new' | null;
-
-/**
- * Maps a form's values onto the mutation input.
- *
- * Pure, and worth testing on its own: an empty player name has to become
- * `undefined` rather than `''`, or the optional field is stored as a blank
- * string and every consumer has to handle two kinds of "no player".
- */
-export const toCharacterInput = (values: CharacterFormValues) => ({
-  name: values.name.trim(),
-  playerName: values.playerName.trim() || undefined,
-  armorClass: values.armorClass,
-  maxHitPoints: values.maxHitPoints,
-  initiativeModifier: values.initiativeModifier,
-  level: values.level,
-});
 
 /**
  * Which characters are already in the fight.
@@ -37,72 +17,55 @@ export const toCombatantCharacterIds = (
     .map(combatant => combatant.playerCharacterId)
     .filter((id): id is string => id !== null);
 
+/** The pick list: active members only — the bench is managed on /party. */
+export const toPickableCharacters = <TCharacter extends { isActive: boolean }>(
+  characters: readonly TCharacter[],
+): TCharacter[] => characters.filter(character => character.isActive);
+
+/**
+ * Whether "Add all active" has anyone left to add — so the button can say
+ * so instead of firing a request that adds nobody.
+ */
+export const hasCharactersToAdd = (
+  characters: readonly { id: string }[],
+  combatantCharacterIds: readonly string[],
+): boolean =>
+  characters.some(character => !combatantCharacterIds.includes(character.id));
+
 export const useCharacterRoster = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<EditingTarget>(null);
 
   const list = useQuery(trpc.characters.list.queryOptions());
   const encounter = useQuery(trpc.encounter.get.queryOptions());
 
-  const invalidate = () =>
+  const invalidateEncounter = () =>
     queryClient.invalidateQueries({
-      queryKey: trpc.characters.list.queryKey(),
+      queryKey: trpc.encounter.get.queryKey(),
     });
-
-  const create = useMutation(
-    trpc.characters.create.mutationOptions({
-      onSuccess: async () => {
-        setEditing(null);
-        await invalidate();
-      },
-    }),
-  );
-
-  const update = useMutation(
-    trpc.characters.update.mutationOptions({
-      onSuccess: async () => {
-        setEditing(null);
-        await invalidate();
-      },
-    }),
-  );
-
-  const remove = useMutation(
-    trpc.characters.remove.mutationOptions({ onSuccess: invalidate }),
-  );
 
   const addToEncounter = useMutation(
     trpc.encounter.addCharacter.mutationOptions({
-      onSuccess: () =>
-        queryClient.invalidateQueries({
-          queryKey: trpc.encounter.get.queryKey(),
-        }),
+      onSuccess: invalidateEncounter,
     }),
   );
 
-  const submit = (values: CharacterFormValues) => {
-    const input = toCharacterInput(values);
+  const addAllActive = useMutation(
+    trpc.encounter.addActiveCharacters.mutationOptions({
+      onSuccess: invalidateEncounter,
+    }),
+  );
 
-    if (editing === 'new' || editing === null) {
-      create.mutate(input);
-      return;
-    }
-
-    update.mutate({ ...input, id: editing.id });
-  };
+  const characters = toPickableCharacters(list.data ?? []);
+  const combatantCharacterIds = toCombatantCharacterIds(encounter.data);
 
   return {
     isPending: list.isPending,
-    combatantCharacterIds: toCombatantCharacterIds(encounter.data),
-    isSaving: create.isPending || update.isPending,
-    characters: list.data ?? [],
-    editing,
-    startCreate: () => setEditing('new'),
-    startEdit: (character: RosterCharacter) => setEditing(character),
-    cancelEdit: () => setEditing(null),
-    submit,
-    remove: (id: string) => remove.mutate({ id }),
+    characters,
+    combatantCharacterIds,
+    canAddAll: hasCharactersToAdd(characters, combatantCharacterIds),
+    isAddingAll: addAllActive.isPending,
+    addAllActive: () => addAllActive.mutate(),
     addToEncounter: (character: RosterCharacter) =>
       addToEncounter.mutate({
         playerCharacterId: character.id,

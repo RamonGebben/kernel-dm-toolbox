@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createCharacter, uniqueName } from './support/party';
 import { clearEncounter, clearSavedEncounters } from './support/reset';
 import { addMonsters } from './support/library';
 
@@ -14,13 +15,6 @@ const library = (page: import('@playwright/test').Page) =>
 
 const order = (page: import('@playwright/test').Page) =>
   page.getByRole('region', { name: 'Combatants by Initiative' });
-
-/**
- * Characters outlive a run — the e2e database is reused — so a fixed name would
- * collide with the one the previous run created.
- */
-const uniqueName = (prefix: string) =>
-  `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`;
 
 /** Presets outlive an encounter, so both have to be cleared to isolate a spec. */
 const openEncountersTab = async (page: import('@playwright/test').Page) => {
@@ -86,10 +80,10 @@ test.describe('save an encounter', () => {
     baseURL,
   }) => {
     const name = uniqueName('Sigrid');
+    await createCharacter(request, baseURL!, { name });
+    // Created after the page loaded, so the roster has to be refetched.
+    await page.reload();
     await library(page).getByRole('tab', { name: 'Characters' }).click();
-    await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name', { exact: true }).fill(name);
-    await page.getByRole('button', { name: 'Add character' }).click();
     await page
       .getByRole('button', { name: `Add ${name} to the encounter` })
       .click();

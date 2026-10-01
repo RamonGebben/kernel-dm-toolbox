@@ -2,6 +2,9 @@ import { createTRPCRouter } from '~/server/trpc/init';
 import { healthRouter } from '~/server/trpc/routers/health';
 import { libraryRouter } from '~/server/trpc/routers/library';
 import { charactersRouter } from '~/server/trpc/routers/characters';
+import { partyRouter } from '~/server/trpc/routers/party';
+import { bastionsRouter } from '~/server/trpc/routers/bastions';
+import { bastionTurnsRouter } from '~/server/trpc/routers/bastionTurns';
 import { customCreaturesRouter } from '~/server/trpc/routers/customCreatures';
 import { encounterRouter } from '~/server/trpc/routers/encounter';
 import { presetsRouter } from '~/server/trpc/routers/presets';
@@ -15,6 +18,9 @@ export const appRouter = createTRPCRouter({
   health: healthRouter,
   library: libraryRouter,
   characters: charactersRouter,
+  party: partyRouter,
+  bastions: bastionsRouter,
+  bastionTurns: bastionTurnsRouter,
   customCreatures: customCreaturesRouter,
   encounter: encounterRouter,
   presets: presetsRouter,

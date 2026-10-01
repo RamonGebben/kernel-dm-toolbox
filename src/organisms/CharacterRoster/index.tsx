@@ -10,16 +10,12 @@ export const CharacterRoster = () => {
   return (
     <CharacterRosterView
       isPending={roster.isPending}
-      isSaving={roster.isSaving}
       characters={roster.characters}
-      editing={roster.editing}
       combatantCharacterIds={roster.combatantCharacterIds}
+      canAddAll={roster.canAddAll}
+      isAddingAll={roster.isAddingAll}
       onAddToEncounter={roster.addToEncounter}
-      onStartCreate={roster.startCreate}
-      onStartEdit={roster.startEdit}
-      onCancelEdit={roster.cancelEdit}
-      onSubmit={roster.submit}
-      onRemove={roster.remove}
+      onAddAllActive={roster.addAllActive}
     />
   );
 };

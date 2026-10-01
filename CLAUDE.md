@@ -366,6 +366,8 @@ disabled control — which is also what keeps `typedRoutes` honest, since there
 is no route to get wrong. Icons are inline SVG in `src/atoms/Icon/`; adding one
 is a key in that map, not a dependency.
 
+The rail holds Initiative, Party, Bastions, Maps and Spells.
+
 There is **no campaign header**. The campaign name is in the browser tab title
 only (DECISIONS #25).
 
@@ -447,7 +449,10 @@ still spreads `syncMeta`.
 **Session state** — ours, all with `syncMeta`:
 
 ```
-player_characters   name, player_name, ac, max_hp, initiative_modifier, level
+player_characters   name, player_name, ac, max_hp, initiative_modifier, level,
+                    class_name, subclass, species, is_active, passives,
+                    notes — managed on /party, picked in the tracker
+parties             singleton (`CURRENT_PARTY_ID`): treasury_gold
 encounter           singleton: round_number, active_combatant_id
 combatants          creature_id XOR player_character_id, display_name,
                     initiative, current_hp, max_hp, temp_hp,
@@ -550,10 +555,139 @@ which derives the list from the classes actually present on an imported spell
 (`buildSpellClassOptions`) rather than a hardcoded roster, since which classes
 have spells depends on what got imported.
 
+Then the roster moved out of the tracker onto its own Party page (see The
+Party page below), and the Bastions tool landed on top of it (see The
+Bastions tool below).
+
 Not started, in rough order of usefulness: drag-to-reorder the initiative
 list, in-app dice rolling for attacks, and a rules glossary from Open5e's
 `Rule` / `*Description` files. `README.md` holds the roadmap and
 `DECISIONS.md` #24 the survey of what else upstream is worth importing.
+
+## The Party page
+
+`/party`: every character's card (active members, then the bench) beside the
+shared treasury. It is the **only** place a character is created, edited,
+benched or removed (DECISIONS #32).
+
+- **The tracker's Characters tab is pick-only.** Per-row Add, "Add all
+  active" (`encounter.addActiveCharacters`), and an Edit that is a `next/link`
+  to `buildPartyEditorHref(id)` — never a form. Do not grow a second editor
+  back into the tracker.
+- **The editor modal is driven by `?edit=`, not by state.** `?edit=<id>`
+  opens that character, `?edit=new` a blank form; `toPartyEditorTarget`
+  (`~/utils/partyEditorHref`) resolves it. Opening and closing are
+  `router.replace`, so the URL is the single source of truth. Build the href
+  with `buildPartyEditorHref`, never by hand. The roster organism reads
+  `useSearchParams`, so `src/app/party/page.tsx` wraps it in `Suspense`.
+- **Benched (`is_active = false`) is stored; absent-tonight is not.** A
+  benched member is hidden from the tracker's pick list and from "Add all
+  active". Someone off sick is just not added.
+- **The treasury is the only gold the app tracks.** Characters have no
+  purse — do not add one back (DECISIONS #32). It is whole gold pieces and
+  never negative: go through `applyGoldChange` (`~/utils/applyGoldChange`),
+  which refuses an overdraft rather than clamping. On the server every
+  balance change is `changeTreasury` (`~/server/party/treasury`) — one
+  relative, guarded `UPDATE` — never read the balance and write back an
+  absolute value, or a concurrent spend or refund is lost.
+- **Class is one of twelve; subclass and species are free text** with SRD
+  suggestions from `~/content/characterOptions`.
+- **Removing a character asks twice** (in the editor, not on the card) and
+  leaves a combatant already in a fight where it is — a combatant copies HP
+  and AC when it joins (DECISIONS #15). Their own bastion is abandoned with
+  them (`abandonBastion`); what they held in a party bastion stays, and a
+  later split hands it to the keeper, never to the removed character.
+
+## The Bastions tool
+
+`/bastions`: the campaign's bastions (2024 DMG chapter 8) in a list beside
+the selected one — special facilities, basic facilities, defenses,
+construction and storage. `parties.bastion_mode` decides the shape: one
+bastion per character (a partial unique index ignores tombstones), or one
+bastion the whole party shares. DECISIONS #33 and #34 have the reasoning.
+
+```
+bastions                    owner_character_id (null = the party's),
+                            name, notes, defender_count, wall_squares,
+                            is_fully_enclosed
+bastion_special_facilities  facility_key (catalog), holder_character_id,
+                            space, variant
+bastion_basic_facilities    type, space, contributed_by_character_id
+bastion_projects            construction paid for and under way:
+                            add-basic | enlarge-basic | enlarge-special | walls,
+                            cost_gp, days_remaining, completed_at
+bastion_storage_items       produced, not yet collected; claimed_by_character_id
+```
+
+- **The catalog is static content, not a table.** `~/content/bastion`
+  holds the 29 special facilities, the building tables and the prerequisite
+  map; a row stores only `facility_key` and what is particular to it.
+  `toBastionDetail` joins the two for the page. Bastions are not in the
+  SRD, so the catalog is **our own words** — numbers kept, the book's text
+  never copied (the repo is public). Keep it that way when adding to it.
+- **The rules refuse by default; the DM can override explicitly.**
+  `findEligibilityProblems` (`~/utils/bastionRules`) reports every level,
+  prerequisite, duplicate and allowance problem; `addSpecialFacility`
+  refuses with those reasons unless `ignoreRequirements` is set. Never turn
+  a rule into a silent block or silently skip it.
+- **Prerequisites are checked by class, as an approximation** — see
+  `~/content/bastion/prerequisites`. That is why they are overridable.
+- **All construction goes through `bastion_projects`.** `startProject` plans
+  it with `planBastionProject` (pure), spends from the treasury with
+  `spendFromTreasury` — a single guarded `UPDATE`, never a
+  `transaction()` (libsql hands a transaction its connection, which breaks
+  the in-memory test databases) — and writes the row. Finishing applies
+  `toProjectCompletion`; cancelling, or removing the facility being
+  enlarged, refunds the full cost.
+- **Giving a bastion up goes through `abandonBastion`**
+  (`~/server/bastions/rows`), which refunds its open projects — a turn only
+  advances projects in live bastions, so a tombstoned one's gold is
+  otherwise gone.
+- **A facility has at most one open project.** Enlarging twice at once is a
+  `CONFLICT`.
+- **Defenders are one count per bastion**; barrack capacity
+  (`defenderCapacity`) is shown as a guide, not enforced.
+- **One of each facility per bastion, shared by everyone.** Only Barrack,
+  Garden, Stable and Training Area repeat. In a party bastion a facility
+  records who took it (`holder_character_id`) and counts against _their_
+  allowance, but every member uses it. `findEligibilityProblems` takes
+  `{ byOwner, inBastion }`: allowance against the first, duplicates against
+  the second — never check duplicates per holder. `addSpecialFacility`
+  needs `holderCharacterId` in party mode; in a per-character bastion the
+  owner always holds it. A merge can leave two copies; `isDuplicate` flags
+  the second for the DM to remove. Defenders are one pool either way.
+- **In the bastion turn, any member at home may order any facility in
+  their bastion** — one order per facility per turn, whoever gives it
+  (`setFacilityOrder`).
+- **Each member brings two free rooms**, recorded by
+  `contributed_by_character_id`. `pendingFreeRooms` lists members who
+  reached level 5 later; `addFreeRooms` takes them once.
+- **Switching mode merges or splits, never drops** — turn state included: a
+  stocked Armory follows the Armory, a guest monster stays with the keeper.
+  `bastions.setMode` uses the pure `planBastionMerge` / `planBastionSplit`
+  (`~/server/trpc/helpers/planBastionModeChange`). Founding is refused in
+  the wrong mode, and party mode allows one live bastion.
+- **The bastion turn is a wizard over a saved draft** (DECISIONS #35).
+  `bastion_turns` holds one `draft` row at a time — the wizard's JSON,
+  validated by `turnDraftSchema`, saved on every step — and committed rows as
+  history. Nothing changes until `bastionTurns.commit`. A draft started
+  before a bastion was abandoned, merged or founded is refused at review and
+  commit (`findStaleDraftProblems`) — discard it and start again.
+- **Turn logic is pure and lives in two places.** `~/utils/bastionTurn`
+  (dice: `eventForRoll`, `attackDice`, `resolveEventOutcome`, …) is shared
+  by client and server. `~/server/trpc/helpers/bastionTurnPlan` builds the
+  wizard's context (`toTurnContext`), a new draft (`startTurnDraft`) and
+  what a commit changes (`planTurnCommit`). The review step calls
+  `bastionTurns.preview`, which runs the same planner — never duplicate its
+  rules in the client.
+- **An event stores its dice in `inputs` and its result as plain outcome
+  fields.** Add an event's arithmetic to `resolveEventOutcome`; never teach
+  `planTurnCommit` about a particular event.
+- **A turn is seven days** (`TURN_DAYS`). A job finishing within them is
+  offered in the next turn's first step for what it produced; one running
+  longer is busy; an out-of-action facility takes no orders that turn.
+- **Spend first.** The commit spends the treasury before any other write, so
+  a short treasury refuses the whole turn. A d100 of 0 means "not rolled".
 
 ## The Maps tool
 

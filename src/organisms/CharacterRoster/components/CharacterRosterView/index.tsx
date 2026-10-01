@@ -1,19 +1,19 @@
 'use client';
 
+import Link from 'next/link';
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { CharacterRow } from '~/molecules/CharacterRow';
-import {
-  CharacterForm,
-  type CharacterFormValues,
-} from '~/molecules/CharacterForm';
 
 export type RosterCharacter = {
   id: string;
   name: string;
   playerName: string | null;
   level: number;
+  className: string | null;
+  subclass: string | null;
+  species: string | null;
   armorClass: number;
   maxHitPoints: number;
   initiativeModifier: number;
@@ -21,58 +21,42 @@ export type RosterCharacter = {
 
 export type CharacterRosterViewProps = {
   isPending: boolean;
-  isSaving: boolean;
+  /** Active party members — the bench is not offered here. */
   characters: readonly RosterCharacter[];
-  /** The character being edited, or 'new', or null when the form is closed. */
-  editing: RosterCharacter | 'new' | null;
   /** Ids already in the encounter, so they cannot be added a second time. */
   combatantCharacterIds: readonly string[];
+  /** False once every active member is already in the fight. */
+  canAddAll: boolean;
+  isAddingAll: boolean;
   onAddToEncounter: (character: RosterCharacter) => void;
-  onStartCreate: () => void;
-  onStartEdit: (character: RosterCharacter) => void;
-  onCancelEdit: () => void;
-  onSubmit: (values: CharacterFormValues) => void;
-  onRemove: (id: string) => void;
+  onAddAllActive: () => void;
 };
 
-const toFormValues = (character: RosterCharacter): CharacterFormValues => ({
-  name: character.name,
-  playerName: character.playerName ?? '',
-  armorClass: character.armorClass,
-  maxHitPoints: character.maxHitPoints,
-  initiativeModifier: character.initiativeModifier,
-  level: character.level,
-});
-
-/** Presentational: props in, JSX out, every state reachable from a story. */
+/**
+ * Picking who is at the table tonight. Presentational: props in, JSX out,
+ * every state reachable from a story. Creating and editing characters lives
+ * on the Party page (DECISIONS #32) — this only links there.
+ */
 export const CharacterRosterView = ({
   isPending,
-  isSaving,
   characters,
-  editing,
   combatantCharacterIds,
+  canAddAll,
+  isAddingAll,
   onAddToEncounter,
-  onStartCreate,
-  onStartEdit,
-  onCancelEdit,
-  onSubmit,
-  onRemove,
+  onAddAllActive,
 }: CharacterRosterViewProps) => (
   <Wrapper>
-    {editing ? (
-      <CharacterForm
-        key={editing === 'new' ? 'new' : editing.id}
-        initialValues={editing === 'new' ? undefined : toFormValues(editing)}
-        isSaving={isSaving}
-        submitLabel={editing === 'new' ? 'Add character' : 'Save changes'}
-        onSubmit={onSubmit}
-        onCancel={onCancelEdit}
-      />
-    ) : (
-      <Button size="sm" isFullWidth onClick={onStartCreate}>
-        Add character
+    <Toolbar>
+      <Button
+        size="sm"
+        disabled={isPending || !canAddAll || isAddingAll}
+        onClick={onAddAllActive}
+      >
+        {isAddingAll ? 'Adding…' : 'Add all active'}
       </Button>
-    )}
+      <ManageLink href="/party">Manage the party →</ManageLink>
+    </Toolbar>
 
     <Results>
       <RosterBody
@@ -80,8 +64,6 @@ export const CharacterRosterView = ({
         characters={characters}
         combatantCharacterIds={combatantCharacterIds}
         onAddToEncounter={onAddToEncounter}
-        onStartEdit={onStartEdit}
-        onRemove={onRemove}
       />
     </Results>
   </Wrapper>
@@ -89,12 +71,7 @@ export const CharacterRosterView = ({
 
 type RosterBodyProps = Pick<
   CharacterRosterViewProps,
-  | 'isPending'
-  | 'characters'
-  | 'combatantCharacterIds'
-  | 'onAddToEncounter'
-  | 'onStartEdit'
-  | 'onRemove'
+  'isPending' | 'characters' | 'combatantCharacterIds' | 'onAddToEncounter'
 >;
 
 /** A named subcomponent rather than a local const, so the guards stay guards. */
@@ -103,8 +80,6 @@ const RosterBody = ({
   characters,
   combatantCharacterIds,
   onAddToEncounter,
-  onStartEdit,
-  onRemove,
 }: RosterBodyProps) => {
   if (isPending)
     return <Skeleton role="status" aria-label="Loading characters" />;
@@ -112,8 +87,9 @@ const RosterBody = ({
   if (!characters.length) {
     return (
       <EmptyState
-        title="No characters yet"
-        description="Add the party once and they are reusable in every fight."
+        title="No active party members"
+        description="Characters are created on the Party page; every active one shows up here to pick into a fight."
+        detail={<ManageLink href="/party">Go to the Party page</ManageLink>}
       />
     );
   }
@@ -123,16 +99,9 @@ const RosterBody = ({
       {characters.map(character => (
         <li key={character.id}>
           <CharacterRow
-            name={character.name}
-            playerName={character.playerName}
-            level={character.level}
-            armorClass={character.armorClass}
-            maxHitPoints={character.maxHitPoints}
-            initiativeModifier={character.initiativeModifier}
+            {...character}
             isInEncounter={combatantCharacterIds.includes(character.id)}
             onAddToEncounter={() => onAddToEncounter(character)}
-            onEdit={() => onStartEdit(character)}
-            onRemove={() => onRemove(character.id)}
           />
         </li>
       ))}
@@ -146,6 +115,19 @@ const Wrapper = styled.div`
   gap: ${props => props.theme.space.md};
   height: 100%;
   min-height: 0;
+`;
+
+const Toolbar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${props => props.theme.space.sm};
+`;
+
+const ManageLink = styled(Link)`
+  font-size: ${props => props.theme.fontSize.sm};
+  font-weight: 600;
+  color: ${props => props.theme.color.accent};
 `;
 
 const Results = styled.div`
