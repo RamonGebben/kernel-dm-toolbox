@@ -5,6 +5,7 @@ import {
   type Page,
 } from '@playwright/test';
 import { uniqueName } from './support/party';
+import { resetBastions } from './support/reset';
 
 /**
  * User task: give a character a bastion and build it up — special
@@ -44,7 +45,13 @@ const foundBastion = async (page: Page, owner: string, name: string) => {
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 };
 
+test.describe.configure({ mode: 'serial' });
+
 test.describe('keep a bastion', () => {
+  test.beforeEach(async ({ request, baseURL }) => {
+    await resetBastions(request, baseURL!, 'per-character');
+  });
+
   test('founds a bastion with its two free rooms', async ({
     page,
     request,
@@ -120,6 +127,71 @@ test.describe('keep a bastion', () => {
     ).toBeVisible();
     await expect(
       rooms.getByRole('listitem').filter({ hasText: 'Parlor' }),
+    ).toBeVisible();
+  });
+});
+
+test.describe('share one bastion as a party', () => {
+  test.beforeEach(async ({ request, baseURL }) => {
+    await resetBastions(request, baseURL!, 'per-character');
+  });
+
+  test.afterAll(async ({ request, baseURL }) => {
+    await resetBastions(request, baseURL!, 'per-character');
+  });
+
+  test('founds one bastion that each member fills with their own facilities', async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const paladin = uniqueName('Sigrid');
+    const wizard = uniqueName('Wren');
+    await createOwner(request, baseURL!, paladin);
+    const response = await trpc(request, baseURL!, 'characters.create', {
+      name: wizard,
+      armorClass: 12,
+      maxHitPoints: 30,
+      level: 5,
+      className: 'Wizard',
+    });
+    expect(response.ok()).toBe(true);
+
+    await page.goto('/bastions');
+    await page
+      .getByRole('button', { name: 'Switch to one for the whole party' })
+      .click();
+    await page.getByRole('button', { name: 'Switch', exact: true }).click();
+    await expect(
+      page.getByText('One for the whole party', { exact: true }),
+    ).toBeVisible();
+
+    const hall = uniqueName('The Hall');
+    await page.getByRole('button', { name: 'Found the party bastion' }).click();
+    await page.getByLabel('Name').fill(hall);
+    await page.getByRole('button', { name: 'Found bastion' }).click();
+    await expect(
+      page.getByRole('heading', { name: hall, exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/Shared by the party/)).toBeVisible();
+
+    // The wizard takes an Arcane Study; the paladin could not have.
+    await page.getByRole('button', { name: 'Add special facility' }).click();
+    const picker = page.getByRole('dialog', { name: 'Add a special facility' });
+    await picker
+      .getByLabel('For')
+      .selectOption({ label: `${wizard} (level 5)` });
+    await picker.getByRole('button', { name: 'Add Arcane Study' }).click();
+
+    await expect(
+      page
+        .getByRole('article', { name: 'Arcane Study' })
+        .getByText(`Held by ${wizard}`),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole('list', { name: 'Facilities per member' })
+        .getByText(new RegExp(`${wizard} 1/`)),
     ).toBeVisible();
   });
 });

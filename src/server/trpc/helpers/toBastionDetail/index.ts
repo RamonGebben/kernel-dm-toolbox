@@ -11,6 +11,7 @@ import type {
 import {
   allowanceForLevel,
   basicTypeLabel,
+  canFoundBastion,
   defenderCapacity,
   hirelingCount,
   spaceLabel,
@@ -22,6 +23,9 @@ type Owner = {
   level: number;
   className: string | null;
 };
+
+/** Someone who holds (or may hold) facilities in this bastion. */
+type Member = Owner & { isActive: boolean };
 
 /** "Build a Roomy Kitchen", "Enlarge Barrack to Vast", "Build 8 squares of wall". */
 export const describeProject = (
@@ -44,7 +48,7 @@ export const describeProject = (
 
 type SpecialFacilityRow = Pick<
   BastionSpecialFacility,
-  'id' | 'facilityKey' | 'space' | 'variant'
+  'id' | 'facilityKey' | 'space' | 'variant' | 'holderCharacterId'
 >;
 
 /** A facility whose catalog entry has gone still renders, rather than vanishing. */
@@ -73,11 +77,16 @@ const definitionFor = (
 /**
  * Bastion rows plus the catalog, as the bastion page shows them: names and
  * rules filled in from `~/content/bastion`, what is under construction
- * marked on the facility it affects, the owner's allowance worked out.
+ * marked on the facility it affects, each member's allowance worked out.
+ *
+ * A per-character bastion has an `owner` and that owner as its one member. A
+ * party bastion has no owner; its members are the party, each holding their
+ * own facilities against their own allowance (DECISIONS #34).
  */
 export const toBastionDetail = ({
   bastion,
   owner,
+  members,
   specialFacilities,
   basicFacilities,
   openProjects,
@@ -93,11 +102,14 @@ export const toBastionDetail = ({
     | 'wallSquares'
     | 'isFullyEnclosed'
   >;
-  owner: Owner;
+  /** Null for the party's shared bastion. */
+  owner: Owner | null;
+  /** Per-character: just the owner. Party: the party, plus any other holder. */
+  members: readonly Member[];
   specialFacilities: readonly SpecialFacilityRow[];
   basicFacilities: readonly Pick<
     BastionBasicFacility,
-    'id' | 'type' | 'space'
+    'id' | 'type' | 'space' | 'contributedByCharacterId'
   >[];
   openProjects: readonly Pick<
     BastionProject,
@@ -114,7 +126,7 @@ export const toBastionDetail = ({
     BastionStorageItem,
     'id' | 'name' | 'quantity' | 'note' | 'claimedByCharacterId' | 'claimedAt'
   >[];
-  /** Every character's name by id, for "claimed by". */
+  /** Every character's name by id, for "claimed by" and "held by". */
   characterNames: ReadonlyMap<string, string>;
 }) => {
   const beingEnlarged = new Set(
@@ -138,11 +150,43 @@ export const toBastionDetail = ({
     defenderCount: bastion.defenderCount,
     wallSquares: bastion.wallSquares,
     isFullyEnclosed: bastion.isFullyEnclosed,
+    kind: owner ? ('character' as const) : ('party' as const),
     owner,
+    members: members.map(member => ({
+      id: member.id,
+      name: member.name,
+      level: member.level,
+      className: member.className,
+      allowance: {
+        held: specialFacilities.filter(
+          facility => facility.holderCharacterId === member.id,
+        ).length,
+        total: allowanceForLevel(member.level),
+      },
+    })),
     allowance: {
       held: specialFacilities.length,
-      total: allowanceForLevel(owner.level),
+      total: members.reduce(
+        (total, member) => total + allowanceForLevel(member.level),
+        0,
+      ),
     },
+    /**
+     * Party members who have reached level 5 but have not brought their two
+     * free rooms yet — the page offers to add them.
+     */
+    pendingFreeRooms: owner
+      ? []
+      : members
+          .filter(
+            member =>
+              member.isActive &&
+              canFoundBastion(member.level) &&
+              !basicFacilities.some(
+                facility => facility.contributedByCharacterId === member.id,
+              ),
+          )
+          .map(({ id, name }) => ({ id, name })),
     defenderCapacity: defenderCapacity(specialFacilities),
     specialFacilities: specialFacilities.map(facility => {
       const definition = definitionFor(facility.facilityKey);
@@ -158,6 +202,12 @@ export const toBastionDetail = ({
         order: definition.order,
         space: facility.space,
         variant: facility.variant,
+        holder: facility.holderCharacterId
+          ? {
+              id: facility.holderCharacterId,
+              name: characterNames.get(facility.holderCharacterId) ?? 'Unknown',
+            }
+          : null,
         variantOptions: definition.variant ?? null,
         hirelings: hirelingCount(definition, isEnlarged),
         benefits: definition.benefits,

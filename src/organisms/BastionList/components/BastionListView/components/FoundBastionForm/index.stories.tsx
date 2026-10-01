@@ -6,8 +6,10 @@ const meta = {
   title: 'Organisms/BastionList/BastionListView/FoundBastionForm',
   component: FoundBastionForm,
   args: {
+    mode: 'per-character',
     characters: [
       { id: 'sigrid', name: 'Sigrid', level: 9, canFound: true },
+      { id: 'hammie', name: 'Hammie', level: 5, canFound: true },
       { id: 'kid', name: 'Pip', level: 3, canFound: false },
     ],
     isSaving: false,
@@ -35,6 +37,7 @@ export const Founding: Story = {
     );
 
     await expect(args.onSubmit).toHaveBeenCalledWith({
+      mode: 'per-character',
       ownerCharacterId: 'sigrid',
       name: 'Highwatch',
       crampedBasicType: 'bedroom',
@@ -43,15 +46,44 @@ export const Founding: Story = {
   },
 };
 
-/** A member below level 5 is named, not offered. */
-export const SomeoneTooLow: Story = {
-  play: async ({ canvasElement }) => {
+/** Every level 5+ member brings their own two rooms to the shared bastion. */
+export const FoundingForTheParty: Story = {
+  args: { mode: 'party' },
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByText(/Not yet level 5: Pip/)).toBeVisible();
+    await expect(canvas.queryByLabelText('Owner')).not.toBeInTheDocument();
+    await userEvent.type(canvas.getByLabelText('Name'), 'The Hall');
+    const hammie = within(
+      canvas.getByRole('group', { name: "Hammie's free rooms" }),
+    );
+    await userEvent.selectOptions(
+      hammie.getByLabelText('Free Cramped room'),
+      'parlor',
+    );
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Found bastion' }),
+    );
+
+    await expect(args.onSubmit).toHaveBeenCalledWith({
+      mode: 'party',
+      name: 'The Hall',
+      members: [
+        {
+          characterId: 'sigrid',
+          crampedBasicType: 'bedroom',
+          roomyBasicType: 'kitchen',
+        },
+        {
+          characterId: 'hammie',
+          crampedBasicType: 'parlor',
+          roomyBasicType: 'kitchen',
+        },
+      ],
+    });
     await expect(
-      canvas.queryByRole('option', { name: /Pip/ }),
-    ).not.toBeInTheDocument();
+      canvas.getByText(/bring their rooms once they get there/),
+    ).toBeVisible();
   },
 };
 

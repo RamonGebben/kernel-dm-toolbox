@@ -83,6 +83,9 @@ export const useBastionDetail = () => {
   const removeSpecial = useMutation(
     trpc.bastions.removeSpecialFacility.mutationOptions(options),
   );
+  const addFreeRooms = useMutation(
+    trpc.bastions.addFreeRooms.mutationOptions(options),
+  );
   const addBasic = useMutation(
     trpc.bastions.addBasicFacility.mutationOptions(options),
   );
@@ -114,6 +117,7 @@ export const useBastionDetail = () => {
     addSpecial,
     setVariant,
     removeSpecial,
+    addFreeRooms,
     addBasic,
     removeBasic,
     startProject,
@@ -137,9 +141,14 @@ export const useBastionDetail = () => {
       abandon: () => abandon.mutate({ id: bastionId }),
       addSpecialFacility: (input: {
         facilityKey: string;
+        /** Which member takes it, in a party bastion. */
+        holderCharacterId?: string;
         variant?: string;
         ignoreRequirements: boolean;
       }) => addSpecial.mutateAsync({ ...input, bastionId }),
+      addFreeRooms: (
+        input: Omit<Parameters<typeof addFreeRooms.mutate>[0], 'bastionId'>,
+      ) => addFreeRooms.mutate({ ...input, bastionId }),
       setFacilityVariant: (id: string, variant: string | null) =>
         setVariant.mutate({ id, variant }),
       removeSpecialFacility: (id: string) => removeSpecial.mutate({ id }),

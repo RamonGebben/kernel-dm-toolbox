@@ -14,6 +14,8 @@ type Facility = BastionDetail['specialFacilities'][number];
 
 export type SpecialFacilityCardProps = {
   facility: Facility;
+  /** In a party bastion, say which member holds it. */
+  showHolder: boolean;
   treasuryGold: number;
   onSetVariant: (variant: string | null) => void;
   onEnlarge: () => void;
@@ -33,6 +35,7 @@ const describeTerms = (option: Facility['orderOptions'][number]): string =>
 /** One special facility: what it is, what it can be ordered to do, and its upkeep. */
 export const SpecialFacilityCard = ({
   facility,
+  showHolder,
   treasuryGold,
   onSetVariant,
   onEnlarge,
@@ -47,6 +50,9 @@ export const SpecialFacilityCard = ({
           {facility.hirelings === 1 ? '' : 's'} ·{' '}
           {bastionOrderLabels[facility.order]}
         </Meta>
+        {showHolder ? (
+          <Holder>Held by {facility.holder?.name ?? 'nobody'}</Holder>
+        ) : null}
       </div>
       <ConfirmButton
         label="Remove"
@@ -118,7 +124,7 @@ const EnlargeRow = ({ facility, treasuryGold, onEnlarge }: EnlargeRowProps) => {
 
   return (
     <Footer>
-      <Note>{facility.enlarge.summary}</Note>
+      <Note>Once enlarged: {facility.enlarge.summary}</Note>
       <Button
         variant="secondary"
         size="sm"
@@ -160,6 +166,13 @@ const Meta = styled.p`
   margin: 0;
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textMuted};
+`;
+
+const Holder = styled.p`
+  margin: 0;
+  font-size: ${props => props.theme.fontSize.sm};
+  font-weight: 600;
+  color: ${props => props.theme.color.accent};
 `;
 
 const VariantRow = styled.div`

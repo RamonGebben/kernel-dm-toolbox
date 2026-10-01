@@ -10,13 +10,19 @@ export const BastionList = () => {
   return (
     <BastionListView
       isPending={list.isPending}
+      mode={list.mode}
       bastions={list.bastions}
       selectedId={list.selectedId}
       foundable={list.foundable}
+      canFound={list.canFound}
+      activeMembers={list.activeMembers}
       isFounding={list.isFounding}
       foundError={list.foundError}
+      isSwitching={list.isSwitching}
+      switchError={list.switchError}
       onSelect={list.select}
       onFound={list.found}
+      onSwitchMode={list.setMode}
     />
   );
 };

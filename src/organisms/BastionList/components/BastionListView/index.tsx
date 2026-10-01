@@ -10,38 +10,67 @@ import {
   FoundBastionForm,
   type FoundBastionValues,
 } from '~/organisms/BastionList/components/BastionListView/components/FoundBastionForm';
+import {
+  BastionModeSwitch,
+  type ModeChange,
+} from '~/organisms/BastionList/components/BastionListView/components/BastionModeSwitch';
+import type { BastionMode } from '~/server/db/schema';
 
 export type BastionListItem = {
   id: string;
   name: string;
-  ownerName: string;
-  ownerLevel: number;
+  kind: 'character' | 'party';
+  ownerName: string | null;
+  ownerLevel: number | null;
+  memberCount: number;
   specialFacilityCount: number;
   allowance: number;
 };
 
 export type BastionListViewProps = {
   isPending: boolean;
+  mode: BastionMode;
   bastions: readonly BastionListItem[];
   selectedId: string | null;
   foundable: readonly FoundableCharacter[];
+  /** False once the party already has its one bastion. */
+  canFound: boolean;
+  activeMembers: readonly { id: string; name: string }[];
   isFounding: boolean;
   foundError: string | null;
+  isSwitching: boolean;
+  switchError: string | null;
   onSelect: (id: string) => void;
   /** Resolves once founded, so the dialog knows to close. */
   onFound: (values: FoundBastionValues) => Promise<unknown>;
+  onSwitchMode: (change: ModeChange) => Promise<unknown>;
+};
+
+/** "Sigrid · level 9 · 3/4 facilities", or "The party · 3 members · 5/10 facilities". */
+const describeItem = (bastion: BastionListItem): string => {
+  const facilities = `${bastion.specialFacilityCount}/${bastion.allowance} facilities`;
+
+  return bastion.kind === 'party'
+    ? `The party · ${bastion.memberCount} member${bastion.memberCount === 1 ? '' : 's'} · ${facilities}`
+    : `${bastion.ownerName} · level ${bastion.ownerLevel} · ${facilities}`;
 };
 
 /** Presentational: every character's bastion, and founding a new one. */
 export const BastionListView = ({
   isPending,
+  mode,
   bastions,
   selectedId,
   foundable,
+  canFound,
+  activeMembers,
   isFounding,
   foundError,
+  isSwitching,
+  switchError,
   onSelect,
   onFound,
+  onSwitchMode,
 }: BastionListViewProps) => {
   const [isFoundOpen, setIsFoundOpen] = useState(false);
 
@@ -56,9 +85,21 @@ export const BastionListView = ({
 
   return (
     <Wrapper>
-      <Button size="sm" isFullWidth onClick={() => setIsFoundOpen(true)}>
-        Found a bastion
-      </Button>
+      <BastionModeSwitch
+        mode={mode}
+        bastionCount={bastions.length}
+        suggestedName={bastions[0]?.name ?? "The Party's Bastion"}
+        members={activeMembers}
+        isSwitching={isSwitching}
+        error={switchError}
+        onSwitch={onSwitchMode}
+      />
+
+      {canFound ? (
+        <Button size="sm" isFullWidth onClick={() => setIsFoundOpen(true)}>
+          {mode === 'party' ? 'Found the party bastion' : 'Found a bastion'}
+        </Button>
+      ) : null}
 
       <ListBody
         isPending={isPending}
@@ -73,6 +114,7 @@ export const BastionListView = ({
         onClose={() => setIsFoundOpen(false)}
       >
         <FoundBastionForm
+          mode={mode}
           characters={foundable}
           isSaving={isFounding}
           error={foundError}
@@ -118,10 +160,7 @@ const ListBody = ({
             onClick={() => onSelect(bastion.id)}
           >
             <Name>{bastion.name}</Name>
-            <Meta>
-              {bastion.ownerName} · level {bastion.ownerLevel} ·{' '}
-              {bastion.specialFacilityCount}/{bastion.allowance} facilities
-            </Meta>
+            <Meta>{describeItem(bastion)}</Meta>
           </Item>
         </li>
       ))}

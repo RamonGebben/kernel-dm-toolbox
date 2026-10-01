@@ -4,7 +4,11 @@ import { BastionDetailView } from '~/organisms/BastionDetail/components/BastionD
 import { specialFacilityByKey } from '~/content/bastion/specialFacilities';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
 
-const facility = (key: string, id: string) => {
+const facility = (
+  key: string,
+  id: string,
+  holder = { id: 'sigrid', name: 'Sigrid' },
+) => {
   const definition = specialFacilityByKey[key]!;
 
   return {
@@ -26,6 +30,7 @@ const facility = (key: string, id: string) => {
         }
       : null,
     isBeingEnlarged: false,
+    holder,
   };
 };
 
@@ -36,8 +41,19 @@ const highwatch: BastionDetail = {
   defenderCount: 6,
   wallSquares: 0,
   isFullyEnclosed: false,
+  kind: 'character',
   owner: { id: 'sigrid', name: 'Sigrid', level: 9, className: 'Paladin' },
+  members: [
+    {
+      id: 'sigrid',
+      name: 'Sigrid',
+      level: 9,
+      className: 'Paladin',
+      allowance: { held: 2, total: 4 },
+    },
+  ],
   allowance: { held: 2, total: 4 },
+  pendingFreeRooms: [],
   defenderCapacity: 12,
   specialFacilities: [facility('barrack', 'f1'), facility('sanctuary', 'f2')],
   basicFacilities: [
@@ -66,6 +82,7 @@ const actions = {
   update: fn(async () => ({}) as never),
   abandon: fn(),
   addSpecialFacility: fn(async () => ({}) as never),
+  addFreeRooms: fn(),
   setFacilityVariant: fn(),
   removeSpecialFacility: fn(),
   addBasicFacility: fn(),
@@ -157,6 +174,7 @@ export const AddingAFacility: Story = {
     await expect(args.actions.addSpecialFacility).toHaveBeenCalledWith({
       facilityKey: 'library',
       ignoreRequirements: false,
+      holderCharacterId: 'sigrid',
     });
   },
 };
@@ -217,5 +235,74 @@ export const Abandoning: Story = {
     );
 
     await expect(args.actions.abandon).toHaveBeenCalledOnce();
+  },
+};
+
+const theHall: BastionDetail = {
+  ...highwatch,
+  id: 'hall',
+  name: 'The Hall',
+  notes: null,
+  kind: 'party',
+  owner: null,
+  members: [
+    {
+      id: 'sigrid',
+      name: 'Sigrid',
+      level: 9,
+      className: 'Paladin',
+      allowance: { held: 1, total: 4 },
+    },
+    {
+      id: 'wren',
+      name: 'Wren',
+      level: 5,
+      className: 'Wizard',
+      allowance: { held: 1, total: 2 },
+    },
+  ],
+  allowance: { held: 2, total: 6 },
+  specialFacilities: [
+    facility('barrack', 'f1'),
+    facility('arcane-study', 'f2', { id: 'wren', name: 'Wren' }),
+  ],
+  pendingFreeRooms: [{ id: 'bo', name: 'Bo' }],
+};
+
+/** One bastion for the whole party: each member's facilities and allowance. */
+export const PartyBastion: Story = {
+  args: { state: { kind: 'loaded', detail: theHall } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByText(/Shared by the party · 2 members/),
+    ).toBeVisible();
+    const allowances = canvas.getByRole('list', {
+      name: 'Facilities per member',
+    });
+    await expect(within(allowances).getByText(/Sigrid 1\/\s*4/)).toBeVisible();
+    await expect(within(allowances).getByText(/Wren 1\/\s*2/)).toBeVisible();
+    await expect(canvas.getByText('Held by Wren')).toBeVisible();
+    await expect(canvas.getByText(/Bo has reached level 5/)).toBeVisible();
+  },
+};
+
+export const AddingForAPartyMember: Story = {
+  args: { state: { kind: 'loaded', detail: theHall } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Add special facility' }),
+    );
+    await userEvent.selectOptions(screen.getByLabelText('For'), 'wren');
+    await userEvent.click(screen.getByRole('button', { name: 'Add Library' }));
+
+    await expect(args.actions.addSpecialFacility).toHaveBeenCalledWith({
+      facilityKey: 'library',
+      ignoreRequirements: false,
+      holderCharacterId: 'wren',
+    });
   },
 };

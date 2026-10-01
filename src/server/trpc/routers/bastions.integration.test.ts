@@ -27,6 +27,7 @@ const addCharacter = (
 
 const foundFor = async (ownerCharacterId: string) =>
   caller.bastions.found({
+    mode: 'per-character',
     ownerCharacterId,
     name: 'Highwatch',
     crampedBasicType: 'bedroom',
@@ -52,7 +53,7 @@ describe('bastions.found', () => {
 
     const detail = await caller.bastions.get({ id: bastion.id });
 
-    expect(detail.owner.name).toBe(owner.name);
+    expect(detail.owner?.name).toBe(owner.name);
     expect(
       detail.basicFacilities.map(({ type, space }) => [type, space]),
     ).toEqual([
@@ -60,7 +61,7 @@ describe('bastions.found', () => {
       ['kitchen', 'roomy'],
     ]);
     expect(detail.allowance).toEqual({ held: 0, total: 2 });
-    expect(await caller.party.get()).toEqual({ treasuryGold: 0 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 0 });
   });
 
   it('allows one live bastion per character', async () => {
@@ -95,9 +96,11 @@ describe('bastions.list', () => {
       {
         id: bastion.id,
         name: 'Highwatch',
+        kind: 'character',
         ownerId: owner.id,
         ownerName: owner.name,
         ownerLevel: 9,
+        memberCount: 1,
         specialFacilityCount: 1,
         allowance: 4,
       },
@@ -273,7 +276,7 @@ describe('bastion construction', () => {
         daysRemaining: 45,
       }),
     ]);
-    expect(await caller.party.get()).toEqual({ treasuryGold: 4000 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 4000 });
   });
 
   it('refuses what the treasury cannot pay for, spending nothing', async () => {
@@ -287,7 +290,7 @@ describe('bastion construction', () => {
         request: { kind: 'add-basic', basicType: 'parlor', space: 'cramped' },
       }),
     ).rejects.toThrow(/does not hold enough gold/);
-    expect(await caller.party.get()).toEqual({ treasuryGold: 400 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 400 });
     expect((await caller.bastions.get({ id: bastion.id })).projects).toEqual(
       [],
     );
@@ -330,7 +333,7 @@ describe('bastion construction', () => {
     const [enlarged] = (await caller.bastions.get({ id: bastion.id }))
       .basicFacilities;
     expect(enlarged?.space).toBe('roomy');
-    expect(await caller.party.get()).toEqual({ treasuryGold: 4500 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 4500 });
   });
 
   it('enlarges a Barrack to Vast, doubling its beds', async () => {
@@ -364,7 +367,7 @@ describe('bastion construction', () => {
         request: { kind: 'enlarge-special', facilityId: library.id },
       }),
     ).rejects.toThrow(/cannot be enlarged/);
-    expect(await caller.party.get()).toEqual({ treasuryGold: 5000 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 5000 });
   });
 
   it('builds walls onto the bastion', async () => {
@@ -377,7 +380,7 @@ describe('bastion construction', () => {
     await caller.bastions.finishProject({ id: project.id });
 
     expect((await caller.bastions.get({ id: bastion.id })).wallSquares).toBe(4);
-    expect(await caller.party.get()).toEqual({ treasuryGold: 4000 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 4000 });
   });
 
   it('cancelling refunds the treasury', async () => {
@@ -389,7 +392,7 @@ describe('bastion construction', () => {
 
     await caller.bastions.cancelProject({ id: project.id });
 
-    expect(await caller.party.get()).toEqual({ treasuryGold: 5000 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 5000 });
     expect((await caller.bastions.get({ id: bastion.id })).projects).toEqual(
       [],
     );
@@ -408,7 +411,7 @@ describe('bastion construction', () => {
 
     await caller.bastions.removeSpecialFacility({ id: barrack.id });
 
-    expect(await caller.party.get()).toEqual({ treasuryGold: 5000 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 5000 });
     expect((await caller.bastions.get({ id: bastion.id })).projects).toEqual(
       [],
     );
@@ -479,5 +482,291 @@ describe('bastion storage', () => {
 
     await caller.bastions.removeStorageItem({ id: item.id });
     expect((await caller.bastions.get({ id: bastion.id })).storage).toEqual([]);
+  });
+});
+
+describe('the party bastion', () => {
+  const rooms = {
+    crampedBasicType: 'bedroom',
+    roomyBasicType: 'kitchen',
+  } as const;
+
+  const partyOf = async () => {
+    const sigrid = await caller.characters.create({
+      name: 'Sigrid',
+      armorClass: 18,
+      maxHitPoints: 60,
+      level: 9,
+      className: 'Paladin',
+    });
+    const hammie = await caller.characters.create({
+      name: 'Hammie',
+      armorClass: 15,
+      maxHitPoints: 35,
+      level: 5,
+      className: 'Rogue',
+    });
+    return { sigrid, hammie };
+  };
+
+  const foundParty = async (memberIds: string[]) => {
+    await caller.bastions.setMode({ mode: 'party', name: 'Unused' });
+    return caller.bastions.found({
+      mode: 'party',
+      name: 'The Hall',
+      members: memberIds.map(characterId => ({ characterId, ...rooms })),
+    });
+  };
+
+  it('is owned by nobody, and every member brings two free rooms', async () => {
+    const { sigrid, hammie } = await partyOf();
+    const hall = await foundParty([sigrid.id, hammie.id]);
+
+    const detail = await caller.bastions.get({ id: hall.id });
+    expect(detail.kind).toBe('party');
+    expect(detail.owner).toBeNull();
+    expect(detail.basicFacilities).toHaveLength(4);
+    expect(detail.members.map(member => member.name)).toEqual([
+      'Hammie',
+      'Sigrid',
+    ]);
+  });
+
+  it('allows only one party bastion', async () => {
+    const { sigrid } = await partyOf();
+    await foundParty([sigrid.id]);
+
+    await expect(
+      caller.bastions.found({
+        mode: 'party',
+        name: 'Second',
+        members: [{ characterId: sigrid.id, ...rooms }],
+      }),
+    ).rejects.toThrow(/already has a bastion/);
+  });
+
+  it('refuses founding in the wrong mode', async () => {
+    const { sigrid } = await partyOf();
+
+    await expect(
+      caller.bastions.found({
+        mode: 'party',
+        name: 'The Hall',
+        members: [{ characterId: sigrid.id, ...rooms }],
+      }),
+    ).rejects.toThrow(/each character their own bastion/);
+  });
+
+  it("checks each member's facilities against their own allowance", async () => {
+    const { sigrid, hammie } = await partyOf();
+    const hall = await foundParty([sigrid.id, hammie.id]);
+
+    for (const facilityKey of ['barrack', 'garden']) {
+      await caller.bastions.addSpecialFacility({
+        bastionId: hall.id,
+        facilityKey,
+        holderCharacterId: hammie.id,
+      });
+    }
+    await expect(
+      caller.bastions.addSpecialFacility({
+        bastionId: hall.id,
+        facilityKey: 'library',
+        holderCharacterId: hammie.id,
+      }),
+    ).rejects.toThrow(/All 2 facilities/);
+
+    // Sigrid's allowance is her own.
+    await caller.bastions.addSpecialFacility({
+      bastionId: hall.id,
+      facilityKey: 'library',
+      holderCharacterId: sigrid.id,
+    });
+
+    const detail = await caller.bastions.get({ id: hall.id });
+    expect(
+      detail.members.map(member => [member.name, member.allowance.held]),
+    ).toEqual([
+      ['Hammie', 2],
+      ['Sigrid', 1],
+    ]);
+  });
+
+  it('lets two members each hold the same one-of facility', async () => {
+    const { sigrid, hammie } = await partyOf();
+    const hall = await foundParty([sigrid.id, hammie.id]);
+
+    for (const holderCharacterId of [sigrid.id, hammie.id]) {
+      await caller.bastions.addSpecialFacility({
+        bastionId: hall.id,
+        facilityKey: 'library',
+        holderCharacterId,
+      });
+    }
+
+    expect(
+      (await caller.bastions.get({ id: hall.id })).specialFacilities,
+    ).toHaveLength(2);
+  });
+
+  it('needs a member to hold a facility', async () => {
+    const { sigrid } = await partyOf();
+    const hall = await foundParty([sigrid.id]);
+
+    await expect(
+      caller.bastions.addSpecialFacility({
+        bastionId: hall.id,
+        facilityKey: 'library',
+      }),
+    ).rejects.toThrow(/which party member/);
+  });
+
+  it("asks for a late member's free rooms, then takes them once", async () => {
+    const { sigrid, hammie } = await partyOf();
+    const hall = await foundParty([sigrid.id]);
+
+    expect(
+      (await caller.bastions.get({ id: hall.id })).pendingFreeRooms,
+    ).toEqual([{ id: hammie.id, name: 'Hammie' }]);
+
+    await caller.bastions.addFreeRooms({
+      bastionId: hall.id,
+      characterId: hammie.id,
+      ...rooms,
+    });
+    await expect(
+      caller.bastions.addFreeRooms({
+        bastionId: hall.id,
+        characterId: hammie.id,
+        ...rooms,
+      }),
+    ).rejects.toThrow(/already brought/);
+
+    const detail = await caller.bastions.get({ id: hall.id });
+    expect(detail.pendingFreeRooms).toEqual([]);
+    expect(detail.basicFacilities).toHaveLength(4);
+  });
+});
+
+describe('bastions.setMode', () => {
+  const rooms = {
+    crampedBasicType: 'bedroom',
+    roomyBasicType: 'kitchen',
+  } as const;
+
+  it('merges every bastion into one, keeping who holds what', async () => {
+    const sigrid = await addCharacter(9);
+    const wizard = await addCharacter(5);
+    const highwatch = await foundFor(sigrid.id);
+    const tower = await caller.bastions.found({
+      mode: 'per-character',
+      ownerCharacterId: wizard.id,
+      name: 'Tower',
+      ...rooms,
+    });
+    await caller.bastions.addSpecialFacility({
+      bastionId: highwatch.id,
+      facilityKey: 'barrack',
+    });
+    await caller.bastions.addSpecialFacility({
+      bastionId: tower.id,
+      facilityKey: 'arcane-study',
+    });
+    await caller.bastions.update({
+      id: highwatch.id,
+      name: 'Highwatch',
+      defenderCount: 4,
+      wallSquares: 0,
+      isFullyEnclosed: false,
+    });
+    await caller.bastions.update({
+      id: tower.id,
+      name: 'Tower',
+      defenderCount: 3,
+      wallSquares: 0,
+      isFullyEnclosed: false,
+    });
+
+    await caller.bastions.setMode({ mode: 'party', name: 'The Hall' });
+
+    const list = await caller.bastions.list();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ name: 'The Hall', kind: 'party' });
+
+    const detail = await caller.bastions.get({ id: list[0]!.id });
+    expect(detail.defenderCount).toBe(7);
+    expect(detail.basicFacilities).toHaveLength(4);
+    expect(
+      detail.specialFacilities.map(facility => [
+        facility.name,
+        facility.holder?.id,
+      ]),
+    ).toEqual([
+      ['Barrack', sigrid.id],
+      ['Arcane Study', wizard.id],
+    ]);
+  });
+
+  it('splits the party bastion back out by holder', async () => {
+    const sigrid = await addCharacter(9);
+    const wizard = await addCharacter(5);
+    await caller.bastions.setMode({ mode: 'party', name: 'Unused' });
+    const hall = await caller.bastions.found({
+      mode: 'party',
+      name: 'The Hall',
+      members: [
+        { characterId: sigrid.id, ...rooms },
+        { characterId: wizard.id, ...rooms },
+      ],
+    });
+    await caller.bastions.addSpecialFacility({
+      bastionId: hall.id,
+      facilityKey: 'arcane-study',
+      holderCharacterId: wizard.id,
+    });
+    await caller.bastions.update({
+      id: hall.id,
+      name: 'The Hall',
+      defenderCount: 9,
+      wallSquares: 12,
+      isFullyEnclosed: true,
+    });
+
+    await caller.bastions.setMode({
+      mode: 'per-character',
+      keeperCharacterId: sigrid.id,
+    });
+
+    const list = await caller.bastions.list();
+    expect(list.map(row => [row.name, row.ownerId])).toEqual([
+      ["Owner 5 Wizard's Bastion", wizard.id],
+      ['The Hall', sigrid.id],
+    ]);
+
+    const kept = await caller.bastions.get({
+      id: list.find(row => row.ownerId === sigrid.id)!.id,
+    });
+    expect(kept).toMatchObject({
+      defenderCount: 9,
+      wallSquares: 12,
+      isFullyEnclosed: true,
+    });
+    expect(kept.basicFacilities).toHaveLength(2);
+
+    const theirs = await caller.bastions.get({
+      id: list.find(row => row.ownerId === wizard.id)!.id,
+    });
+    expect(theirs.specialFacilities.map(facility => facility.name)).toEqual([
+      'Arcane Study',
+    ]);
+    expect(theirs.basicFacilities).toHaveLength(2);
+    expect(theirs.defenderCount).toBe(0);
+  });
+
+  it('just switches when there are no bastions yet', async () => {
+    await caller.bastions.setMode({ mode: 'party', name: 'Unused' });
+
+    expect(await caller.party.get()).toMatchObject({ bastionMode: 'party' });
+    expect(await caller.bastions.list()).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
@@ -7,17 +7,23 @@ import {
   bastionSpecialFacilities,
   bastionStorageItems,
   bastions,
+  CURRENT_PARTY_ID,
+  parties,
   playerCharacters,
+  type BastionMode,
+  type PlayerCharacter,
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import {
   addBasicFacilityInputSchema,
+  addFreeRoomsInputSchema,
   addSpecialFacilityInputSchema,
   addStorageItemInputSchema,
   bastionIdInputSchema,
   bastionRowIdInputSchema,
   claimStorageItemInputSchema,
   foundBastionInputSchema,
+  setBastionModeInputSchema,
   setFacilityVariantInputSchema,
   startProjectInputSchema,
   updateBastionInputSchema,
@@ -33,7 +39,13 @@ import {
   type ProjectRequest,
 } from '~/server/trpc/helpers/planBastionProject';
 import { toBastionDetail } from '~/server/trpc/helpers/toBastionDetail';
+import {
+  planBastionMerge,
+  planBastionSplit,
+} from '~/server/trpc/helpers/planBastionModeChange';
+import { ensureParty } from '~/server/party/state';
 import { findSpecialFacility } from '~/content/bastion/specialFacilities';
+import type { BasicFacilityType } from '~/content/bastion/types';
 import {
   allowanceForLevel,
   describeEligibilityProblem,
@@ -64,6 +76,43 @@ const loadOwner = async (db: Database, id: string) => {
 
   return owner;
 };
+
+const liveCharacters = (db: Database) =>
+  db
+    .select()
+    .from(playerCharacters)
+    .where(isNull(playerCharacters.deletedAt))
+    .orderBy(asc(playerCharacters.name));
+
+const liveBastions = (db: Database) =>
+  db
+    .select()
+    .from(bastions)
+    .where(isNull(bastions.deletedAt))
+    .orderBy(asc(bastions.createdAt));
+
+const currentMode = async (db: Database): Promise<BastionMode> =>
+  (await ensureParty(db)).bastionMode;
+
+/**
+ * Who may hold facilities in a party bastion: every active member, plus
+ * anyone benched who still holds one — their facilities do not vanish.
+ */
+const partyMembers = (
+  characters: readonly PlayerCharacter[],
+  holderIds: ReadonlySet<string>,
+) =>
+  characters
+    .filter(character => character.isActive || holderIds.has(character.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+const toMember = (character: PlayerCharacter) => ({
+  id: character.id,
+  name: character.name,
+  level: character.level,
+  className: character.className,
+  isActive: character.isActive,
+});
 
 const liveSpecialFacilities = (db: Database, bastionId: string) =>
   db
@@ -216,47 +265,204 @@ const completeProject = async (
     .where(eq(bastionProjects.id, project.id));
 };
 
+const freeRooms = (
+  bastionId: string,
+  characterId: string,
+  rooms: {
+    crampedBasicType: BasicFacilityType;
+    roomyBasicType: BasicFacilityType;
+  },
+) => [
+  {
+    bastionId,
+    contributedByCharacterId: characterId,
+    type: rooms.crampedBasicType,
+    space: 'cramped' as const,
+  },
+  {
+    bastionId,
+    contributedByCharacterId: characterId,
+    type: rooms.roomyBasicType,
+    space: 'roomy' as const,
+  },
+];
+
+/** Every row of a bastion's own tables, re-pointed in one go. */
+const childTables = [
+  bastionSpecialFacilities,
+  bastionBasicFacilities,
+  bastionProjects,
+  bastionStorageItems,
+] as const;
+
+/** Per-character → party: one bastion, everything moved into it. */
+const mergeBastions = async (
+  db: Database,
+  existing: readonly (typeof bastions.$inferSelect)[],
+  name: string,
+  now: Date,
+) => {
+  if (!existing.length) return;
+
+  const [merged] = await db
+    .insert(bastions)
+    .values({ ownerCharacterId: null, ...planBastionMerge(existing, name) })
+    .returning();
+  const ids = existing.map(bastion => bastion.id);
+
+  for (const table of childTables) {
+    await db
+      .update(table)
+      .set({ bastionId: merged!.id, updatedAt: now })
+      .where(inArray(table.bastionId, ids));
+  }
+
+  for (const bastion of existing) {
+    await db
+      .update(bastions)
+      .set(tombstoneSyncMeta({ version: bastion.version, now }))
+      .where(eq(bastions.id, bastion.id));
+  }
+};
+
+/** Party → per-character: one bastion per holder, the keeper taking the rest. */
+const splitBastion = async (
+  db: Database,
+  shared: typeof bastions.$inferSelect,
+  keeperId: string,
+  now: Date,
+) => {
+  const inShared = <T extends (typeof childTables)[number]>(table: T) =>
+    db
+      .select()
+      .from(table)
+      .where(and(eq(table.bastionId, shared.id), isNull(table.deletedAt)));
+
+  const [special, basic, projects, storage] = await Promise.all([
+    inShared(bastionSpecialFacilities),
+    inShared(bastionBasicFacilities),
+    inShared(bastionProjects),
+    inShared(bastionStorageItems),
+  ]);
+
+  const split = planBastionSplit({
+    keeperId,
+    specialFacilities:
+      special as (typeof bastionSpecialFacilities.$inferSelect)[],
+    basicFacilities: basic as (typeof bastionBasicFacilities.$inferSelect)[],
+    projects: projects as (typeof bastionProjects.$inferSelect)[],
+    storageItems: storage,
+  });
+
+  const characters = await liveCharacters(db);
+  const nameOf = (id: string) =>
+    characters.find(character => character.id === id)?.name ?? 'Unknown';
+
+  const bastionFor = new Map<string, string>();
+  for (const ownerId of split.ownerIds) {
+    const isKeeper = ownerId === keeperId;
+    const [created] = await db
+      .insert(bastions)
+      .values({
+        ownerCharacterId: ownerId,
+        name: isKeeper ? shared.name : `${nameOf(ownerId)}'s Bastion`,
+        notes: isKeeper ? shared.notes : null,
+        defenderCount: isKeeper ? shared.defenderCount : 0,
+        wallSquares: isKeeper ? shared.wallSquares : 0,
+        isFullyEnclosed: isKeeper ? shared.isFullyEnclosed : false,
+      })
+      .returning();
+    bastionFor.set(ownerId, created!.id);
+  }
+
+  const moves = [
+    [bastionSpecialFacilities, split.specialFacilities],
+    [bastionBasicFacilities, split.basicFacilities],
+    [bastionProjects, split.projects],
+    [bastionStorageItems, split.storageItems],
+  ] as const;
+
+  for (const [table, assignment] of moves) {
+    for (const [rowId, ownerId] of assignment) {
+      await db
+        .update(table)
+        .set({ bastionId: bastionFor.get(ownerId)!, updatedAt: now })
+        .where(eq(table.id, rowId));
+    }
+  }
+
+  // A facility held by nobody (a DM override) now belongs to the keeper.
+  await db
+    .update(bastionSpecialFacilities)
+    .set({ holderCharacterId: keeperId })
+    .where(
+      and(
+        eq(bastionSpecialFacilities.bastionId, bastionFor.get(keeperId)!),
+        isNull(bastionSpecialFacilities.holderCharacterId),
+      ),
+    );
+
+  await db
+    .update(bastions)
+    .set(tombstoneSyncMeta({ version: shared.version, now }))
+    .where(eq(bastions.id, shared.id));
+};
+
 export const bastionsRouter = createTRPCRouter({
   /** Every live bastion with its owner, for the list beside the detail. */
   list: publicProcedure.query(async ({ ctx }) => {
-    const rows = await ctx.db
-      .select({
-        id: bastions.id,
-        name: bastions.name,
-        ownerId: playerCharacters.id,
-        ownerName: playerCharacters.name,
-        ownerLevel: playerCharacters.level,
+    const [rows, characters, facilities] = await Promise.all([
+      liveBastions(ctx.db),
+      liveCharacters(ctx.db),
+      ctx.db
+        .select({
+          bastionId: bastionSpecialFacilities.bastionId,
+          holderCharacterId: bastionSpecialFacilities.holderCharacterId,
+        })
+        .from(bastionSpecialFacilities)
+        .where(isNull(bastionSpecialFacilities.deletedAt)),
+    ]);
+    const byId = new Map(
+      characters.map(character => [character.id, character]),
+    );
+
+    return rows
+      .map(row => {
+        const held = facilities.filter(
+          facility => facility.bastionId === row.id,
+        );
+        const owner = row.ownerCharacterId
+          ? byId.get(row.ownerCharacterId)
+          : null;
+        const members = owner
+          ? [owner]
+          : partyMembers(
+              characters,
+              new Set(held.map(facility => facility.holderCharacterId ?? '')),
+            );
+
+        return {
+          id: row.id,
+          name: row.name,
+          kind: owner ? ('character' as const) : ('party' as const),
+          ownerId: owner?.id ?? null,
+          ownerName: owner?.name ?? null,
+          ownerLevel: owner?.level ?? null,
+          memberCount: members.length,
+          specialFacilityCount: held.length,
+          allowance: members.reduce(
+            (total, member) => total + allowanceForLevel(member.level),
+            0,
+          ),
+        };
       })
-      .from(bastions)
-      .innerJoin(
-        playerCharacters,
-        eq(bastions.ownerCharacterId, playerCharacters.id),
-      )
-      .where(isNull(bastions.deletedAt))
-      .orderBy(asc(bastions.name));
-
-    const facilities = await ctx.db
-      .select({ bastionId: bastionSpecialFacilities.bastionId })
-      .from(bastionSpecialFacilities)
-      .where(isNull(bastionSpecialFacilities.deletedAt));
-
-    return rows.map(row => ({
-      ...row,
-      specialFacilityCount: facilities.filter(
-        facility => facility.bastionId === row.id,
-      ).length,
-      allowance: allowanceForLevel(row.ownerLevel),
-    }));
+      .sort((a, b) => a.name.localeCompare(b.name));
   }),
 
   get: publicProcedure
     .input(bastionIdInputSchema)
     .query(async ({ ctx, input }) => {
       const bastion = await loadBastion(ctx.db, input.id);
-      const owner = await ctx.db.query.playerCharacters.findFirst({
-        where: eq(playerCharacters.id, bastion.ownerCharacterId),
-      });
-      if (!owner) throw notFound('character');
 
       const [
         specialFacilities,
@@ -297,19 +503,29 @@ export const bastionsRouter = createTRPCRouter({
             ),
           )
           .orderBy(asc(bastionStorageItems.createdAt)),
-        ctx.db
-          .select({ id: playerCharacters.id, name: playerCharacters.name })
-          .from(playerCharacters),
+        ctx.db.select().from(playerCharacters),
       ]);
+
+      const owner = bastion.ownerCharacterId
+        ? characters.find(({ id }) => id === bastion.ownerCharacterId)
+        : null;
+      if (bastion.ownerCharacterId && !owner) throw notFound('character');
+
+      const members = owner
+        ? [owner]
+        : partyMembers(
+            characters.filter(character => !character.deletedAt),
+            new Set(
+              specialFacilities.map(
+                facility => facility.holderCharacterId ?? '',
+              ),
+            ),
+          );
 
       return toBastionDetail({
         bastion,
-        owner: {
-          id: owner.id,
-          name: owner.name,
-          level: owner.level,
-          className: owner.className,
-        },
+        owner: owner ? toMember(owner) : null,
+        members: members.map(toMember),
         specialFacilities,
         basicFacilities,
         openProjects,
@@ -318,10 +534,51 @@ export const bastionsRouter = createTRPCRouter({
       });
     }),
 
-  /** A new bastion with its two free basic facilities. */
+  /**
+   * A new bastion: per character, the owner's; in party mode, the party's
+   * one shared bastion. Either way each member brings two free rooms.
+   */
   found: publicProcedure
     .input(foundBastionInputSchema)
     .mutation(async ({ ctx, input }) => {
+      const mode = await currentMode(ctx.db);
+      if (mode !== input.mode) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message:
+            mode === 'party'
+              ? 'This campaign shares one bastion for the party.'
+              : 'This campaign gives each character their own bastion.',
+        });
+      }
+
+      if (input.mode === 'party') {
+        if ((await liveBastions(ctx.db)).length) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'The party already has a bastion.',
+          });
+        }
+        for (const member of input.members) {
+          await loadOwner(ctx.db, member.characterId);
+        }
+
+        const [created] = await ctx.db
+          .insert(bastions)
+          .values({ ownerCharacterId: null, name: input.name })
+          .returning();
+
+        await ctx.db
+          .insert(bastionBasicFacilities)
+          .values(
+            input.members.flatMap(member =>
+              freeRooms(created!.id, member.characterId, member),
+            ),
+          );
+
+        return created!;
+      }
+
       const owner = await loadOwner(ctx.db, input.ownerCharacterId);
 
       const existing = await ctx.db.query.bastions.findFirst({
@@ -342,16 +599,84 @@ export const bastionsRouter = createTRPCRouter({
         .values({ ownerCharacterId: owner.id, name: input.name })
         .returning();
 
-      await ctx.db.insert(bastionBasicFacilities).values([
-        {
-          bastionId: created!.id,
-          type: input.crampedBasicType,
-          space: 'cramped',
-        },
-        { bastionId: created!.id, type: input.roomyBasicType, space: 'roomy' },
-      ]);
+      await ctx.db
+        .insert(bastionBasicFacilities)
+        .values(freeRooms(created!.id, owner.id, input));
 
       return created!;
+    }),
+
+  /** A party member who reached level 5 after founding brings their rooms. */
+  addFreeRooms: publicProcedure
+    .input(addFreeRoomsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const bastion = await loadBastion(ctx.db, input.bastionId);
+      const character = await loadOwner(ctx.db, input.characterId);
+
+      const alreadyBrought =
+        await ctx.db.query.bastionBasicFacilities.findFirst({
+          where: and(
+            eq(bastionBasicFacilities.bastionId, bastion.id),
+            eq(bastionBasicFacilities.contributedByCharacterId, character.id),
+            isNull(bastionBasicFacilities.deletedAt),
+          ),
+        });
+      if (alreadyBrought) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: `${character.name} has already brought their free rooms.`,
+        });
+      }
+
+      await ctx.db
+        .insert(bastionBasicFacilities)
+        .values(freeRooms(bastion.id, character.id, input));
+
+      return { id: bastion.id };
+    }),
+
+  /**
+   * Switches the campaign between one bastion per character and one for the
+   * party — merging every bastion into one, or splitting the party's back
+   * out by who holds what (DECISIONS #34). Nothing is lost either way.
+   */
+  setMode: publicProcedure
+    .input(setBastionModeInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const party = await ensureParty(ctx.db);
+      if (party.bastionMode === input.mode) return { mode: input.mode };
+
+      const existing = await liveBastions(ctx.db);
+      const now = new Date();
+
+      if (input.mode === 'party') {
+        await mergeBastions(ctx.db, existing, input.name, now);
+      } else if (existing.length) {
+        const keeperId =
+          input.keeperCharacterId ??
+          (await liveCharacters(ctx.db)).find(character => character.isActive)
+            ?.id;
+        if (!keeperId) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Choose who keeps the shared parts of the bastion.',
+          });
+        }
+        await loadOwner(ctx.db, keeperId);
+        for (const bastion of existing) {
+          await splitBastion(ctx.db, bastion, keeperId, now);
+        }
+      }
+
+      await ctx.db
+        .update(parties)
+        .set({
+          bastionMode: input.mode,
+          ...touchSyncMeta({ version: party.version, now }),
+        })
+        .where(eq(parties.id, CURRENT_PARTY_ID));
+
+      return { mode: input.mode };
     }),
 
   update: publicProcedure
@@ -404,13 +729,25 @@ export const bastionsRouter = createTRPCRouter({
         });
       }
 
+      // The owner always holds a facility in their own bastion; in the
+      // party's, the member it was picked for does.
+      const holderId = bastion.ownerCharacterId ?? input.holderCharacterId;
+      if (!holderId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Choose which party member takes this facility.',
+        });
+      }
+      const holder = await loadOwner(ctx.db, holderId);
+
       if (!input.ignoreRequirements) {
-        const owner = await loadOwner(ctx.db, bastion.ownerCharacterId);
         const held = await liveSpecialFacilities(ctx.db, bastion.id);
         const problems = findEligibilityProblems(
           facility,
-          owner,
-          held.map(row => row.facilityKey),
+          holder,
+          held
+            .filter(row => row.holderCharacterId === holder.id)
+            .map(row => row.facilityKey),
         );
 
         if (problems.length) {
@@ -431,6 +768,7 @@ export const bastionsRouter = createTRPCRouter({
         .values({
           bastionId: bastion.id,
           facilityKey: facility.key,
+          holderCharacterId: holder.id,
           space: facility.space,
           variant,
         })

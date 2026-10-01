@@ -16,6 +16,7 @@ const base = {
     isFullyEnclosed: false,
   },
   owner,
+  members: [{ ...owner, isActive: true }],
   specialFacilities: [],
   basicFacilities: [],
   openProjects: [],
@@ -35,7 +36,13 @@ describe('toBastionDetail', () => {
     const detail = toBastionDetail({
       ...base,
       specialFacilities: [
-        { id: 'f1', facilityKey: 'barrack', space: 'roomy', variant: null },
+        {
+          id: 'f1',
+          facilityKey: 'barrack',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
       ],
     });
 
@@ -46,7 +53,13 @@ describe('toBastionDetail', () => {
     const [smithy] = toBastionDetail({
       ...base,
       specialFacilities: [
-        { id: 'f1', facilityKey: 'smithy', space: 'roomy', variant: null },
+        {
+          id: 'f1',
+          facilityKey: 'smithy',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
       ],
     }).specialFacilities;
 
@@ -61,7 +74,13 @@ describe('toBastionDetail', () => {
     const detail = toBastionDetail({
       ...base,
       specialFacilities: [
-        { id: 'f1', facilityKey: 'barrack', space: 'vast', variant: null },
+        {
+          id: 'f1',
+          facilityKey: 'barrack',
+          space: 'vast',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
       ],
     });
 
@@ -72,9 +91,27 @@ describe('toBastionDetail', () => {
     const detail = toBastionDetail({
       ...base,
       specialFacilities: [
-        { id: 'f1', facilityKey: 'barrack', space: 'roomy', variant: null },
-        { id: 'f2', facilityKey: 'barrack', space: 'vast', variant: null },
-        { id: 'f3', facilityKey: 'library', space: 'roomy', variant: null },
+        {
+          id: 'f1',
+          facilityKey: 'barrack',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
+        {
+          id: 'f2',
+          facilityKey: 'barrack',
+          space: 'vast',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
+        {
+          id: 'f3',
+          facilityKey: 'library',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
       ],
     });
 
@@ -88,7 +125,14 @@ describe('toBastionDetail', () => {
   it('marks a facility with an enlargement under way', () => {
     const detail = toBastionDetail({
       ...base,
-      basicFacilities: [{ id: 'k1', type: 'kitchen', space: 'cramped' }],
+      basicFacilities: [
+        {
+          id: 'k1',
+          type: 'kitchen',
+          space: 'cramped',
+          contributedByCharacterId: 'o1',
+        },
+      ],
       openProjects: [
         {
           ...blankProject,
@@ -114,7 +158,13 @@ describe('toBastionDetail', () => {
     const [mystery] = toBastionDetail({
       ...base,
       specialFacilities: [
-        { id: 'f1', facilityKey: 'lost-room', space: 'roomy', variant: null },
+        {
+          id: 'f1',
+          facilityKey: 'lost-room',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
       ],
     }).specialFacilities;
 
@@ -137,6 +187,115 @@ describe('toBastionDetail', () => {
     }).storage;
 
     expect(item?.claimedBy).toEqual({ id: 'o1', name: 'Sigrid' });
+  });
+});
+
+describe('toBastionDetail for a party bastion', () => {
+  const hammie = {
+    id: 'h1',
+    name: 'Hammie',
+    level: 5,
+    className: 'Rogue',
+    isActive: true,
+  };
+  const pip = {
+    id: 'p1',
+    name: 'Pip',
+    level: 3,
+    className: null,
+    isActive: true,
+  };
+
+  const party = (overrides = {}) =>
+    toBastionDetail({
+      ...base,
+      owner: null,
+      members: [{ ...owner, isActive: true }, hammie, pip],
+      characterNames: new Map([
+        ['o1', 'Sigrid'],
+        ['h1', 'Hammie'],
+      ]),
+      ...overrides,
+    });
+
+  it('is a party bastion with no owner', () => {
+    expect(party()).toMatchObject({ kind: 'party', owner: null });
+  });
+
+  it("counts each member's facilities against their own allowance", () => {
+    const detail = party({
+      specialFacilities: [
+        {
+          id: 'f1',
+          facilityKey: 'barrack',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'o1',
+        },
+        {
+          id: 'f2',
+          facilityKey: 'library',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'h1',
+        },
+        {
+          id: 'f3',
+          facilityKey: 'garden',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'h1',
+        },
+      ],
+    });
+
+    expect(
+      detail.members.map(member => [member.name, member.allowance]),
+    ).toEqual([
+      ['Sigrid', { held: 1, total: 4 }],
+      ['Hammie', { held: 2, total: 2 }],
+      ['Pip', { held: 0, total: 0 }],
+    ]);
+    expect(detail.allowance).toEqual({ held: 3, total: 6 });
+  });
+
+  it('says who holds each facility', () => {
+    const detail = party({
+      specialFacilities: [
+        {
+          id: 'f2',
+          facilityKey: 'library',
+          space: 'roomy',
+          variant: null,
+          holderCharacterId: 'h1',
+        },
+      ],
+    });
+
+    expect(detail.specialFacilities[0]?.holder).toEqual({
+      id: 'h1',
+      name: 'Hammie',
+    });
+  });
+
+  it('asks for the free rooms of a level 5+ member who has not brought them', () => {
+    const detail = party({
+      basicFacilities: [
+        {
+          id: 'r1',
+          type: 'bedroom',
+          space: 'cramped',
+          contributedByCharacterId: 'o1',
+        },
+      ],
+    });
+
+    // Sigrid brought hers, Pip is not level 5 yet.
+    expect(detail.pendingFreeRooms).toEqual([{ id: 'h1', name: 'Hammie' }]);
+  });
+
+  it('never asks in a per-character bastion', () => {
+    expect(toBastionDetail(base).pendingFreeRooms).toEqual([]);
   });
 });
 

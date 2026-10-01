@@ -460,14 +460,33 @@ export type NewPlayerCharacter = typeof playerCharacters.$inferInsert;
  */
 export const CURRENT_PARTY_ID = 'current';
 
-export const parties = sqliteTable('parties', {
-  ...syncMeta,
-  /**
-   * The shared treasury, in whole gold pieces. Never negative. The only gold
-   * the app tracks — characters have no purse of their own (DECISIONS #32).
-   */
-  treasuryGold: integer('treasury_gold').notNull().default(0),
-});
+export const parties = sqliteTable(
+  'parties',
+  {
+    ...syncMeta,
+    /**
+     * The shared treasury, in whole gold pieces. Never negative. The only gold
+     * the app tracks — characters have no purse of their own (DECISIONS #32).
+     */
+    treasuryGold: integer('treasury_gold').notNull().default(0),
+    /**
+     * One bastion per character (the 2024 default), or one the whole party
+     * shares (DECISIONS #34). Switching merges or splits existing bastions.
+     */
+    bastionMode: text('bastion_mode')
+      .$type<BastionMode>()
+      .notNull()
+      .default('per-character'),
+  },
+  table => [
+    check(
+      'parties_bastion_mode_is_valid',
+      sql`${table.bastionMode} in ('per-character', 'party')`,
+    ),
+  ],
+);
+
+export type BastionMode = 'per-character' | 'party';
 
 export type Party = typeof parties.$inferSelect;
 
@@ -1149,20 +1168,27 @@ export type NewMapMeasurementShape = typeof mapMeasurementShapes.$inferInsert;
 const facilitySpaceList = sql`('cramped', 'roomy', 'vast')`;
 
 /**
- * One character's bastion. One live bastion per owner — the partial unique
- * index ignores tombstoned rows, so an abandoned bastion does not block
- * founding a new one.
+ * A bastion. In per-character mode it belongs to `ownerCharacterId`, one
+ * live bastion per owner — the partial unique index ignores tombstoned rows,
+ * so an abandoned bastion does not block founding a new one. In party mode
+ * there is a single live bastion with no owner: the party holds it, and each
+ * special facility records which member holds that facility (DECISIONS #34).
  */
 export const bastions = sqliteTable(
   'bastions',
   {
     ...syncMeta,
-    ownerCharacterId: text('owner_character_id')
-      .notNull()
-      .references(() => playerCharacters.id),
+    /** Null for the party's shared bastion. */
+    ownerCharacterId: text('owner_character_id').references(
+      () => playerCharacters.id,
+    ),
     name: text('name').notNull(),
     notes: text('notes'),
-    /** Bastion Defenders on the roster. Barracks house them; see `defenderCapacity`. */
+    /**
+     * Bastion Defenders on the roster — one pool even in a party bastion,
+     * since any member may absorb another's losses. Barracks house them; see
+     * `defenderCapacity`.
+     */
     defenderCount: integer('defender_count').notNull().default(0),
     /** Defensive wall built so far, in 5-foot squares. */
     wallSquares: integer('wall_squares').notNull().default(0),
@@ -1194,6 +1220,13 @@ export const bastionSpecialFacilities = sqliteTable(
       .notNull()
       .references(() => bastions.id),
     facilityKey: text('facility_key').notNull(),
+    /**
+     * The character who holds it: counts against their allowance, and only
+     * they give it orders. In a per-character bastion, always the owner.
+     */
+    holderCharacterId: text('holder_character_id').references(
+      () => playerCharacters.id,
+    ),
     space: text('space').$type<FacilitySpace>().notNull(),
     /** The chosen variant — a Garden's type, a Guildhall's guild — if any. */
     variant: text('variant'),
@@ -1220,6 +1253,15 @@ export const bastionBasicFacilities = sqliteTable(
       .references(() => bastions.id),
     type: text('type').$type<BasicFacilityType>().notNull(),
     space: text('space').$type<FacilitySpace>().notNull(),
+    /**
+     * Set on the two free rooms a character brings when their bastion is
+     * founded — or when they join a party bastion. Lets the page ask about a
+     * member who reached level 5 later, and decides where a room goes when a
+     * party bastion is split back up.
+     */
+    contributedByCharacterId: text('contributed_by_character_id').references(
+      () => playerCharacters.id,
+    ),
   },
   table => [
     index('bastion_basic_facilities_bastion').on(table.bastionId),

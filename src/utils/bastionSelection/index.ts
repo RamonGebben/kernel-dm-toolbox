@@ -34,7 +34,7 @@ export const toFoundableCharacters = (
     level: number;
     isActive: boolean;
   }[],
-  bastions: readonly { ownerId: string }[],
+  bastions: readonly { ownerId: string | null }[],
 ): FoundableCharacter[] => {
   const owners = new Set(bastions.map(({ ownerId }) => ownerId));
 

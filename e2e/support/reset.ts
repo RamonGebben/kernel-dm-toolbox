@@ -49,3 +49,36 @@ export const clearSavedEncounters = async (
     });
   }
 };
+
+/**
+ * Abandons every bastion and sets the campaign's bastion mode.
+ *
+ * The mode is campaign-wide and switching it merges or splits whatever
+ * bastions exist, so a bastion spec cannot share the board with leftovers
+ * from another run. Abandoning first means the switch has nothing to move.
+ */
+export const resetBastions = async (
+  request: APIRequestContext,
+  baseURL: string,
+  mode: 'per-character' | 'party',
+): Promise<void> => {
+  const response = await request.get(`${baseURL}/api/trpc/bastions.list`);
+  const body = (await response.json()) as {
+    result: { data: { json: { id: string }[] } };
+  };
+
+  for (const bastion of body.result.data.json) {
+    await request.post(`${baseURL}/api/trpc/bastions.abandon`, {
+      data: { json: { id: bastion.id } },
+    });
+  }
+
+  await request.post(`${baseURL}/api/trpc/bastions.setMode`, {
+    data: {
+      json:
+        mode === 'party'
+          ? { mode: 'party', name: 'Unused' }
+          : { mode: 'per-character' },
+    },
+  });
+};

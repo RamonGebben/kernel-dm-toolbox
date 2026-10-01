@@ -15,7 +15,10 @@ export const partyRouter = createTRPCRouter({
   get: publicProcedure.query(async ({ ctx }) => {
     const party = await ensureParty(ctx.db);
 
-    return { treasuryGold: party.treasuryGold };
+    return {
+      treasuryGold: party.treasuryGold,
+      bastionMode: party.bastionMode,
+    };
   }),
 
   adjustTreasury: publicProcedure

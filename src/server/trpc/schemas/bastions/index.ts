@@ -12,20 +12,56 @@ const basicTypeSchema = z.enum([
   'storage',
 ]);
 
-/**
- * Founding a bastion: who owns it, what it is called, and the two free basic
- * facilities it starts with — one Cramped, one Roomy, the player's pick.
- */
-export const foundBastionInputSchema = z.object({
-  ownerCharacterId: z.uuid(),
-  name: z.string().trim().min(1).max(80),
+const bastionNameSchema = z.string().trim().min(1).max(80);
+
+/** The two free rooms a character brings: one Cramped, one Roomy, their pick. */
+const freeRoomsSchema = z.object({
   crampedBasicType: basicTypeSchema,
   roomyBasicType: basicTypeSchema,
 });
 
+/**
+ * Founding a bastion. Per character: who owns it and their two free rooms.
+ * For the party: one shared bastion, every member bringing their own two
+ * free rooms — which is what makes it "a lot bigger" (DECISIONS #34).
+ */
+export const foundBastionInputSchema = z.discriminatedUnion('mode', [
+  freeRoomsSchema.extend({
+    mode: z.literal('per-character'),
+    ownerCharacterId: z.uuid(),
+    name: bastionNameSchema,
+  }),
+  z.object({
+    mode: z.literal('party'),
+    name: bastionNameSchema,
+    members: z
+      .array(freeRoomsSchema.extend({ characterId: z.uuid() }))
+      .min(1)
+      .max(200),
+  }),
+]);
+
+/** A party member who reached level 5 later brings their free rooms. */
+export const addFreeRoomsInputSchema = freeRoomsSchema.extend({
+  bastionId: z.uuid(),
+  characterId: z.uuid(),
+});
+
+/**
+ * Switching the campaign's bastion mode. Merging names the new party
+ * bastion; splitting names who keeps the shared parts (DECISIONS #34).
+ */
+export const setBastionModeInputSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('party'), name: bastionNameSchema }),
+  z.object({
+    mode: z.literal('per-character'),
+    keeperCharacterId: z.uuid().optional(),
+  }),
+]);
+
 export const updateBastionInputSchema = z.object({
   id: z.uuid(),
-  name: z.string().trim().min(1).max(80),
+  name: bastionNameSchema,
   notes: z.string().trim().max(4000).optional(),
   defenderCount: z.number().int().min(0).max(1000),
   wallSquares: z.number().int().min(0).max(10_000),
@@ -35,6 +71,11 @@ export const updateBastionInputSchema = z.object({
 export const addSpecialFacilityInputSchema = z.object({
   bastionId: z.uuid(),
   facilityKey: z.string().min(1).max(80),
+  /**
+   * The member who takes it, in a party bastion. Ignored in a per-character
+   * bastion, where the owner always holds it.
+   */
+  holderCharacterId: z.uuid().optional(),
   variant: z.string().trim().max(80).optional(),
   /**
    * Take it even though the level, prerequisite, duplicate or allowance

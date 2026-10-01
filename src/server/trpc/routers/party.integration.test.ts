@@ -27,7 +27,10 @@ beforeEach(async () => {
 
 describe('party.get', () => {
   it('starts a fresh campaign with an empty treasury', async () => {
-    expect(await caller.party.get()).toEqual({ treasuryGold: 0 });
+    expect(await caller.party.get()).toEqual({
+      treasuryGold: 0,
+      bastionMode: 'per-character',
+    });
   });
 
   it('creates the party row once, however often it is read', async () => {
@@ -44,7 +47,7 @@ describe('party.adjustTreasury', () => {
     const after = await caller.party.adjustTreasury({ delta: -120 });
 
     expect(after).toEqual({ treasuryGold: 380 });
-    expect(await caller.party.get()).toEqual({ treasuryGold: 380 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 380 });
   });
 
   it('refuses to overdraw the treasury', async () => {
@@ -53,7 +56,7 @@ describe('party.adjustTreasury', () => {
     await expect(caller.party.adjustTreasury({ delta: -101 })).rejects.toThrow(
       /does not hold that much/,
     );
-    expect(await caller.party.get()).toEqual({ treasuryGold: 100 });
+    expect(await caller.party.get()).toMatchObject({ treasuryGold: 100 });
   });
 
   it('refuses a zero change, which would only bump the version', async () => {

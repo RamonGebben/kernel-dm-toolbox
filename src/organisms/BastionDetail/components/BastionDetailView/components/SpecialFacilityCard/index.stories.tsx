@@ -25,6 +25,7 @@ const fromCatalog = (key: string, overrides = {}) => {
         }
       : null,
     isBeingEnlarged: false,
+    holder: { id: 'sigrid', name: 'Sigrid' },
     ...overrides,
   };
 };
@@ -34,6 +35,7 @@ const meta = {
   component: SpecialFacilityCard,
   args: {
     facility: fromCatalog('arcane-study'),
+    showHolder: false,
     treasuryGold: 5000,
     onSetVariant: fn(),
     onEnlarge: fn(),
@@ -55,6 +57,16 @@ export const ArcaneStudy: Story = {
     await expect(
       canvas.queryByRole('button', { name: /Enlarge/ }),
     ).not.toBeInTheDocument();
+  },
+};
+
+/** In a party bastion each card says whose it is. */
+export const InAPartyBastion: Story = {
+  args: { showHolder: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Held by Sigrid')).toBeVisible();
   },
 };
 

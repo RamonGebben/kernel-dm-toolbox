@@ -31,7 +31,9 @@ export const usePartyTreasury = () => {
   const adjust = useMutation(
     trpc.party.adjustTreasury.mutationOptions({
       onSuccess: updated =>
-        queryClient.setQueryData(trpc.party.get.queryKey(), updated),
+        queryClient.setQueryData(trpc.party.get.queryKey(), current =>
+          current ? { ...current, ...updated } : current,
+        ),
     }),
   );
 

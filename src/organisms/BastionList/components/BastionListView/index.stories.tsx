@@ -7,20 +7,30 @@ const meta = {
   component: BastionListView,
   args: {
     isPending: false,
+    mode: 'per-character',
+    canFound: true,
+    activeMembers: [{ id: 'sigrid', name: 'Sigrid' }],
+    isSwitching: false,
+    switchError: null,
+    onSwitchMode: fn(async () => undefined),
     bastions: [
       {
         id: 'highwatch',
         name: 'Highwatch',
+        kind: 'character',
         ownerName: 'Sigrid',
         ownerLevel: 9,
+        memberCount: 1,
         specialFacilityCount: 3,
         allowance: 4,
       },
       {
         id: 'burrow',
         name: 'The Burrow',
+        kind: 'character',
         ownerName: 'Hammie',
         ownerLevel: 5,
+        memberCount: 1,
         specialFacilityCount: 2,
         allowance: 2,
       },
@@ -98,5 +108,37 @@ export const Founding: Story = {
       expect.objectContaining({ ownerCharacterId: 'pip', name: 'Pip Hall' }),
     );
     await expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  },
+};
+
+/** The party's one shared bastion: no second one to found. */
+export const PartyBastion: Story = {
+  args: {
+    mode: 'party',
+    canFound: false,
+    bastions: [
+      {
+        id: 'hall',
+        name: 'The Hall',
+        kind: 'party',
+        ownerName: null,
+        ownerLevel: null,
+        memberCount: 3,
+        specialFacilityCount: 5,
+        allowance: 10,
+      },
+    ],
+    selectedId: 'hall',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByText('The party · 3 members · 5/10 facilities'),
+    ).toBeVisible();
+    await expect(canvas.getByText('One for the whole party')).toBeVisible();
+    await expect(
+      canvas.queryByRole('button', { name: /Found/ }),
+    ).not.toBeInTheDocument();
   },
 };

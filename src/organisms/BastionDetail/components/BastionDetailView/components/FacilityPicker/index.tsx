@@ -3,41 +3,86 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { CheckboxRow } from '~/atoms/FormControls';
+import { CheckboxRow, FieldRow, Select } from '~/atoms/FormControls';
 import { specialFacilities } from '~/content/bastion/specialFacilities';
 import { bastionOrderLabels } from '~/content/bastion/orders';
 import type { FacilityLevel } from '~/content/bastion/types';
 import {
+  allowanceForLevel,
   describeEligibilityProblem,
   findEligibilityProblems,
   spaceLabel,
 } from '~/utils/bastionRules';
 
-export type FacilityPickerProps = {
-  owner: { name: string; level: number; className: string | null };
-  /** Catalog keys this bastion already holds. */
+export type PickerMember = {
+  id: string;
+  name: string;
+  level: number;
+  className: string | null;
+  /** Catalog keys this member already holds here. */
   heldKeys: readonly string[];
+};
+
+export type FacilityPickerProps = {
+  /**
+   * Who can take a facility: the owner alone in their own bastion, every
+   * member in the party's — each checked against their own allowance.
+   */
+  members: readonly PickerMember[];
   isSaving: boolean;
-  onAdd: (facilityKey: string, ignoreRequirements: boolean) => void;
+  onAdd: (
+    facilityKey: string,
+    ignoreRequirements: boolean,
+    holderCharacterId: string,
+  ) => void;
 };
 
 const levels: readonly FacilityLevel[] = [5, 9, 13, 17];
 
 /**
- * The catalog, checked against this owner: what they can take now, and —
- * for anything they cannot — why. The rules are the default; "ignore the
- * rules" is a deliberate DM override (DECISIONS #33).
+ * The catalog, checked against the member taking it: what they can take now,
+ * and — for anything they cannot — why. The rules are the default; "ignore
+ * the rules" is a deliberate DM override (DECISIONS #33).
  */
 export const FacilityPicker = ({
-  owner,
-  heldKeys,
+  members,
   isSaving,
   onAdd,
 }: FacilityPickerProps) => {
   const [ignoreRules, setIgnoreRules] = useState(false);
+  // Start on someone who can still take a facility, not on a member who is
+  // too low a level or already full.
+  const [holderId, setHolderId] = useState(
+    (
+      members.find(
+        member => member.heldKeys.length < allowanceForLevel(member.level),
+      ) ?? members[0]
+    )?.id ?? '',
+  );
+  const owner = members.find(({ id }) => id === holderId) ?? members[0];
+
+  if (!owner) return <Intro>Nobody can hold a facility here yet.</Intro>;
+
+  const { heldKeys } = owner;
 
   return (
     <Wrapper>
+      {members.length > 1 ? (
+        <FieldRow>
+          <label htmlFor="facility-picker-holder">For</label>
+          <Select
+            id="facility-picker-holder"
+            value={owner.id}
+            onChange={event => setHolderId(event.target.value)}
+          >
+            {members.map(member => (
+              <option key={member.id} value={member.id}>
+                {member.name} (level {member.level})
+              </option>
+            ))}
+          </Select>
+        </FieldRow>
+      ) : null}
       <Intro>
         {owner.name} is level {owner.level}
         {owner.className ? ` (${owner.className})` : ''}. Facilities they cannot
@@ -90,7 +135,9 @@ export const FacilityPicker = ({
                       disabled={
                         isSaving || (problems.length > 0 && !ignoreRules)
                       }
-                      onClick={() => onAdd(facility.key, problems.length > 0)}
+                      onClick={() =>
+                        onAdd(facility.key, problems.length > 0, owner.id)
+                      }
                     >
                       Add
                     </Button>

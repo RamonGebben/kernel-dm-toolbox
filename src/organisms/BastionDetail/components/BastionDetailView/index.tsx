@@ -18,6 +18,7 @@ import { FacilityPicker } from '~/organisms/BastionDetail/components/BastionDeta
 import { BasicFacilitiesSection } from '~/organisms/BastionDetail/components/BastionDetailView/components/BasicFacilitiesSection';
 import { DefensesSection } from '~/organisms/BastionDetail/components/BastionDetailView/components/DefensesSection';
 import { ConstructionSection } from '~/organisms/BastionDetail/components/BastionDetailView/components/ConstructionSection';
+import { PendingFreeRooms } from '~/organisms/BastionDetail/components/BastionDetailView/components/PendingFreeRooms';
 import { StorageSection } from '~/organisms/BastionDetail/components/BastionDetailView/components/StorageSection';
 import {
   BastionSettingsForm,
@@ -59,6 +60,17 @@ type LoadedBastionProps = Omit<BastionDetailViewProps, 'state'> & {
   detail: BastionDetail;
 };
 
+/** "Sigrid · level 9 Paladin", or "Shared by the party · 3 members". */
+const describeOwnership = (detail: BastionDetail): string => {
+  if (!detail.owner) {
+    const count = detail.members.length;
+    return `Shared by the party · ${count} member${count === 1 ? '' : 's'}`;
+  }
+
+  const { name, level, className } = detail.owner;
+  return `${name} · level ${level}${className ? ` ${className}` : ''}`;
+};
+
 const toSettings = (detail: BastionDetail): BastionSettingsValues => ({
   name: detail.name,
   notes: detail.notes ?? '',
@@ -85,9 +97,17 @@ const LoadedBastion = ({
       .update({ id: detail.id, ...values, notes: values.notes || undefined })
       .then(close, () => undefined);
 
-  const addFacility = (facilityKey: string, ignoreRequirements: boolean) =>
+  const addFacility = (
+    facilityKey: string,
+    ignoreRequirements: boolean,
+    holderCharacterId: string,
+  ) =>
     actions
-      .addSpecialFacility({ facilityKey, ignoreRequirements })
+      .addSpecialFacility({
+        facilityKey,
+        ignoreRequirements,
+        holderCharacterId,
+      })
       .then(close, () => undefined);
 
   return (
@@ -96,10 +116,17 @@ const LoadedBastion = ({
         <div>
           <Title>{detail.name}</Title>
           <Meta>
-            {detail.owner.name} · level {detail.owner.level}
-            {detail.owner.className ? ` ${detail.owner.className}` : ''} ·
-            treasury {formatGold(treasuryGold)}
+            {describeOwnership(detail)} · treasury {formatGold(treasuryGold)}
           </Meta>
+          {detail.kind === 'party' ? (
+            <Allowances aria-label="Facilities per member">
+              {detail.members.map(member => (
+                <li key={member.id}>
+                  {member.name} {member.allowance.held}/{member.allowance.total}
+                </li>
+              ))}
+            </Allowances>
+          ) : null}
         </div>
         <HeaderActions>
           <Button
@@ -119,6 +146,10 @@ const LoadedBastion = ({
       </Header>
 
       {detail.notes ? <Notes>{detail.notes}</Notes> : null}
+      <PendingFreeRooms
+        members={detail.pendingFreeRooms}
+        onAdd={actions.addFreeRooms}
+      />
       {error ? <ErrorBanner role="alert">{error}</ErrorBanner> : null}
 
       <Section aria-label="Special facilities">
@@ -138,6 +169,7 @@ const LoadedBastion = ({
               <SpecialFacilityCard
                 key={facility.id}
                 facility={facility}
+                showHolder={detail.kind === 'party'}
                 treasuryGold={treasuryGold}
                 onSetVariant={variant =>
                   actions.setFacilityVariant(facility.id, variant)
@@ -233,12 +265,16 @@ const LoadedBastion = ({
           <ErrorBanner role="alert">{error}</ErrorBanner>
         ) : null}
         <FacilityPicker
-          owner={detail.owner}
-          heldKeys={detail.specialFacilities.map(
-            facility => facility.facilityKey,
-          )}
+          members={detail.members.map(member => ({
+            ...member,
+            heldKeys: detail.specialFacilities
+              .filter(facility => facility.holder?.id === member.id)
+              .map(facility => facility.facilityKey),
+          }))}
           isSaving={isSaving}
-          onAdd={(key, ignore) => void addFacility(key, ignore)}
+          onAdd={(key, ignore, holderId) =>
+            void addFacility(key, ignore, holderId)
+          }
         />
       </Modal>
     </Wrapper>
@@ -268,6 +304,18 @@ const Title = styled.h2`
 const Meta = styled.p`
   margin: 0;
   color: ${props => props.theme.color.textMuted};
+`;
+
+const Allowances = styled.ul`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${props => props.theme.space.xs} ${props => props.theme.space.md};
+  margin: ${props => props.theme.space.xs} 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: ${props => props.theme.font.mono};
+  font-size: ${props => props.theme.fontSize.sm};
+  color: ${props => props.theme.color.textPrimary};
 `;
 
 const HeaderActions = styled.div`
