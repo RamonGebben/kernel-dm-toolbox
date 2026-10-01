@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useBastionSelectionStore } from '~/stores/bastionSelection';
 import {
+  orderKeeperCandidates,
   resolveSelectedBastionId,
   toFoundableCharacters,
 } from '~/utils/bastionSelection';
@@ -58,9 +59,12 @@ export const useBastionList = () => {
     foundable: toFoundableCharacters(characters.data ?? [], bastions),
     /** In party mode there is only ever one bastion to found. */
     canFound: mode === 'per-character' || bastions.length === 0,
-    activeMembers: (characters.data ?? [])
-      .filter(character => character.isActive)
-      .map(({ id, name }) => ({ id, name })),
+    activeMembers: orderKeeperCandidates(
+      (characters.data ?? [])
+        .filter(character => character.isActive)
+        .map(({ id, name }) => ({ id, name })),
+      bastions[0]?.topHolderId ?? null,
+    ),
     isFounding: found.isPending,
     foundError: found.error?.message ?? null,
     isSwitching: setMode.isPending,

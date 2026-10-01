@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  findTopHolder,
+  orderKeeperCandidates,
   resolveSelectedBastionId,
   toFoundableCharacters,
 } from '~/utils/bastionSelection';
@@ -51,5 +53,33 @@ describe('toFoundableCharacters', () => {
     expect(toFoundableCharacters([character('gone', 9, false)], [])).toEqual(
       [],
     );
+  });
+});
+
+describe('findTopHolder', () => {
+  it('picks whoever holds the most facilities', () => {
+    expect(findTopHolder(['wren', 'sigrid', 'sigrid', null])).toBe('sigrid');
+  });
+
+  it('gives a tie to whoever comes first', () => {
+    expect(findTopHolder(['wren', 'sigrid'])).toBe('wren');
+  });
+
+  it('is null when nobody holds anything', () => {
+    expect(findTopHolder([null])).toBeNull();
+  });
+});
+
+describe('orderKeeperCandidates', () => {
+  const members = [{ id: 'bo' }, { id: 'sigrid' }, { id: 'wren' }];
+
+  it('moves the suggested keeper to the front', () => {
+    expect(
+      orderKeeperCandidates(members, 'sigrid').map(({ id }) => id),
+    ).toEqual(['sigrid', 'bo', 'wren']);
+  });
+
+  it('keeps the order without a suggestion', () => {
+    expect(orderKeeperCandidates(members, null)).toEqual(members);
   });
 });

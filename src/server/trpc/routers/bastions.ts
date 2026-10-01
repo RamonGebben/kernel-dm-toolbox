@@ -44,6 +44,7 @@ import {
   planBastionSplit,
 } from '~/server/trpc/helpers/planBastionModeChange';
 import { ensureParty } from '~/server/party/state';
+import { findTopHolder } from '~/utils/bastionSelection';
 import { findSpecialFacility } from '~/content/bastion/specialFacilities';
 import type { BasicFacilityType } from '~/content/bastion/types';
 import {
@@ -449,6 +450,10 @@ export const bastionsRouter = createTRPCRouter({
           ownerName: owner?.name ?? null,
           ownerLevel: owner?.level ?? null,
           memberCount: members.length,
+          /** Who would keep the shared parts if this were split up. */
+          topHolderId: findTopHolder(
+            held.map(facility => facility.holderCharacterId),
+          ),
           specialFacilityCount: held.length,
           allowance: members.reduce(
             (total, member) => total + allowanceForLevel(member.level),

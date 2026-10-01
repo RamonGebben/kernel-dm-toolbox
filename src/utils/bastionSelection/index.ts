@@ -47,3 +47,29 @@ export const toFoundableCharacters = (
       canFound: canFoundBastion(level),
     }));
 };
+
+/**
+ * The member holding the most facilities — the sensible default for who
+ * keeps a split party bastion's shared parts. Ties go to whoever comes first.
+ */
+export const findTopHolder = (
+  holderIds: readonly (string | null)[],
+): string | null =>
+  holderIds
+    .filter((id): id is string => id !== null)
+    .reduce<{ id: string | null; count: number }>(
+      (best, id, _, all) => {
+        const count = all.filter(other => other === id).length;
+        return count > best.count ? { id, count } : best;
+      },
+      { id: null, count: 0 },
+    ).id;
+
+/** Puts the suggested keeper first, so a dialog defaulting to the first pick gets them. */
+export const orderKeeperCandidates = <TMember extends { id: string }>(
+  members: readonly TMember[],
+  suggestedId: string | null,
+): TMember[] => [
+  ...members.filter(({ id }) => id === suggestedId),
+  ...members.filter(({ id }) => id !== suggestedId),
+];

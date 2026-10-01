@@ -101,6 +101,7 @@ describe('bastions.list', () => {
         ownerName: owner.name,
         ownerLevel: 9,
         memberCount: 1,
+        topHolderId: owner.id,
         specialFacilityCount: 1,
         allowance: 4,
       },
