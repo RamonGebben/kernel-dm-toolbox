@@ -8,7 +8,7 @@ import type { IconName } from '~/atoms/Icon';
  * change. A tool without an `href` renders disabled, because a nav item that
  * silently does nothing is worse than one that says why.
  */
-export type ToolId = 'initiative' | 'party' | 'maps' | 'spells';
+export type ToolId = 'initiative' | 'party' | 'bastions' | 'maps' | 'spells';
 
 export type Tool = {
   id: ToolId;
@@ -20,7 +20,7 @@ export type Tool = {
    * Set only for a tool that has a route. An unbuilt tool has none, which is
    * what keeps `typedRoutes` honest — there is no href to get wrong.
    */
-  href?: '/' | '/party' | '/spells' | '/maps';
+  href?: '/' | '/party' | '/bastions' | '/spells' | '/maps';
 };
 
 export const tools: readonly Tool[] = [
@@ -37,6 +37,13 @@ export const tools: readonly Tool[] = [
     description: 'The party: characters and treasury',
     icon: 'users',
     href: '/party',
+  },
+  {
+    id: 'bastions',
+    label: 'Bastions',
+    description: 'Bastions: facilities, construction and storage',
+    icon: 'castle',
+    href: '/bastions',
   },
   {
     id: 'maps',
