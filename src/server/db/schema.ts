@@ -424,10 +424,48 @@ export const playerCharacters = sqliteTable('player_characters', {
   /** Added to a d20 when the DM types in what the player rolled. */
   initiativeModifier: integer('initiative_modifier').notNull().default(0),
   level: integer('level').notNull().default(1),
+  /**
+   * One of the twelve classes in `~/content/characterOptions`, or null. A
+   * multiclass character records their main class here and the rest in
+   * `notes` — later bastion facility prerequisites key off this.
+   */
+  className: text('class_name'),
+  /** Free text: the SRD has one subclass per class, the table has more. */
+  subclass: text('subclass'),
+  /** Free text, suggested from the SRD list, since PHB species are not in it. */
+  species: text('species'),
+  /**
+   * Benched rather than deleted: someone who left the group or died stays on
+   * the record but is hidden from the tracker's pick list (DECISIONS #32).
+   * Not the same as "absent this session", which is never stored.
+   */
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  passivePerception: integer('passive_perception'),
+  passiveInsight: integer('passive_insight'),
+  passiveInvestigation: integer('passive_investigation'),
+  notes: text('notes'),
+  /** The character's own purse, in whole gold pieces. */
+  gold: integer('gold').notNull().default(0),
 });
 
 export type PlayerCharacter = typeof playerCharacters.$inferSelect;
 export type NewPlayerCharacter = typeof playerCharacters.$inferInsert;
+
+/**
+ * The party itself — one per campaign, so one row with a fixed id, the same
+ * shape as `encounters` (DECISIONS #32). Members are every live row in
+ * `player_characters`; this holds what belongs to the group rather than to
+ * any one of them.
+ */
+export const CURRENT_PARTY_ID = 'current';
+
+export const parties = sqliteTable('parties', {
+  ...syncMeta,
+  /** The shared treasury, in whole gold pieces. Never negative. */
+  treasuryGold: integer('treasury_gold').notNull().default(0),
+});
+
+export type Party = typeof parties.$inferSelect;
 
 /**
  * A DM-authored ("homebrew") creature, alongside the read-only Open5e
