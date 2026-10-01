@@ -651,9 +651,25 @@ bastion_storage_items       produced, not yet collected; claimed_by_character_id
   the pure `planBastionMerge` / `planBastionSplit`
   (`~/server/trpc/helpers/planBastionModeChange`). Founding is refused in
   the wrong mode, and party mode allows one live bastion.
-- **The bastion turn is not built yet.** Orders, Maintain events and
-  attacks are the next milestone — a guided wizard that, in a party
-  bastion, walks through each member in turn.
+- **The bastion turn is a wizard over a saved draft** (DECISIONS #35).
+  `bastion_turns` holds one `draft` row at a time — the wizard's JSON,
+  validated by `turnDraftSchema`, saved on every step — and committed rows as
+  history. Nothing changes until `bastionTurns.commit`.
+- **Turn logic is pure and lives in two places.** `~/utils/bastionTurn`
+  (dice: `eventForRoll`, `attackDice`, `resolveEventOutcome`, …) is shared
+  by client and server. `~/server/trpc/helpers/bastionTurnPlan` builds the
+  wizard's context (`toTurnContext`), a new draft (`startTurnDraft`) and
+  what a commit changes (`planTurnCommit`). The review step calls
+  `bastionTurns.preview`, which runs the same planner — never duplicate its
+  rules in the client.
+- **An event stores its dice in `inputs` and its result as plain outcome
+  fields.** Add an event's arithmetic to `resolveEventOutcome`; never teach
+  `planTurnCommit` about a particular event.
+- **A turn is seven days** (`TURN_DAYS`). A job finishing within them is
+  offered in the next turn's first step for what it produced; one running
+  longer is busy; an out-of-action facility takes no orders that turn.
+- **Spend first.** The commit spends the treasury before any other write, so
+  a short treasury refuses the whole turn. A d100 of 0 means "not rolled".
 
 ## The Maps tool
 

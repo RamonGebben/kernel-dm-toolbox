@@ -18,7 +18,8 @@ species, passive scores and notes — plus the party's shared treasury, with
 members who have left benched rather than deleted. **Bastions**: the 2024
 bastion rules, one per character or one shared by the whole party — special
 facilities checked against each member's rules, rooms, walls and defenders,
-construction paid from the treasury, and a storage log. **Spells**: a searchable
+construction paid from the treasury, a storage log, and a guided bastion
+turn: who's home, their orders, their Bastion Events, then commit. **Spells**: a searchable
 lookup of the SRD 5.2 spell list, filterable by level and class. **Maps**: a
 pan/zoom virtual tabletop with grid calibration and fog of war. The tracker and
 Maps share a read-only second screen for the table to watch.
@@ -185,17 +186,15 @@ animated effect clip when a matched spell is placed.
 
 Next, in rough order:
 
-1. **The bastion turn**, as a guided step-by-step wizard — orders, Maintain
-   events, attacks — member by member in a shared party bastion.
-2. **Dice rolling from attack rows.** The structured attack data
+1. **Dice rolling from attack rows.** The structured attack data
    (`creature_action_attacks`: to-hit, damage dice, reach) isn't wired to its
    own roll button yet; only dice mentioned in prose text is.
-3. **Drag to reorder the initiative list**, for the ties and the corrections a
+2. **Drag to reorder the initiative list**, for the ties and the corrections a
    number field makes awkward.
-4. **An artwork/handout gallery for Maps**, the way
+3. **An artwork/handout gallery for Maps**, the way
    [Kernels-Virtual-Table-Top](https://github.com/RamonGebben/Kernels-Virtual-Table-Top),
    the standalone app Maps was ported from, had one alongside its battle maps.
-5. **A rules glossary.** Open5e's `Rule`, `RuleSet` and the small `*Description`
+4. **A rules glossary.** Open5e's `Rule`, `RuleSet` and the small `*Description`
    files would make statblock terms explainable in place. See `DECISIONS.md`
    #24 for the survey of what else is importable and what was ruled out.
 

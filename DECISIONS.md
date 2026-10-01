@@ -1011,3 +1011,62 @@ check constraint, and drizzle-kit generated a copy step that read
 SQL was corrected, and a backfill was added so existing bastions' owners
 hold their facilities and brought their rooms. Tested against a database
 migrated to `0020` with data in it.
+
+---
+
+## 35. The bastion turn is a guided wizard over a saved draft
+
+**Decision.** A bastion turn is seven days for every bastion in the campaign
+at once, run as a five-step wizard: _Since last turn_ (finished work and
+what it produced), _Who's home_, _Orders_, _Bastion Events_, _Review_. The
+wizard's state is a `bastion_turns` row with `status = 'draft'` and the
+choices as JSON (`turnDraftSchema`), saved at every step; committing applies
+it and keeps a summary as history. One draft at a time (a partial unique
+index).
+
+**Why a wizard.** Asked for directly: at the table the DM asks the players,
+types in what they say and roll, and moves on. Every step says whom to ask
+for what ("Ask Wren's player to roll for the Bastion Event"); each Bastion
+Event then asks for exactly its own dice and choices.
+
+**Why a saved draft, not client state.** A turn takes a while at the table.
+A refresh, a closed laptop or a second device must not lose it, and nothing
+should change until the DM commits. The draft is the whole wizard; discarding
+it changes nothing.
+
+**Why dice are entered, "roll for me" is the fallback.** The players roll
+real dice. `DieInput` is a box for what they rolled with a "Roll for me"
+button for anyone not at the table — never the default.
+
+**Why the draft stores outcomes, not event logic.** Each event's dice and
+choices sit in `inputs`; one pure function, `resolveEventOutcome`, turns them
+into plain outcomes — gold in and out, defenders gained and lost, a facility
+put out of action, an item stored. `planTurnCommit` (pure, server-side) then
+applies outcomes without knowing one event from another, and the review
+step runs the very same planner through `bastionTurns.preview`, so what the
+DM approves is what happens.
+
+**Orders are generic on purpose.** A facility order is an option from the
+catalog plus a cost (prefilled, editable) and a free-text detail. It runs
+for the option's days — 7 when the book times it some other way — and when
+it finishes, the next turn's first step asks what it produced: an item for
+storage, gold earned, defenders recruited. Encoding every facility's own
+dice (a Gaming Hall's winnings, a Theater's checks) would multiply the
+catalog for little gain; the DM reads the option's summary and types the
+result.
+
+**What a commit does, in order.** Seven days pass: construction and running
+jobs count down, finished construction is applied (`completeProject`, shared
+with the bastion page's "Finish now"), out-of-action facilities recover a
+turn. New orders start and are paid from the treasury. Then the events land.
+An Attack uses up a stocked Armory and a friendly-monster guest. The gold is
+spent first, through the guarded treasury update, so a short treasury
+refuses the turn before anything else changes.
+
+**In a party bastion** every member takes the turn in their own right: their
+own presence, their own facilities' orders, their own Maintain event. The
+defender pool is shared (#34).
+
+**Left out.** Neglect (a bastion lost after a character's level in turns
+without orders) is not tracked. War Room lieutenants do not reduce attack
+dice automatically — the dice count is shown, and the DM enters the result.

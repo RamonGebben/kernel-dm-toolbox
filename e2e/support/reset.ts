@@ -67,6 +67,19 @@ export const resetBastions = async (
     result: { data: { json: { id: string }[] } };
   };
 
+  // A turn left half-finished by an earlier run would be resumed instead of
+  // a fresh one started.
+  const turn = await request.get(`${baseURL}/api/trpc/bastionTurns.current`);
+  const turnBody = (await turn.json()) as {
+    result: { data: { json: { turn: { id: string } | null } } };
+  };
+  const draft = turnBody.result.data.json.turn;
+  if (draft) {
+    await request.post(`${baseURL}/api/trpc/bastionTurns.discard`, {
+      data: { json: { id: draft.id } },
+    });
+  }
+
   for (const bastion of body.result.data.json) {
     await request.post(`${baseURL}/api/trpc/bastions.abandon`, {
       data: { json: { id: bastion.id } },
