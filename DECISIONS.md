@@ -861,3 +861,48 @@ tool tweak. Asked directly rather than assumed either way: ship the
 placeable, animated shape now: with drag-to-move already built, "the DM
 nudges it each round" costs nothing new to support, and revisit true
 token-following if a real token layer gets built for its own sake.
+
+---
+
+## 32. The party gets its own page; the tracker only picks from it
+
+**Decision.** A Party tool on the rail (`/party`) is now the one place
+characters are created, edited, benched and removed, alongside a shared
+party treasury. The tracker's Characters tab became a pick list: a per-row
+Add, an "Add all active" button, and an Edit that is a _link_ to
+`/party?edit=<id>`, never a form of its own. One party per campaign — a
+singleton `parties` row (`CURRENT_PARTY_ID`), the same shape as `encounters`
+(#14) — holds what belongs to the group; members are simply every live
+`player_characters` row.
+
+**Why move management out of the tracker.** The bastion tracker needs the
+same characters (owners, class-based facility prerequisites, purses), and a
+roster that lives inside the combat tool's left panel would either be
+duplicated or reached into from a tool it has nothing to do with. The
+tracker's own need is narrower than "manage the party": on the night, pick
+who is at the table.
+
+**Why the editor is URL-driven.** `?edit=<id>` (or `?edit=new`) is the only
+state that opens the modal — `toPartyEditorTarget` resolves it against the
+roster. That is what lets the tracker's Edit button deep-link into the right
+character, and makes an open editor survive a reload. It is the app's first
+URL-held UI state; everything else stays in component state or a zustand
+store, because nothing else needs to be linkable.
+
+**Benched is not absent.** `isActive` is stored, for someone who left the
+group, retired, or died: they drop out of the tracker's pick list and "Add
+all active", and stay on the record. Being sick for one session is never
+stored — the DM just doesn't add them that night. Recording per-session
+attendance was considered and rejected as bookkeeping with no consumer.
+
+**Gold is whole gold pieces, in two places.** Each character has a purse;
+the party has a treasury. Both are integers that never go negative —
+`applyGoldChange` refuses an overdraft rather than clamping, so the DM finds
+out instead of the party silently paying less. Bastion costs will draw on
+either, which is why both exist.
+
+**Class is a fixed list; subclass and species are free text.** Class is one
+of the twelve SRD classes because bastion prerequisites will key off it.
+Subclass and species are suggestions only (`~/content/characterOptions`): a
+table's subclass is usually a PHB one, and PHB species are not in the SRD.
+A multiclass character records their main class and the rest in notes.

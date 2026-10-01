@@ -366,6 +366,8 @@ disabled control — which is also what keeps `typedRoutes` honest, since there
 is no route to get wrong. Icons are inline SVG in `src/atoms/Icon/`; adding one
 is a key in that map, not a dependency.
 
+The rail holds Initiative, Party, Maps and Spells.
+
 There is **no campaign header**. The campaign name is in the browser tab title
 only (DECISIONS #25).
 
@@ -447,7 +449,10 @@ still spreads `syncMeta`.
 **Session state** — ours, all with `syncMeta`:
 
 ```
-player_characters   name, player_name, ac, max_hp, initiative_modifier, level
+player_characters   name, player_name, ac, max_hp, initiative_modifier, level,
+                    class_name, subclass, species, is_active, passives,
+                    notes, gold — managed on /party, picked in the tracker
+parties             singleton (`CURRENT_PARTY_ID`): treasury_gold
 encounter           singleton: round_number, active_combatant_id
 combatants          creature_id XOR player_character_id, display_name,
                     initiative, current_hp, max_hp, temp_hp,
@@ -550,10 +555,41 @@ which derives the list from the classes actually present on an imported spell
 (`buildSpellClassOptions`) rather than a hardcoded roster, since which classes
 have spells depends on what got imported.
 
+Then the roster moved out of the tracker onto its own Party page (see The
+Party page below), as groundwork for the bastion tracker.
+
 Not started, in rough order of usefulness: drag-to-reorder the initiative
 list, in-app dice rolling for attacks, and a rules glossary from Open5e's
 `Rule` / `*Description` files. `README.md` holds the roadmap and
 `DECISIONS.md` #24 the survey of what else upstream is worth importing.
+
+## The Party page
+
+`/party`: every character's card (active members, then the bench) beside the
+shared treasury. It is the **only** place a character is created, edited,
+benched or removed (DECISIONS #32).
+
+- **The tracker's Characters tab is pick-only.** Per-row Add, "Add all
+  active" (`encounter.addActiveCharacters`), and an Edit that is a `next/link`
+  to `buildPartyEditorHref(id)` — never a form. Do not grow a second editor
+  back into the tracker.
+- **The editor modal is driven by `?edit=`, not by state.** `?edit=<id>`
+  opens that character, `?edit=new` a blank form; `toPartyEditorTarget`
+  (`~/utils/partyEditorHref`) resolves it. Opening and closing are
+  `router.replace`, so the URL is the single source of truth. Build the href
+  with `buildPartyEditorHref`, never by hand. The roster organism reads
+  `useSearchParams`, so `src/app/party/page.tsx` wraps it in `Suspense`.
+- **Benched (`is_active = false`) is stored; absent-tonight is not.** A
+  benched member is hidden from the tracker's pick list and from "Add all
+  active". Someone off sick is just not added.
+- **Gold is whole gold pieces and never negative**, on both a character's
+  purse and the treasury. Go through `applyGoldChange`
+  (`~/utils/applyGoldChange`): it refuses an overdraft rather than clamping.
+- **Class is one of twelve; subclass and species are free text** with SRD
+  suggestions from `~/content/characterOptions`.
+- **Removing a character asks twice** (in the editor, not on the card) and
+  leaves a combatant already in a fight where it is — a combatant copies HP
+  and AC when it joins (DECISIONS #15).
 
 ## The Maps tool
 

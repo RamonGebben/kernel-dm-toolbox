@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createCharacter, uniqueName } from './support/party';
 import { clearEncounter } from './support/reset';
 import { srdYoungBlackDragon } from './support/library';
 
@@ -7,9 +8,6 @@ import { srdYoungBlackDragon } from './support/library';
  * pushover or a party wipe, before you run it.
  */
 test.describe.configure({ mode: 'serial' });
-
-const uniqueName = (prefix: string) =>
-  `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`;
 
 test.describe('rate the encounter', () => {
   test.beforeEach(async ({ request, baseURL }) => {
@@ -34,16 +32,18 @@ test.describe('rate the encounter', () => {
 
   test('rates a CR 7 dragon as moderate for four level fives', async ({
     page,
+    request,
+    baseURL,
   }) => {
+    const names = [0, 1, 2, 3].map(index => uniqueName(`PC${index}`));
+    for (const name of names) {
+      await createCharacter(request, baseURL!, { name, level: 5 });
+    }
+
     await page.goto('/');
     await page.getByRole('tab', { name: 'Characters' }).click();
 
-    for (let index = 0; index < 4; index += 1) {
-      const name = uniqueName(`PC${index}`);
-      await page.getByRole('button', { name: 'Add character' }).click();
-      await page.getByLabel('Name', { exact: true }).fill(name);
-      await page.getByLabel('Level', { exact: true }).fill('5');
-      await page.getByRole('button', { name: 'Add character' }).click();
+    for (const name of names) {
       await page
         .getByRole('button', { name: `Add ${name} to the encounter` })
         .click();
@@ -62,14 +62,15 @@ test.describe('rate the encounter', () => {
     await expect(page.getByText('Moderate')).toBeVisible();
   });
 
-  test('climbs to deadly as the fight grows', async ({ page }) => {
+  test('climbs to deadly as the fight grows', async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const name = uniqueName('Solo');
+    await createCharacter(request, baseURL!, { name, level: 5 });
     await page.goto('/');
     await page.getByRole('tab', { name: 'Characters' }).click();
-    const name = uniqueName('Solo');
-    await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name', { exact: true }).fill(name);
-    await page.getByLabel('Level', { exact: true }).fill('5');
-    await page.getByRole('button', { name: 'Add character' }).click();
     await page
       .getByRole('button', { name: `Add ${name} to the encounter` })
       .click();

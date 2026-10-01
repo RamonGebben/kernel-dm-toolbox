@@ -10,13 +10,15 @@ One container runs one campaign. There is no login and no accounts: it is meant
 to sit on a machine on your home network and be opened from a laptop or tablet
 in the same room. Running a second campaign means running a second container.
 
-Three tools are built. The **initiative tracker**: browse the SRD 5.2 creature
-library, keep a reusable party roster, build an encounter, roll for initiative,
-run it round by round with damage and conditions, and save the fights you will
-run again. **Spells**: a searchable lookup of the SRD 5.2 spell list, filterable
-by level and class. **Maps**: a pan/zoom virtual tabletop with grid calibration
-and fog of war. All three put a read-only view on a second screen for the table
-to watch.
+Four tools are built. The **initiative tracker**: browse the SRD 5.2 creature
+library, pick tonight's party into the fight, build an encounter, roll for
+initiative, run it round by round with damage and conditions, and save the
+fights you will run again. **Party**: the characters themselves — class,
+species, passive scores, notes and purse — plus a shared treasury, with
+members who have left benched rather than deleted. **Spells**: a searchable
+lookup of the SRD 5.2 spell list, filterable by level and class. **Maps**: a
+pan/zoom virtual tabletop with grid calibration and fog of war. The tracker and
+Maps share a read-only second screen for the table to watch.
 
 ## Running it for real
 
@@ -167,22 +169,26 @@ Publishing, Kobold Press, Green Ronin, or Jack Kerouac.
 
 ## Roadmap
 
-Built and in use: the initiative tracker, spell lookup and virtual tabletop, end
-to end. Dice expressions inside statblock and spell text are already clickable
+Built and in use: the initiative tracker, party page, spell lookup and virtual
+tabletop, end to end. Dice expressions inside statblock and spell text are already clickable
 and roll in place. The Maps tool's ruler and spell-area templates play an
 animated effect clip when a matched spell is placed.
 
 Next, in rough order:
 
-1. **Dice rolling from attack rows.** The structured attack data
+1. **A bastion tracker** for the 2024 rules: each character's facilities,
+   hirelings and defenders, and a guided step-by-step bastion turn — orders,
+   Maintain events, attacks — with an optional one-bastion-per-party mode.
+   Builds on the Party page's characters, purses and treasury.
+2. **Dice rolling from attack rows.** The structured attack data
    (`creature_action_attacks`: to-hit, damage dice, reach) isn't wired to its
    own roll button yet; only dice mentioned in prose text is.
-2. **Drag to reorder the initiative list**, for the ties and the corrections a
+3. **Drag to reorder the initiative list**, for the ties and the corrections a
    number field makes awkward.
-3. **An artwork/handout gallery for Maps**, the way
+4. **An artwork/handout gallery for Maps**, the way
    [Kernels-Virtual-Table-Top](https://github.com/RamonGebben/Kernels-Virtual-Table-Top),
    the standalone app Maps was ported from, had one alongside its battle maps.
-4. **A rules glossary.** Open5e's `Rule`, `RuleSet` and the small `*Description`
+5. **A rules glossary.** Open5e's `Rule`, `RuleSet` and the small `*Description`
    files would make statblock terms explainable in place. See `DECISIONS.md`
    #24 for the survey of what else is importable and what was ruled out.
 
