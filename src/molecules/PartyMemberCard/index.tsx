@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { describeCharacter } from '~/utils/describeCharacter';
 import { formatModifier } from '~/utils/formatModifier';
-import { formatGold } from '~/utils/applyGoldChange';
 
 export type PartyMemberCardProps = {
   name: string;
@@ -19,7 +18,6 @@ export type PartyMemberCardProps = {
   passivePerception: number | null;
   passiveInsight: number | null;
   passiveInvestigation: number | null;
-  gold: number;
   notes: string | null;
   isActive: boolean;
   /** True while this member's bench/recall is in flight. */
@@ -45,7 +43,6 @@ export const PartyMemberCard = ({
   passivePerception,
   passiveInsight,
   passiveInvestigation,
-  gold,
   notes,
   isActive,
   isUpdating,
@@ -109,10 +106,6 @@ export const PartyMemberCard = ({
       <Stat>
         <dt>Investigation</dt>
         <dd>{passive(passiveInvestigation)}</dd>
-      </Stat>
-      <Stat>
-        <dt>Purse</dt>
-        <dd>{formatGold(gold)}</dd>
       </Stat>
     </Stats>
 

@@ -27,7 +27,6 @@ export type CharacterFormValues = {
   passivePerception: number | null;
   passiveInsight: number | null;
   passiveInvestigation: number | null;
-  gold: number;
   notes: string;
   isActive: boolean;
 };
@@ -45,13 +44,11 @@ export const emptyCharacterForm: CharacterFormValues = {
   passivePerception: null,
   passiveInsight: null,
   passiveInvestigation: null,
-  gold: 0,
   notes: '',
   isActive: true,
 };
 
-type NumberKey =
-  'armorClass' | 'maxHitPoints' | 'initiativeModifier' | 'level' | 'gold';
+type NumberKey = 'armorClass' | 'maxHitPoints' | 'initiativeModifier' | 'level';
 
 type PassiveKey =
   'passivePerception' | 'passiveInsight' | 'passiveInvestigation';
@@ -263,32 +260,20 @@ export const CharacterForm = ({
         </Field>
       </Grid>
 
-      <Grid $columns={3}>
-        <Field>
-          <Label htmlFor="character-gold">Gold (gp)</Label>
-          <TextInput
-            id="character-gold"
-            type="number"
-            min={0}
-            value={values.gold}
-            onChange={event => setNumber('gold')(event.target.value)}
-          />
-        </Field>
-        <CheckboxField>
-          <input
-            id="character-active"
-            type="checkbox"
-            checked={values.isActive}
-            onChange={event =>
-              setValues(current => ({
-                ...current,
-                isActive: event.target.checked,
-              }))
-            }
-          />
-          <Label htmlFor="character-active">Active party member</Label>
-        </CheckboxField>
-      </Grid>
+      <CheckboxField>
+        <input
+          id="character-active"
+          type="checkbox"
+          checked={values.isActive}
+          onChange={event =>
+            setValues(current => ({
+              ...current,
+              isActive: event.target.checked,
+            }))
+          }
+        />
+        <Label htmlFor="character-active">Active party member</Label>
+      </CheckboxField>
 
       <Field>
         <Label htmlFor="character-notes">Notes</Label>
@@ -328,9 +313,7 @@ const Field = styled.div`
 const CheckboxField = styled.div`
   display: flex;
   align-items: center;
-  align-self: end;
   gap: ${props => props.theme.space.sm};
-  padding-bottom: ${props => props.theme.space.sm};
 `;
 
 const Grid = styled.div<{ $columns: number }>`

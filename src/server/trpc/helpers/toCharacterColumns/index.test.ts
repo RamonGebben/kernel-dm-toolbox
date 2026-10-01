@@ -17,7 +17,6 @@ const input: CreateCharacterInput = {
   passiveInsight: null,
   passiveInvestigation: 10,
   notes: 'Owes the Harpers a favour.',
-  gold: 120,
 };
 
 describe('toCharacterColumns', () => {

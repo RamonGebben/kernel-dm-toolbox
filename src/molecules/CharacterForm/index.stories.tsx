@@ -45,7 +45,6 @@ const sigrid = {
   passivePerception: 13,
   passiveInsight: null,
   passiveInvestigation: 10,
-  gold: 120,
   notes: 'Owes the Harpers a favour.',
   isActive: true,
 } as const;
@@ -61,7 +60,6 @@ export const Editing: Story = {
     await expect(canvas.getByLabelText('Name')).toHaveValue('Sigrid');
     await expect(canvas.getByLabelText('Max HP')).toHaveValue(45);
     await expect(canvas.getByLabelText('Class')).toHaveValue('Paladin');
-    await expect(canvas.getByLabelText('Gold (gp)')).toHaveValue(120);
     // Not recorded is a blank box, not a 0.
     await expect(canvas.getByLabelText('Passive Insight')).toHaveValue(null);
   },
@@ -76,8 +74,6 @@ export const FillingInEverything: Story = {
     await userEvent.selectOptions(canvas.getByLabelText('Class'), 'Rogue');
     await userEvent.type(canvas.getByLabelText('Species'), 'Halfling');
     await userEvent.type(canvas.getByLabelText('Passive Perception'), '15');
-    await userEvent.clear(canvas.getByLabelText('Gold (gp)'));
-    await userEvent.type(canvas.getByLabelText('Gold (gp)'), '75');
     await userEvent.type(canvas.getByLabelText('Notes'), 'Afraid of geese.');
     await userEvent.click(canvas.getByLabelText('Active party member'));
     await userEvent.click(
@@ -91,7 +87,6 @@ export const FillingInEverything: Story = {
         species: 'Halfling',
         passivePerception: 15,
         passiveInsight: null,
-        gold: 75,
         notes: 'Afraid of geese.',
         isActive: false,
       }),

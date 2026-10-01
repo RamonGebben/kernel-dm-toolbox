@@ -17,7 +17,6 @@ const sigrid: PartyCharacter = {
   passivePerception: 13,
   passiveInsight: 11,
   passiveInvestigation: 10,
-  gold: 120,
   notes: null,
   isActive: true,
 };

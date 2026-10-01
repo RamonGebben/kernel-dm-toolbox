@@ -18,7 +18,6 @@ const meta = {
     passivePerception: 13,
     passiveInsight: 11,
     passiveInvestigation: 10,
-    gold: 1250,
     notes: 'Owes the Harpers a favour.',
     isActive: true,
     isUpdating: false,
@@ -40,7 +39,6 @@ export const Default: Story = {
         'Level 5 Goliath Paladin · Oath of Glory · played by Anna',
       ),
     ).toBeVisible();
-    await expect(canvas.getByText('1,250 gp')).toBeVisible();
 
     await userEvent.click(canvas.getByRole('button', { name: 'Edit Sigrid' }));
     await expect(args.onEdit).toHaveBeenCalledOnce();
@@ -57,7 +55,6 @@ export const NumbersOnly: Story = {
     passivePerception: null,
     passiveInsight: null,
     passiveInvestigation: null,
-    gold: 0,
     notes: null,
   },
   play: async ({ canvasElement }) => {

@@ -34,7 +34,7 @@ describe('formatGold', () => {
     expect(formatGold(12500)).toBe('12,500 gp');
   });
 
-  it('reads an empty purse as 0 gp', () => {
+  it('reads an empty treasury as 0 gp', () => {
     expect(formatGold(0)).toBe('0 gp');
   });
 });

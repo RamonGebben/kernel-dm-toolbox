@@ -876,7 +876,7 @@ singleton `parties` row (`CURRENT_PARTY_ID`), the same shape as `encounters`
 `player_characters` row.
 
 **Why move management out of the tracker.** The bastion tracker needs the
-same characters (owners, class-based facility prerequisites, purses), and a
+same characters (owners, class-based facility prerequisites), and a
 roster that lives inside the combat tool's left panel would either be
 duplicated or reached into from a tool it has nothing to do with. The
 tracker's own need is narrower than "manage the party": on the night, pick
@@ -895,11 +895,14 @@ all active", and stay on the record. Being sick for one session is never
 stored — the DM just doesn't add them that night. Recording per-session
 attendance was considered and rejected as bookkeeping with no consumer.
 
-**Gold is whole gold pieces, in two places.** Each character has a purse;
-the party has a treasury. Both are integers that never go negative —
-`applyGoldChange` refuses an overdraft rather than clamping, so the DM finds
-out instead of the party silently paying less. Bastion costs will draw on
-either, which is why both exist.
+**Gold lives in one place: the party treasury.** Characters have no purse.
+A per-character purse was built and then taken out at the DM's request:
+keeping every player's coins current is bookkeeping the DM does not want to
+do, and the players track their own. The treasury is the one number the DM
+does keep, so bastion costs and income will go through it. It is whole gold
+pieces and never goes negative — `applyGoldChange` refuses an overdraft
+rather than clamping, so the DM finds out instead of the party silently
+paying less.
 
 **Class is a fixed list; subclass and species are free text.** Class is one
 of the twelve SRD classes because bastion prerequisites will key off it.

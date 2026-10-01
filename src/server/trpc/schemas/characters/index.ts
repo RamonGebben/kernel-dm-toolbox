@@ -25,7 +25,6 @@ const characterFieldsSchema = z.object({
   passiveInsight: passiveScoreSchema.default(null),
   passiveInvestigation: passiveScoreSchema.default(null),
   notes: z.string().trim().max(4000).optional(),
-  gold: z.number().int().min(0).max(100_000_000).default(0),
 });
 
 export const createCharacterInputSchema = characterFieldsSchema;

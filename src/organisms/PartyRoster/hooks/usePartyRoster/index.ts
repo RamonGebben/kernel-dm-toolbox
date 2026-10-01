@@ -30,7 +30,6 @@ export type PartyCharacter = {
   passivePerception: number | null;
   passiveInsight: number | null;
   passiveInvestigation: number | null;
-  gold: number;
   notes: string | null;
   isActive: boolean;
 };
@@ -54,7 +53,6 @@ export const toCharacterFormValues = (
   passivePerception: character.passivePerception,
   passiveInsight: character.passiveInsight,
   passiveInvestigation: character.passiveInvestigation,
-  gold: character.gold,
   notes: character.notes ?? '',
   isActive: character.isActive,
 });
@@ -80,7 +78,6 @@ export const toCharacterInput = (values: CharacterFormValues) => ({
   passivePerception: values.passivePerception,
   passiveInsight: values.passiveInsight,
   passiveInvestigation: values.passiveInvestigation,
-  gold: values.gold,
   notes: values.notes.trim() || undefined,
 });
 

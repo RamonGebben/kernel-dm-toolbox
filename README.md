@@ -14,7 +14,7 @@ Four tools are built. The **initiative tracker**: browse the SRD 5.2 creature
 library, pick tonight's party into the fight, build an encounter, roll for
 initiative, run it round by round with damage and conditions, and save the
 fights you will run again. **Party**: the characters themselves — class,
-species, passive scores, notes and purse — plus a shared treasury, with
+species, passive scores and notes — plus the party's shared treasury, with
 members who have left benched rather than deleted. **Spells**: a searchable
 lookup of the SRD 5.2 spell list, filterable by level and class. **Maps**: a
 pan/zoom virtual tabletop with grid calibration and fog of war. The tracker and
@@ -179,7 +179,7 @@ Next, in rough order:
 1. **A bastion tracker** for the 2024 rules: each character's facilities,
    hirelings and defenders, and a guided step-by-step bastion turn — orders,
    Maintain events, attacks — with an optional one-bastion-per-party mode.
-   Builds on the Party page's characters, purses and treasury.
+   Builds on the Party page's characters and treasury.
 2. **Dice rolling from attack rows.** The structured attack data
    (`creature_action_attacks`: to-hit, damage dice, reach) isn't wired to its
    own roll button yet; only dice mentioned in prose text is.

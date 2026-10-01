@@ -74,7 +74,6 @@ describe('characters.create', () => {
     expect(created.playerName).toBeNull();
     expect(created.className).toBeNull();
     expect(created.isActive).toBe(true);
-    expect(created.gold).toBe(0);
     expect(created.passivePerception).toBeNull();
   });
 
@@ -88,7 +87,6 @@ describe('characters.create', () => {
       passiveInsight: 11,
       passiveInvestigation: 10,
       notes: 'Owes the Harpers a favour.',
-      gold: 120,
     });
 
     expect(created).toMatchObject({
@@ -99,7 +97,6 @@ describe('characters.create', () => {
       passiveInsight: 11,
       passiveInvestigation: 10,
       notes: 'Owes the Harpers a favour.',
-      gold: 120,
     });
   });
 
@@ -110,12 +107,6 @@ describe('characters.create', () => {
         // @ts-expect-error -- the point is that the schema refuses it
         className: 'Artificer',
       }),
-    ).rejects.toThrow();
-  });
-
-  it('rejects a negative purse', async () => {
-    await expect(
-      caller.characters.create({ ...validCharacter, gold: -5 }),
     ).rejects.toThrow();
   });
 

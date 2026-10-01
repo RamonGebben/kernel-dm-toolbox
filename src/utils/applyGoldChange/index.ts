@@ -1,5 +1,5 @@
 /**
- * Gold moves in whole gold pieces, and a purse or treasury never goes below
+ * Gold moves in whole gold pieces, and the treasury never goes below
  * zero — a withdrawal larger than the balance is refused, not clamped, so the
  * DM finds out rather than the party silently paying less than the price.
  */

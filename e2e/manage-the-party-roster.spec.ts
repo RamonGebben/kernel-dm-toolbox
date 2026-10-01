@@ -37,14 +37,12 @@ test.describe('manage the party', () => {
     await page.getByLabel('Level', { exact: true }).fill('5');
     await page.getByLabel('AC', { exact: true }).fill('20');
     await page.getByLabel('Max HP', { exact: true }).fill('45');
-    await page.getByLabel('Gold (gp)', { exact: true }).fill('120');
     await editor(page).getByRole('button', { name: 'Add character' }).click();
 
     await expect(editor(page)).toBeHidden();
     await expect(
       card(page, name).getByText('Level 5 Goliath Paladin · played by Anna'),
     ).toBeVisible();
-    await expect(card(page, name).getByText('120 gp')).toBeVisible();
   });
 
   test('keeps a character across a reload — the roster is persistent', async ({

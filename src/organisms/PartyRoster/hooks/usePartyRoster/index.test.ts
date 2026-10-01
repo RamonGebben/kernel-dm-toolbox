@@ -21,7 +21,6 @@ const sigrid: PartyCharacter = {
   passivePerception: 13,
   passiveInsight: null,
   passiveInvestigation: 10,
-  gold: 120,
   notes: 'Owes the Harpers a favour.',
   isActive: true,
 };
@@ -61,7 +60,6 @@ describe('toCharacterFormValues', () => {
       className: 'Paladin',
       subclass: 'Oath of Glory',
       species: 'Goliath',
-      gold: 120,
       passiveInsight: null,
     });
   });

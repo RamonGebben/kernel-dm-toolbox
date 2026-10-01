@@ -444,8 +444,6 @@ export const playerCharacters = sqliteTable('player_characters', {
   passiveInsight: integer('passive_insight'),
   passiveInvestigation: integer('passive_investigation'),
   notes: text('notes'),
-  /** The character's own purse, in whole gold pieces. */
-  gold: integer('gold').notNull().default(0),
 });
 
 export type PlayerCharacter = typeof playerCharacters.$inferSelect;
@@ -461,7 +459,10 @@ export const CURRENT_PARTY_ID = 'current';
 
 export const parties = sqliteTable('parties', {
   ...syncMeta,
-  /** The shared treasury, in whole gold pieces. Never negative. */
+  /**
+   * The shared treasury, in whole gold pieces. Never negative. The only gold
+   * the app tracks — characters have no purse of their own (DECISIONS #32).
+   */
   treasuryGold: integer('treasury_gold').notNull().default(0),
 });
 

@@ -451,7 +451,7 @@ still spreads `syncMeta`.
 ```
 player_characters   name, player_name, ac, max_hp, initiative_modifier, level,
                     class_name, subclass, species, is_active, passives,
-                    notes, gold — managed on /party, picked in the tracker
+                    notes — managed on /party, picked in the tracker
 parties             singleton (`CURRENT_PARTY_ID`): treasury_gold
 encounter           singleton: round_number, active_combatant_id
 combatants          creature_id XOR player_character_id, display_name,
@@ -582,9 +582,10 @@ benched or removed (DECISIONS #32).
 - **Benched (`is_active = false`) is stored; absent-tonight is not.** A
   benched member is hidden from the tracker's pick list and from "Add all
   active". Someone off sick is just not added.
-- **Gold is whole gold pieces and never negative**, on both a character's
-  purse and the treasury. Go through `applyGoldChange`
-  (`~/utils/applyGoldChange`): it refuses an overdraft rather than clamping.
+- **The treasury is the only gold the app tracks.** Characters have no
+  purse — do not add one back (DECISIONS #32). It is whole gold pieces and
+  never negative: go through `applyGoldChange` (`~/utils/applyGoldChange`),
+  which refuses an overdraft rather than clamping.
 - **Class is one of twelve; subclass and species are free text** with SRD
   suggestions from `~/content/characterOptions`.
 - **Removing a character asks twice** (in the editor, not on the card) and

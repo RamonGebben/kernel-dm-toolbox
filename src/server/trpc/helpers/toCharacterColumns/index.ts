@@ -24,5 +24,4 @@ export const toCharacterColumns = (input: CreateCharacterInput) => ({
   passiveInsight: input.passiveInsight,
   passiveInvestigation: input.passiveInvestigation,
   notes: orNull(input.notes),
-  gold: input.gold,
 });

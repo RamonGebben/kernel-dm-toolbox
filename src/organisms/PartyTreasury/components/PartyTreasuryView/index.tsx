@@ -18,8 +18,8 @@ export type PartyTreasuryViewProps = {
 };
 
 /**
- * The shared pot. Each character's own purse is on their card; this is what
- * belongs to the group — and what bastion costs will draw on later.
+ * The party's gold — the only gold the app tracks; characters have no purse
+ * of their own. Bastion costs will draw on it later.
  */
 export const PartyTreasuryView = ({
   isPending,
