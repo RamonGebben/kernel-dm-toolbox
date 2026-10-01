@@ -35,7 +35,6 @@ import {
 } from '~/server/trpc/helpers/touchSyncMeta';
 import {
   planBastionProject,
-  toProjectCompletion,
   type ProjectRequest,
 } from '~/server/trpc/helpers/planBastionProject';
 import { toBastionDetail } from '~/server/trpc/helpers/toBastionDetail';
@@ -44,6 +43,13 @@ import {
   planBastionSplit,
 } from '~/server/trpc/helpers/planBastionModeChange';
 import { ensureParty } from '~/server/party/state';
+import {
+  completeProject,
+  loadBasicFacility,
+  loadBastion,
+  loadSpecialFacility,
+  notFound,
+} from '~/server/bastions/rows';
 import { findTopHolder } from '~/utils/bastionSelection';
 import { findSpecialFacility } from '~/content/bastion/specialFacilities';
 import type { BasicFacilityType } from '~/content/bastion/types';
@@ -53,21 +59,6 @@ import {
   findEligibilityProblems,
 } from '~/utils/bastionRules';
 import { refundToTreasury, spendFromTreasury } from '~/server/party/treasury';
-
-const notFound = (what: string) =>
-  new TRPCError({
-    code: 'NOT_FOUND',
-    message: `That ${what} no longer exists.`,
-  });
-
-const loadBastion = async (db: Database, id: string) => {
-  const bastion = await db.query.bastions.findFirst({
-    where: and(eq(bastions.id, id), isNull(bastions.deletedAt)),
-  });
-  if (!bastion) throw notFound('bastion');
-
-  return bastion;
-};
 
 const loadOwner = async (db: Database, id: string) => {
   const owner = await db.query.playerCharacters.findFirst({
@@ -127,30 +118,6 @@ const liveSpecialFacilities = (db: Database, bastionId: string) =>
     )
     .orderBy(asc(bastionSpecialFacilities.createdAt));
 
-const loadSpecialFacility = async (db: Database, id: string) => {
-  const facility = await db.query.bastionSpecialFacilities.findFirst({
-    where: and(
-      eq(bastionSpecialFacilities.id, id),
-      isNull(bastionSpecialFacilities.deletedAt),
-    ),
-  });
-  if (!facility) throw notFound('facility');
-
-  return facility;
-};
-
-const loadBasicFacility = async (db: Database, id: string) => {
-  const facility = await db.query.bastionBasicFacilities.findFirst({
-    where: and(
-      eq(bastionBasicFacilities.id, id),
-      isNull(bastionBasicFacilities.deletedAt),
-    ),
-  });
-  if (!facility) throw notFound('facility');
-
-  return facility;
-};
-
 const openProjectFor = (db: Database, facilityId: string) =>
   db.query.bastionProjects.findFirst({
     where: and(
@@ -205,65 +172,6 @@ const resolveProjectRequest = async (
   await assertEnlargeable(facility);
 
   return { kind: 'enlarge-special', facility };
-};
-
-/** Applies a finished project's effect and stamps it complete. */
-const completeProject = async (
-  db: Database,
-  project: typeof bastionProjects.$inferSelect,
-) => {
-  const now = new Date();
-  const completion = toProjectCompletion(project);
-
-  if (completion.type === 'insert-basic') {
-    await db.insert(bastionBasicFacilities).values({
-      bastionId: project.bastionId,
-      type: completion.basicType,
-      space: completion.space,
-    });
-  }
-
-  if (completion.type === 'resize-basic') {
-    const facility = await loadBasicFacility(db, completion.facilityId);
-    await db
-      .update(bastionBasicFacilities)
-      .set({
-        space: completion.space,
-        ...touchSyncMeta({ version: facility.version, now }),
-      })
-      .where(eq(bastionBasicFacilities.id, facility.id));
-  }
-
-  if (completion.type === 'resize-special') {
-    const facility = await loadSpecialFacility(db, completion.facilityId);
-    await db
-      .update(bastionSpecialFacilities)
-      .set({
-        space: completion.space,
-        ...touchSyncMeta({ version: facility.version, now }),
-      })
-      .where(eq(bastionSpecialFacilities.id, facility.id));
-  }
-
-  if (completion.type === 'add-walls') {
-    const bastion = await loadBastion(db, project.bastionId);
-    await db
-      .update(bastions)
-      .set({
-        wallSquares: bastion.wallSquares + completion.squares,
-        ...touchSyncMeta({ version: bastion.version, now }),
-      })
-      .where(eq(bastions.id, bastion.id));
-  }
-
-  await db
-    .update(bastionProjects)
-    .set({
-      daysRemaining: 0,
-      completedAt: now,
-      ...touchSyncMeta({ version: project.version, now }),
-    })
-    .where(eq(bastionProjects.id, project.id));
 };
 
 const freeRooms = (

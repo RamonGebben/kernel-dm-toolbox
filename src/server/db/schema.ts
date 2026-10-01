@@ -1196,6 +1196,14 @@ export const bastions = sqliteTable(
     isFullyEnclosed: integer('is_fully_enclosed', { mode: 'boolean' })
       .notNull()
       .default(false),
+    /** A stocked Armory: Attack losses roll d8s instead of d6s, once. */
+    isArmoryStocked: integer('is_armory_stocked', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    /** A friendly monster guest: the next Attack costs no defenders. */
+    hasGuestMonster: integer('has_guest_monster', { mode: 'boolean' })
+      .notNull()
+      .default(false),
   },
   table => [
     uniqueIndex('bastions_one_live_per_owner')
@@ -1230,6 +1238,17 @@ export const bastionSpecialFacilities = sqliteTable(
     space: text('space').$type<FacilitySpace>().notNull(),
     /** The chosen variant — a Garden's type, a Guildhall's guild — if any. */
     variant: text('variant'),
+    /** The order it is working on, by catalog option key; null when idle. */
+    jobOptionKey: text('job_option_key'),
+    /** What it was told to do, as the DM wrote it at the bastion turn. */
+    jobNote: text('job_note'),
+    /** Days left on the job. Each bastion turn takes 7 off. */
+    jobDaysRemaining: integer('job_days_remaining').notNull().default(0),
+    /**
+     * Bastion turns it can take no orders — hirelings arrested, lost, or the
+     * facility hit in an attack with no defenders.
+     */
+    outOfActionTurns: integer('out_of_action_turns').notNull().default(0),
   },
   table => [
     index('bastion_special_facilities_bastion').on(table.bastionId),
@@ -1352,3 +1371,34 @@ export const bastionStorageItems = sqliteTable(
 );
 
 export type BastionStorageItem = typeof bastionStorageItems.$inferSelect;
+
+/**
+ * A bastion turn: seven days for every bastion in the campaign. One draft at
+ * a time holds the guided wizard's progress, so a refresh or a closed tab
+ * picks up at the same step; committing applies it all and keeps the result
+ * as history. The JSON shapes live in `~/server/trpc/schemas/bastionTurns`.
+ */
+export const bastionTurns = sqliteTable(
+  'bastion_turns',
+  {
+    ...syncMeta,
+    /** 1, 2, 3… across the whole campaign. */
+    number: integer('number').notNull(),
+    status: text('status').$type<'draft' | 'committed'>().notNull(),
+    draft: text('draft', { mode: 'json' }).$type<unknown>().notNull(),
+    /** Set on commit: what the turn changed, for the history. */
+    summary: text('summary', { mode: 'json' }).$type<unknown>(),
+    committedAt: integer('committed_at', { mode: 'timestamp_ms' }),
+  },
+  table => [
+    check(
+      'bastion_turns_status_is_valid',
+      sql`${table.status} in ('draft', 'committed')`,
+    ),
+    uniqueIndex('bastion_turns_one_draft')
+      .on(table.status)
+      .where(sql`${table.status} = 'draft' and ${table.deletedAt} is null`),
+  ],
+);
+
+export type BastionTurn = typeof bastionTurns.$inferSelect;

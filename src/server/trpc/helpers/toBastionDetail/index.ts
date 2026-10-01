@@ -49,7 +49,13 @@ export const describeProject = (
 type SpecialFacilityRow = Pick<
   BastionSpecialFacility,
   'id' | 'facilityKey' | 'space' | 'variant' | 'holderCharacterId'
->;
+> &
+  Partial<
+    Pick<
+      BastionSpecialFacility,
+      'jobOptionKey' | 'jobNote' | 'jobDaysRemaining' | 'outOfActionTurns'
+    >
+  >;
 
 /** A facility whose catalog entry has gone still renders, rather than vanishing. */
 const definitionFor = (
@@ -220,6 +226,19 @@ export const toBastionDetail = ({
               }
             : null,
         isBeingEnlarged,
+        /** What a bastion turn set it working on, if anything. */
+        job:
+          facility.jobOptionKey && (facility.jobDaysRemaining ?? 0) > 0
+            ? {
+                label:
+                  definition.orderOptions.find(
+                    option => option.key === facility.jobOptionKey,
+                  )?.label ?? facility.jobOptionKey,
+                note: facility.jobNote ?? null,
+                daysRemaining: facility.jobDaysRemaining ?? 0,
+              }
+            : null,
+        isOutOfAction: (facility.outOfActionTurns ?? 0) > 0,
       };
     }),
     basicFacilities: basicFacilities.map(facility => {
