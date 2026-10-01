@@ -5,11 +5,10 @@ import type { IconName } from '~/atoms/Icon';
  *
  * Static configuration, so it lives in `content/` rather than inline in the
  * rail — adding the virtual tabletop later is a row here, not a component
- * change. Only the initiative tracker is built; the other two are placeholders
- * that render disabled, because a nav item that silently does nothing is worse
- * than one that says why.
+ * change. A tool without an `href` renders disabled, because a nav item that
+ * silently does nothing is worse than one that says why.
  */
-export type ToolId = 'initiative' | 'maps' | 'spells';
+export type ToolId = 'initiative' | 'party' | 'maps' | 'spells';
 
 export type Tool = {
   id: ToolId;
@@ -21,7 +20,7 @@ export type Tool = {
    * Set only for a tool that has a route. An unbuilt tool has none, which is
    * what keeps `typedRoutes` honest — there is no href to get wrong.
    */
-  href?: '/' | '/spells' | '/maps';
+  href?: '/' | '/party' | '/spells' | '/maps';
 };
 
 export const tools: readonly Tool[] = [
@@ -31,6 +30,13 @@ export const tools: readonly Tool[] = [
     description: 'Initiative tracker',
     icon: 'swords',
     href: '/',
+  },
+  {
+    id: 'party',
+    label: 'Party',
+    description: 'The party: characters and treasury',
+    icon: 'users',
+    href: '/party',
   },
   {
     id: 'maps',
