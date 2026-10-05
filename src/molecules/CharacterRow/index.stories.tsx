@@ -8,6 +8,7 @@ const meta = {
   args: {
     name: 'Sigrid',
     playerName: 'Anna',
+    classLabel: null,
     level: 5,
     armorClass: 20,
     maxHitPoints: 45,
@@ -28,10 +29,21 @@ export const Default: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByText(/Anna · Level 5 · AC 20/)).toBeVisible();
+    await expect(
+      canvas.getByText(/Level 5 · no class · Anna · AC 20/),
+    ).toBeVisible();
 
     await userEvent.click(canvas.getByRole('button', { name: 'Edit' }));
     await expect(args.onEdit).toHaveBeenCalledOnce();
+  },
+};
+
+export const WithClass: Story = {
+  args: { classLabel: 'Barbarian 5' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText(/Barbarian 5 · Anna/)).toBeVisible();
   },
 };
 

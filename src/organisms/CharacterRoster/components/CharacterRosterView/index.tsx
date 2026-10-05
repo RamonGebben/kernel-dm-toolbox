@@ -6,6 +6,8 @@ import { EmptyState } from '~/atoms/EmptyState';
 import { CharacterRow } from '~/molecules/CharacterRow';
 import {
   CharacterForm,
+  type CharacterFormClassOption,
+  type CharacterFormClassPick,
   type CharacterFormValues,
 } from '~/molecules/CharacterForm';
 
@@ -17,6 +19,8 @@ export type RosterCharacter = {
   armorClass: number;
   maxHitPoints: number;
   initiativeModifier: number;
+  /** Null for a PC with no class applied yet. */
+  classLabel: string | null;
 };
 
 export type CharacterRosterViewProps = {
@@ -27,12 +31,18 @@ export type CharacterRosterViewProps = {
   editing: RosterCharacter | 'new' | null;
   /** Ids already in the encounter, so they cannot be added a second time. */
   combatantCharacterIds: readonly string[];
+  /** Offered only when creating — an existing character's class goes
+   * through `onOpenClass` instead (see `CharacterForm`'s `classField` doc). */
+  classOptions: readonly CharacterFormClassOption[];
   onAddToEncounter: (character: RosterCharacter) => void;
   onOpenClass: (character: RosterCharacter) => void;
   onStartCreate: () => void;
   onStartEdit: (character: RosterCharacter) => void;
   onCancelEdit: () => void;
-  onSubmit: (values: CharacterFormValues) => void;
+  onSubmit: (
+    values: CharacterFormValues,
+    classPick: CharacterFormClassPick,
+  ) => void;
   onRemove: (id: string) => void;
 };
 
@@ -52,6 +62,7 @@ export const CharacterRosterView = ({
   characters,
   editing,
   combatantCharacterIds,
+  classOptions,
   onAddToEncounter,
   onOpenClass,
   onStartCreate,
@@ -67,6 +78,15 @@ export const CharacterRosterView = ({
         initialValues={editing === 'new' ? undefined : toFormValues(editing)}
         isSaving={isSaving}
         submitLabel={editing === 'new' ? 'Add character' : 'Save changes'}
+        classField={
+          editing === 'new'
+            ? { mode: 'pick', options: classOptions }
+            : {
+                mode: 'readonly',
+                label: editing.classLabel,
+                onOpenWizard: () => onOpenClass(editing),
+              }
+        }
         onSubmit={onSubmit}
         onCancel={onCancelEdit}
       />
@@ -130,6 +150,7 @@ const RosterBody = ({
           <CharacterRow
             name={character.name}
             playerName={character.playerName}
+            classLabel={character.classLabel}
             level={character.level}
             armorClass={character.armorClass}
             maxHitPoints={character.maxHitPoints}

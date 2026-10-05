@@ -7,6 +7,8 @@ import { formatModifier } from '~/utils/formatModifier';
 export type CharacterRowProps = {
   name: string;
   playerName: string | null;
+  /** Null for a PC with no class applied yet. */
+  classLabel: string | null;
   level: number;
   armorClass: number;
   maxHitPoints: number;
@@ -22,6 +24,7 @@ export type CharacterRowProps = {
 export const CharacterRow = ({
   name,
   playerName,
+  classLabel,
   level,
   armorClass,
   maxHitPoints,
@@ -36,7 +39,8 @@ export const CharacterRow = ({
     <Details>
       <Name>{name}</Name>
       <Meta>
-        {playerName ? `${playerName} · ` : ''}Level {level} · AC {armorClass} ·{' '}
+        {classLabel ?? `Level ${level} · no class`}
+        {playerName ? ` · ${playerName}` : ''} · AC {armorClass} ·{' '}
         {maxHitPoints} HP · init {formatModifier(initiativeModifier)}
       </Meta>
     </Details>

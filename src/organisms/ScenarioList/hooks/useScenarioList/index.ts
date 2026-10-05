@@ -43,7 +43,10 @@ export const useScenarioList = () => {
     scenarios: list.data ?? [],
     selectedScenarioId,
     onSelect: selectScenario,
-    onCreate: (name: string) => create.mutate({ name }),
+    // Starts empty and unnamed rather than making the DM type a name before
+    // they can even see the Build tab — it's renamed inline there, in the
+    // `ScenarioHeader` form that's already right where they land.
+    onCreate: () => create.mutate({ name: 'New scenario' }),
     onRemove: (id: string) => remove.mutate({ id }),
   };
 };

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   toCharacterInput,
   toCombatantCharacterIds,
+  toRosterCharacters,
 } from '~/organisms/CharacterRoster/hooks/useCharacterRoster';
 
 const values = {
@@ -88,5 +89,38 @@ describe('toCombatantCharacterIds', () => {
         combatants: [{ playerCharacterId: null }],
       }),
     ).toEqual([]);
+  });
+});
+
+describe('toRosterCharacters', () => {
+  const barbarian = { slug: 'srd-2024_barbarian', name: 'Barbarian' };
+
+  const sigrid = {
+    id: 'sigrid',
+    name: 'Sigrid',
+    playerName: 'Anna',
+    level: 5,
+    armorClass: 20,
+    maxHitPoints: 45,
+    initiativeModifier: 2,
+    characterClassSlug: 'srd-2024_barbarian',
+  };
+
+  it('resolves a class slug into a formatted label', () => {
+    const [result] = toRosterCharacters([sigrid], [barbarian]);
+    expect(result?.classLabel).toBe('Barbarian 5');
+  });
+
+  it('reads a PC with no class slug as no class', () => {
+    const [result] = toRosterCharacters(
+      [{ ...sigrid, characterClassSlug: null }],
+      [barbarian],
+    );
+    expect(result?.classLabel).toBe(null);
+  });
+
+  it('reads an unresolved class slug as no class rather than crashing', () => {
+    const [result] = toRosterCharacters([sigrid], []);
+    expect(result?.classLabel).toBe(null);
   });
 });

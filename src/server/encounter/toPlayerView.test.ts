@@ -19,6 +19,7 @@ const combatant = (
   initiativeBonus: 2,
   playerCharacterId: null,
   isPlayerCharacter: false,
+  classLabel: null,
   healthStatus: 'healthy',
   challengeRating: 0.125,
   conditions: [],

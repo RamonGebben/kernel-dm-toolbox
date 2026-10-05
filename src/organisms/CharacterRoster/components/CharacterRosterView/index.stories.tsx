@@ -10,6 +10,7 @@ const sigrid = {
   armorClass: 20,
   maxHitPoints: 45,
   initiativeModifier: 2,
+  classLabel: 'Barbarian 5',
 };
 
 const hammie = {
@@ -20,7 +21,12 @@ const hammie = {
   armorClass: 19,
   maxHitPoints: 37,
   initiativeModifier: 1,
+  classLabel: null,
 };
+
+const classOptions = [
+  { slug: 'srd-2024_barbarian', name: 'Barbarian', subclassOfSlug: null },
+];
 
 const meta = {
   title: 'Organisms/CharacterRoster/CharacterRosterView',
@@ -31,6 +37,7 @@ const meta = {
     characters: [hammie, sigrid],
     editing: null,
     combatantCharacterIds: [],
+    classOptions,
     onAddToEncounter: fn(),
     onOpenClass: fn(),
     onStartCreate: fn(),

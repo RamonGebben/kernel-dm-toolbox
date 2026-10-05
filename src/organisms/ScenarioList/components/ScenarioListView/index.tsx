@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
-import { TextInput } from '~/atoms/TextInput';
 
 export type ScenarioSummary = {
   id: string;
@@ -21,12 +19,12 @@ export type ScenarioListViewProps = {
   scenarios: readonly ScenarioSummary[];
   selectedScenarioId: string | null;
   onSelect: (id: string) => void;
-  onCreate: (name: string) => void;
+  onCreate: () => void;
   onRemove: (id: string) => void;
 };
 
 /**
- * Presentational: the scenario list plus the box that starts a new one.
+ * Presentational: the scenario list plus the button that starts a new one.
  * Selecting a scenario swaps what the build view (`ScenarioBuilder`) shows —
  * this component owns none of that state itself.
  */
@@ -38,43 +36,29 @@ export const ScenarioListView = ({
   onSelect,
   onCreate,
   onRemove,
-}: ScenarioListViewProps) => {
-  const [name, setName] = useState('');
+}: ScenarioListViewProps) => (
+  <Wrapper>
+    <Button
+      type="button"
+      size="sm"
+      isFullWidth
+      disabled={isCreating}
+      onClick={onCreate}
+    >
+      {isCreating ? 'Creating…' : 'New scenario'}
+    </Button>
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    if (!name.trim()) return;
-
-    onCreate(name.trim());
-    setName('');
-  };
-
-  return (
-    <Wrapper>
-      <CreateForm onSubmit={handleSubmit}>
-        <TextInput
-          value={name}
-          placeholder="New scenario…"
-          aria-label="Name for the new scenario"
-          onChange={event => setName(event.target.value)}
-        />
-        <Button type="submit" size="sm" disabled={isCreating || !name.trim()}>
-          Create
-        </Button>
-      </CreateForm>
-
-      <Results>
-        <ScenariosBody
-          isPending={isPending}
-          scenarios={scenarios}
-          selectedScenarioId={selectedScenarioId}
-          onSelect={onSelect}
-          onRemove={onRemove}
-        />
-      </Results>
-    </Wrapper>
-  );
-};
+    <Results>
+      <ScenariosBody
+        isPending={isPending}
+        scenarios={scenarios}
+        selectedScenarioId={selectedScenarioId}
+        onSelect={onSelect}
+        onRemove={onRemove}
+      />
+    </Results>
+  </Wrapper>
+);
 
 type ScenariosBodyProps = Pick<
   ScenarioListViewProps,
@@ -142,11 +126,6 @@ const Wrapper = styled.div`
   gap: ${props => props.theme.space.md};
   height: 100%;
   min-height: 0;
-`;
-
-const CreateForm = styled.form`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
 `;
 
 const Results = styled.div`

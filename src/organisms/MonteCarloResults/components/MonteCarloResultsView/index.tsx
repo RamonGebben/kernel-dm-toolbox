@@ -160,7 +160,7 @@ export const MonteCarloResultsView = ({
 
   return (
     <Wrapper>
-      <TopBar key={scenario.id}>
+      <TopBar key={`trial-run-${scenario.id}`}>
         <TrialRunForm
           defaultTrialCount={scenario.trialCount}
           isRunning={isRunning}
@@ -180,7 +180,7 @@ export const MonteCarloResultsView = ({
           rule, enforced server-side too in `simulator.saveAsPreset`. */}
       {scenario.lastRunAt && (
         <SavePresetForm
-          key={scenario.id}
+          key={`save-preset-${scenario.id}`}
           isSaving={isSavingPreset}
           onSaveAsPreset={onSaveAsPreset}
         />

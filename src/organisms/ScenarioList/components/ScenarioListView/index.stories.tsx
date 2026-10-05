@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { ScenarioListView } from '~/organisms/ScenarioList/components/ScenarioListView';
 
 const scenarios = [
@@ -51,4 +51,25 @@ export const Empty: Story = {
 
 export const NoneSelected: Story = {
   args: { selectedScenarioId: null },
+};
+
+export const CreatingAScenario: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: 'New scenario' }));
+
+    await expect(args.onCreate).toHaveBeenCalledOnce();
+  },
+};
+
+export const Creating: Story = {
+  args: { isCreating: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByRole('button', { name: 'Creating…' }),
+    ).toBeDisabled();
+  },
 };

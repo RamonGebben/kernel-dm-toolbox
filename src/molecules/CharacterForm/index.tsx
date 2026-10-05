@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
+import { SearchableSelect } from '~/atoms/SearchableSelect';
 
 export type CharacterFormValues = {
   name: string;
@@ -23,11 +24,38 @@ export const emptyCharacterForm: CharacterFormValues = {
   level: 1,
 };
 
+export type CharacterFormClassOption = {
+  slug: string;
+  name: string;
+  /** Null for a base class; the parent class's slug for a subclass. */
+  subclassOfSlug: string | null;
+};
+
+export type CharacterFormClassPick = {
+  classSlug: string;
+  subclassSlug: string;
+} | null;
+
+/**
+ * A new character picks class/subclass/level right here, applied
+ * immediately on save — nothing to overwrite yet. An existing character's
+ * class instead opens the standalone `ClassTemplateWizard`, which already
+ * handles warning before it wipes a hand-edited action/spell list; this form
+ * only ever shows what's already applied and a way to change it.
+ */
+export type CharacterFormClassField =
+  | { mode: 'pick'; options: readonly CharacterFormClassOption[] }
+  | { mode: 'readonly'; label: string | null; onOpenWizard: () => void };
+
 type CharacterFormProps = {
   initialValues?: CharacterFormValues;
   isSaving: boolean;
   submitLabel: string;
-  onSubmit: (values: CharacterFormValues) => void;
+  classField: CharacterFormClassField;
+  onSubmit: (
+    values: CharacterFormValues,
+    classPick: CharacterFormClassPick,
+  ) => void;
   onCancel: () => void;
 };
 
@@ -40,17 +68,24 @@ export const CharacterForm = ({
   initialValues = emptyCharacterForm,
   isSaving,
   submitLabel,
+  classField,
   onSubmit,
   onCancel,
 }: CharacterFormProps) => {
   const [values, setValues] = useState(initialValues);
+  const [classSlug, setClassSlug] = useState('');
+  const [subclassSlug, setSubclassSlug] = useState('');
 
   const setNumber = (key: keyof CharacterFormValues) => (raw: string) =>
     setValues(current => ({ ...current, [key]: Number(raw) || 0 }));
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    onSubmit(values);
+    const classPick: CharacterFormClassPick =
+      classField.mode === 'pick' && classSlug
+        ? { classSlug, subclassSlug }
+        : null;
+    onSubmit(values, classPick);
   };
 
   return (
@@ -126,6 +161,24 @@ export const CharacterForm = ({
         </Field>
       </Grid>
 
+      {classField.mode === 'pick' ? (
+        <ClassPickerFields
+          options={classField.options}
+          classSlug={classSlug}
+          subclassSlug={subclassSlug}
+          onClassChange={slug => {
+            setClassSlug(slug);
+            setSubclassSlug('');
+          }}
+          onSubclassChange={setSubclassSlug}
+        />
+      ) : (
+        <ClassSummaryField
+          label={classField.label}
+          onOpenWizard={classField.onOpenWizard}
+        />
+      )}
+
       <Actions>
         <Button type="submit" size="sm" disabled={isSaving}>
           {isSaving ? 'Saving…' : submitLabel}
@@ -137,6 +190,81 @@ export const CharacterForm = ({
     </Form>
   );
 };
+
+type ClassPickerFieldsProps = {
+  options: readonly CharacterFormClassOption[];
+  classSlug: string;
+  subclassSlug: string;
+  onClassChange: (slug: string) => void;
+  onSubclassChange: (slug: string) => void;
+};
+
+/** Same base-class/subclass split `ClassTemplateWizardView`'s `PickStep`
+ * uses, so a DM sees the identical shape whether they're creating a
+ * character or changing an existing one's class later. */
+const ClassPickerFields = ({
+  options,
+  classSlug,
+  subclassSlug,
+  onClassChange,
+  onSubclassChange,
+}: ClassPickerFieldsProps) => {
+  const baseClasses = options.filter(option => option.subclassOfSlug === null);
+  const subclassOptions = options.filter(
+    option => option.subclassOfSlug === classSlug,
+  );
+
+  return (
+    <Grid $columns={2}>
+      <Field>
+        <Label>Class</Label>
+        <SearchableSelect
+          label="Class"
+          placeholder="No class yet"
+          value={classSlug}
+          options={baseClasses.map(option => ({
+            value: option.slug,
+            label: option.name,
+          }))}
+          onChange={onClassChange}
+        />
+      </Field>
+
+      {subclassOptions.length > 0 && (
+        <Field>
+          <Label>Subclass</Label>
+          <SearchableSelect
+            label="Subclass"
+            placeholder="None yet"
+            value={subclassSlug}
+            options={subclassOptions.map(option => ({
+              value: option.slug,
+              label: option.name,
+            }))}
+            onChange={onSubclassChange}
+          />
+        </Field>
+      )}
+    </Grid>
+  );
+};
+
+type ClassSummaryFieldProps = {
+  label: string | null;
+  onOpenWizard: () => void;
+};
+
+const ClassSummaryField = ({ label, onOpenWizard }: ClassSummaryFieldProps) => (
+  <Field>
+    <Label>Class</Label>
+    <ClassSummaryRow>
+      <ClassSummaryLabel>{label ?? 'No class assigned'}</ClassSummaryLabel>
+      <Button type="button" variant="ghost" size="sm" onClick={onOpenWizard}>
+        {label ? 'Change class' : 'Assign class'}
+      </Button>
+    </ClassSummaryRow>
+  </Field>
+);
 
 const Form = styled.form`
   display: flex;
@@ -154,10 +282,23 @@ const Field = styled.div`
   gap: ${props => props.theme.space.xs};
 `;
 
-const Grid = styled.div`
+const Grid = styled.div<{ $columns?: number }>`
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(
+    ${props => props.$columns ?? 4},
+    minmax(0, 1fr)
+  );
   gap: ${props => props.theme.space.sm};
+`;
+
+const ClassSummaryRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${props => props.theme.space.sm};
+`;
+
+const ClassSummaryLabel = styled.span`
+  color: ${props => props.theme.color.textPrimary};
 `;
 
 const Label = styled.label`

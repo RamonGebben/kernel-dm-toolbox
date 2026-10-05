@@ -16,6 +16,7 @@ export const CharacterRoster = () => {
         characters={roster.characters}
         editing={roster.editing}
         combatantCharacterIds={roster.combatantCharacterIds}
+        classOptions={roster.classOptions}
         onAddToEncounter={roster.addToEncounter}
         onOpenClass={roster.openClassWizard}
         onStartCreate={roster.startCreate}

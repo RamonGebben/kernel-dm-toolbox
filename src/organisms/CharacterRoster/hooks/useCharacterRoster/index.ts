@@ -4,9 +4,46 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import type { RosterCharacter } from '~/organisms/CharacterRoster/components/CharacterRosterView';
-import type { CharacterFormValues } from '~/molecules/CharacterForm';
+import type {
+  CharacterFormClassPick,
+  CharacterFormValues,
+} from '~/molecules/CharacterForm';
+import { formatClassLabel } from '~/utils/formatClassLabel';
 
 export type EditingTarget = RosterCharacter | 'new' | null;
+
+type ListedCharacter = {
+  id: string;
+  name: string;
+  playerName: string | null;
+  level: number;
+  armorClass: number;
+  maxHitPoints: number;
+  initiativeModifier: number;
+  characterClassSlug: string | null;
+};
+
+type ListedClass = { slug: string; name: string };
+
+/** Pure so the slug→name join is testable without a query client: an
+ * unresolved class (still loading, or since removed) reads as "no class"
+ * rather than crashing on a missing map entry. */
+export const toRosterCharacters = (
+  characters: readonly ListedCharacter[],
+  classes: readonly ListedClass[],
+): RosterCharacter[] => {
+  const classNamesBySlug = new Map(classes.map(c => [c.slug, c.name]));
+
+  return characters.map(character => ({
+    ...character,
+    classLabel: formatClassLabel(
+      character.characterClassSlug
+        ? (classNamesBySlug.get(character.characterClassSlug) ?? null)
+        : null,
+      character.level,
+    ),
+  }));
+};
 
 /**
  * Maps a form's values onto the mutation input.
@@ -46,6 +83,9 @@ export const useCharacterRoster = () => {
 
   const list = useQuery(trpc.characters.list.queryOptions());
   const encounter = useQuery(trpc.encounter.get.queryOptions());
+  const classesQuery = useQuery(
+    trpc.library.listCharacterClasses.queryOptions(),
+  );
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -74,6 +114,12 @@ export const useCharacterRoster = () => {
     trpc.characters.remove.mutationOptions({ onSuccess: invalidate }),
   );
 
+  const applyClassTemplate = useMutation(
+    trpc.characters.applyClassTemplate.mutationOptions({
+      onSuccess: invalidate,
+    }),
+  );
+
   const addToEncounter = useMutation(
     trpc.encounter.addCharacter.mutationOptions({
       onSuccess: () =>
@@ -83,11 +129,24 @@ export const useCharacterRoster = () => {
     }),
   );
 
-  const submit = (values: CharacterFormValues) => {
+  const submit = (
+    values: CharacterFormValues,
+    classPick: CharacterFormClassPick,
+  ) => {
     const input = toCharacterInput(values);
 
     if (editing === 'new' || editing === null) {
-      create.mutate(input);
+      create.mutate(input, {
+        onSuccess: created => {
+          if (!classPick) return;
+          applyClassTemplate.mutate({
+            id: created.id,
+            characterClassSlug: classPick.classSlug,
+            subclassSlug: classPick.subclassSlug || undefined,
+            level: values.level,
+          });
+        },
+      });
       return;
     }
 
@@ -98,7 +157,8 @@ export const useCharacterRoster = () => {
     isPending: list.isPending,
     combatantCharacterIds: toCombatantCharacterIds(encounter.data),
     isSaving: create.isPending || update.isPending,
-    characters: list.data ?? [],
+    characters: toRosterCharacters(list.data ?? [], classesQuery.data ?? []),
+    classOptions: classesQuery.data ?? [],
     editing,
     startCreate: () => setEditing('new'),
     startEdit: (character: RosterCharacter) => setEditing(character),

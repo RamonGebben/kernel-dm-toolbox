@@ -771,3 +771,47 @@ network hiccup fetching video must never turn a `pnpm db:import` or a first
 boot's automatic import that would otherwise have succeeded into a failed
 one. An animated effect is a bonus layered onto a working text library,
 never a reason to leave one half-imported.
+
+## 30. Applying a class template guesses a starter weapon and spell list
+
+**Decision.** `characters.applyClassTemplate` originally cleared a PC's
+actions and spells rather than guessing them — issue #5's own reasoning was
+that a player's actual weapon and spell choices shouldn't be invented for
+them. In practice this left every freshly class-templated PC with no
+`attack`/`save` action at all, since `selectAction` only ever picks from
+those two, so a simulated PC just sat out every fight logged as "has nothing
+to do (no eligible action)" until a DM hand-typed something in via
+`characters.updateCombatData`. That's the wrong default for a tool whose
+whole point is running unattended simulations: reversed so
+`applyClassTemplate` now also grants a class-typical weapon attack
+(`buildDefaultWeaponAction`, from a new `defaultWeapon` entry on
+`~/content/classProgression`) and, for a spellcasting class, a small
+offensive-leaning cantrip/spell selection (`buildDefaultCharacterSpells` /
+`selectDefaultCharacterSpells`). Both are still an educated guess, not the
+player's real build, and remain exactly as freely replaceable afterward via
+the class wizard's edit step as the empty starting point was before.
+
+**Why offensive-only spell selection.** A purely utility/buff spell (no
+attack roll, no saving throw) can't be chosen by `selectAction` either, so
+auto-granting one wouldn't fix the underlying problem — a support caster
+would still have nothing to act with. The selector only ever picks from
+spells with an attack roll or a saving throw, favoring the highest-level
+match at or below each spell slot's level. A DM who wants an actual
+healer/buffer still edits the spell list by hand — same as before, just
+starting from "has a way to act" instead of "has nothing at all."
+
+**Why weapon defaults don't need real ability scores.** `player_characters`
+has no ability-score columns — `toEngineActionFromSpell` already stood in
+`initiativeModifier` for every ability modifier a spell attack/save needs,
+and `buildDefaultWeaponAction` reuses that exact same simplification for a
+weapon's to-hit and damage bonus, rather than inventing a second one.
+
+**Why this stays scoped to `applyClassTemplate`, not level-ups.**
+`characters.update`'s level-change path only re-derives spell slots and
+resource pools, deliberately leaving actions/spells untouched — they may
+carry a DM's manual edits by then, and there's no way to tell "still the
+untouched auto-fill" apart from "hand-tuned" without adding state this app
+doesn't otherwise track. A level-up into a new, still-empty spell-slot level
+is a known gap left for a DM to fill by hand, not a silent one — the
+alternative (guessing on every level-up too) risks clobbering a real
+player's build far more often than the one-time class-apply guess does.

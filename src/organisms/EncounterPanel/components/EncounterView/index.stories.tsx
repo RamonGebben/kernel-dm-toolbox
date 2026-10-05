@@ -16,6 +16,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: false,
+    classLabel: null,
     initiativeBonus: 2,
   },
   {
@@ -30,6 +31,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: false,
+    classLabel: null,
     initiativeBonus: 2,
   },
   {
@@ -44,6 +46,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: true,
+    classLabel: 'Cleric 5',
     initiativeBonus: null,
   },
   {
@@ -58,6 +61,7 @@ const combatants = [
     isDelayed: false,
     conditions: [],
     isPlayerCharacter: true,
+    classLabel: null,
     initiativeBonus: null,
   },
 ];

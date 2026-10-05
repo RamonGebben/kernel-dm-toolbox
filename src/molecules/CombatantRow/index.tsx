@@ -10,6 +10,8 @@ import { toHitPointTone, type HitPointTone } from '~/utils/applyDamage';
 
 export type CombatantRowProps = {
   displayName: string;
+  /** Null for a monster, or a PC with no class applied yet. */
+  classLabel: string | null;
   initiative: number;
   currentHitPoints: number;
   maxHitPoints: number;
@@ -35,6 +37,7 @@ export type CombatantRowProps = {
  */
 export const CombatantRow = ({
   displayName,
+  classLabel,
   initiative,
   currentHitPoints,
   maxHitPoints,
@@ -58,6 +61,7 @@ export const CombatantRow = ({
       aria-label={`Select ${displayName}`}
     >
       {displayName}
+      {classLabel && <ClassLabel>{classLabel}</ClassLabel>}
       {isActive && <Badge $tone="active">turn</Badge>}
       {isDelayed && <Badge $tone="muted">delayed</Badge>}
       {isHidden && (
@@ -153,6 +157,12 @@ const SelectButton = styled.button`
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+`;
+
+const ClassLabel = styled.span`
+  flex-shrink: 0;
+  color: ${props => props.theme.color.textMuted};
+  font-size: ${props => props.theme.fontSize.sm};
 `;
 
 const Badge = styled.span<{ $tone: 'active' | 'muted' }>`

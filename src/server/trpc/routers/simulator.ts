@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import {
+  characterClasses,
   creatures,
   customCreatures,
   encounterPresetEntries,
@@ -29,6 +30,7 @@ import {
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
+import { formatClassLabel } from '~/utils/formatClassLabel';
 import { isScenarioRunnable } from '~/utils/isScenarioRunnable';
 import { loadScenarioCombatants } from '~/server/simulator/loadScenarioCombatants';
 import { runEncounter } from '~/server/simulator/engine/runEncounter';
@@ -241,8 +243,13 @@ export const simulatorRouter = createTRPCRouter({
                 id: playerCharacters.id,
                 name: playerCharacters.name,
                 level: playerCharacters.level,
+                className: characterClasses.name,
               })
               .from(playerCharacters)
+              .leftJoin(
+                characterClasses,
+                eq(playerCharacters.characterClassSlug, characterClasses.slug),
+              )
               .where(and(inArray(playerCharacters.id, pcIds), isLivePc))
           : [],
         librarySlugs.length
@@ -286,6 +293,7 @@ export const simulatorRouter = createTRPCRouter({
             playerCharacterId: member.playerCharacterId,
             name: pc.name,
             level: pc.level,
+            classLabel: formatClassLabel(pc.className, pc.level),
             position:
               member.positionX !== null && member.positionY !== null
                 ? { x: member.positionX, y: member.positionY }
@@ -345,7 +353,9 @@ export const simulatorRouter = createTRPCRouter({
         .set({
           name: input.name,
           note: input.note ?? null,
-          trialCount: input.trialCount,
+          ...(input.trialCount !== undefined && {
+            trialCount: input.trialCount,
+          }),
           ...touchSyncMeta({ version: scenario.version, now: new Date() }),
         })
         .where(eq(simulatorScenarios.id, scenario.id))
@@ -627,6 +637,7 @@ export const simulatorRouter = createTRPCRouter({
       const [updated] = await ctx.db
         .update(simulatorScenarios)
         .set({
+          trialCount,
           lastRunAt: now,
           lastRunSummary: summary,
           ...touchSyncMeta({ version: scenario.version, now }),

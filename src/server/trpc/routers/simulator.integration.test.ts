@@ -95,6 +95,22 @@ describe('simulator scenario CRUD', () => {
     });
   });
 
+  it('leaves trial count untouched when the update omits it', async () => {
+    const created = await createScenario();
+    await caller.simulator.update({
+      id: created.id,
+      name: 'Renamed ambush',
+      trialCount: 500,
+    });
+
+    const updated = await caller.simulator.update({
+      id: created.id,
+      name: 'Renamed again',
+    });
+
+    expect(updated).toMatchObject({ name: 'Renamed again', trialCount: 500 });
+  });
+
   it('rejects an update for a removed scenario', async () => {
     const created = await createScenario();
     await caller.simulator.remove({ id: created.id });
@@ -352,6 +368,30 @@ describe('simulator.runBatch', () => {
     // `simulatorScenarios.trialCount` defaults to 100.
     expect(updated.lastRunSummary).toMatchObject({ trialCount: 100 });
     expect(typeof updated.lastRunSummary?.baseSeed).toBe('number');
+  });
+
+  it('persists the trial count a batch ran with, so the next visit defaults to it', async () => {
+    const scenario = await createScenario();
+    const character = await createCharacter();
+
+    await caller.simulator.addPartyMember({
+      scenarioId: scenario.id,
+      playerCharacterId: character.id,
+    });
+    await caller.simulator.addMonsterEntry({
+      scenarioId: scenario.id,
+      creatureSlug: 'srd-2024_goblin',
+      count: 1,
+    });
+
+    const updated = await caller.simulator.runBatch({
+      scenarioId: scenario.id,
+      trialCount: 250,
+    });
+    expect(updated.trialCount).toBe(250);
+
+    const persisted = await caller.simulator.get({ id: scenario.id });
+    expect(persisted.scenario.trialCount).toBe(250);
   });
 });
 

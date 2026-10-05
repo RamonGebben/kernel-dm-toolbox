@@ -3,6 +3,7 @@ import 'server-only';
 import { asc, eq, isNull, and } from 'drizzle-orm';
 import {
   CURRENT_ENCOUNTER_ID,
+  characterClasses,
   combatantConditions,
   combatants,
   conditions,
@@ -14,6 +15,7 @@ import {
 import type { Database } from '~/server/db';
 import { sortCombatants } from '~/utils/sortCombatants';
 import { toHealthStatus } from '~/utils/applyDamage';
+import { formatClassLabel } from '~/utils/formatClassLabel';
 import {
   calculateEncounterDifficulty,
   type DifficultyResult,
@@ -72,6 +74,8 @@ export type EncounterCombatant = {
   initiativeBonus: number | null;
   playerCharacterId: string | null;
   isPlayerCharacter: boolean;
+  /** Null for a monster, or a PC with no class applied yet. */
+  classLabel: string | null;
   healthStatus: 'healthy' | 'bloodied' | 'unconscious';
   conditions: AppliedCondition[];
   /** Only present for monsters, and only used by the difficulty readout. */
@@ -116,6 +120,7 @@ export const readEncounterState = async (
       customInitiativeBonus: customCreatures.initiativeBonus,
       customChallengeRating: customCreatures.challengeRating,
       partyLevel: playerCharacters.level,
+      partyClassName: characterClasses.name,
     })
     .from(combatants)
     .leftJoin(creatures, eq(combatants.creatureSlug, creatures.slug))
@@ -126,6 +131,10 @@ export const readEncounterState = async (
     .leftJoin(
       playerCharacters,
       eq(combatants.playerCharacterId, playerCharacters.id),
+    )
+    .leftJoin(
+      characterClasses,
+      eq(playerCharacters.characterClassSlug, characterClasses.slug),
     )
     .where(
       and(
@@ -182,9 +191,13 @@ export const readEncounterState = async (
     activeCombatantId: encounter.activeCombatantId,
     difficulty,
     combatants: sortCombatants(rows).map(
-      ({ partyLevel: _partyLevel, ...row }) => ({
+      ({ partyLevel, partyClassName, ...row }) => ({
         ...row,
         isPlayerCharacter: row.playerCharacterId !== null,
+        classLabel:
+          partyLevel !== null
+            ? formatClassLabel(partyClassName, partyLevel)
+            : null,
         healthStatus: toHealthStatus(row),
         conditions: appliedConditions
           .filter(applied => applied.combatantId === row.id)

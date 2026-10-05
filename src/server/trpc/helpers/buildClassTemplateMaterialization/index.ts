@@ -27,13 +27,14 @@ export type ClassTemplateMaterialization = {
 /**
  * Derives the deterministic part of applying a class/subclass/level to a PC:
  * spell slots and resource pool sizes, both pure functions of the class and
- * level. Actions, attacks and known/prepared spells are NOT produced here —
- * per issue #5's "fully editable afterward to match what a player actually
- * runs at the table", a PC's actual weapon and spell choices are the
- * player's, not something to guess from a class template. Those tables are
- * simply cleared and left for the DM to fill in via
- * `characters.updateCombatData`, the same starting point a brand-new custom
- * creature gets from `customCreatures.create`.
+ * level. Actions and known/prepared spells are NOT produced here — those are
+ * an educated guess rather than a pure function of class+level alone (a
+ * spell selection needs to query the library), so they're built separately
+ * by `buildDefaultWeaponAction`/`buildDefaultCharacterSpells` and combined
+ * with this function's output only in the `applyClassTemplate` resolver.
+ * Both remain fully editable afterward via `characters.updateCombatData`,
+ * the same "materialize a sensible starting point, then let the DM edit it"
+ * shape `customCreatures.create` already uses.
  */
 export const buildClassTemplateMaterialization = (
   characterClass: Pick<

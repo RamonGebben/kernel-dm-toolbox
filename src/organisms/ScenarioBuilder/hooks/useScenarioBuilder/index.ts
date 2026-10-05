@@ -4,7 +4,11 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useScenarioSelectionStore } from '~/stores/scenarioSelection';
-import type { CreatureOption } from '~/organisms/ScenarioBuilder/components/ScenarioBuilderView';
+import type {
+  CreatureOption,
+  RosterOption,
+} from '~/organisms/ScenarioBuilder/components/ScenarioBuilderView';
+import { formatClassLabel } from '~/utils/formatClassLabel';
 
 type ListedCreature = {
   source: 'library' | 'custom';
@@ -12,6 +16,37 @@ type ListedCreature = {
   challengeRatingLabel: string;
   slug?: string;
   id?: string;
+};
+
+type ListedCharacter = {
+  id: string;
+  name: string;
+  level: number;
+  characterClassSlug: string | null;
+};
+
+type ListedClass = { slug: string; name: string };
+
+/** Pure so the slug→name join is testable without a query client: an
+ * unresolved class (still loading, or since removed) reads as "no class"
+ * rather than crashing on a missing map entry. */
+export const toRosterOptions = (
+  characters: readonly ListedCharacter[],
+  classes: readonly ListedClass[],
+): RosterOption[] => {
+  const classNamesBySlug = new Map(classes.map(c => [c.slug, c.name]));
+
+  return characters.map(character => ({
+    id: character.id,
+    name: character.name,
+    level: character.level,
+    classLabel: formatClassLabel(
+      character.characterClassSlug
+        ? (classNamesBySlug.get(character.characterClassSlug) ?? null)
+        : null,
+      character.level,
+    ),
+  }));
 };
 
 /** Merges `library.listCreatures`' two-shape rows (a library row carries
@@ -67,6 +102,9 @@ export const useScenarioBuilder = () => {
   });
 
   const roster = useQuery(trpc.characters.list.queryOptions());
+  const classesQuery = useQuery(
+    trpc.library.listCharacterClasses.queryOptions(),
+  );
 
   const creaturePicker = useQuery(
     trpc.library.listCreatures.queryOptions({
@@ -157,7 +195,7 @@ export const useScenarioBuilder = () => {
     isDetailPending: selectedScenarioId !== null && detail.isPending,
     party: detail.data?.party ?? [],
     monsters: detail.data?.monsters ?? [],
-    roster: roster.data ?? [],
+    roster: toRosterOptions(roster.data ?? [], classesQuery.data ?? []),
     creatureOptions: toCreatureOptions(creaturePicker.data ?? []),
     isCreatureOptionsPending: creaturePicker.isPending,
     monsterSearch,
@@ -167,17 +205,12 @@ export const useScenarioBuilder = () => {
       setArmedTokenKey(current => (current === key ? null : key)),
     onPlaceCell: placeArmedToken,
     onClearPosition: clearPosition,
-    onUpdateScenario: (values: {
-      name: string;
-      note: string;
-      trialCount: number;
-    }) => {
+    onUpdateScenario: (values: { name: string; note: string }) => {
       if (!selectedScenarioId) return;
       updateScenario.mutate({
         id: selectedScenarioId,
         name: values.name,
         note: values.note || undefined,
-        trialCount: values.trialCount,
       });
     },
     onAddPartyMember: (playerCharacterId: string) => {

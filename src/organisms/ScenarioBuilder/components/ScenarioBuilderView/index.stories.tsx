@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 import { ScenarioBuilderView } from '~/organisms/ScenarioBuilder/components/ScenarioBuilderView';
 
 const scenario = {
@@ -15,6 +15,7 @@ const party = [
     playerCharacterId: 'pc-1',
     name: 'Ari',
     level: 4,
+    classLabel: 'Fighter 4',
     position: { x: 2, y: 4 },
   },
   {
@@ -22,6 +23,7 @@ const party = [
     playerCharacterId: 'pc-2',
     name: 'Bo',
     level: 4,
+    classLabel: null,
     position: null,
   },
 ];
@@ -44,8 +46,8 @@ const monsters = [
 ];
 
 const roster = [
-  { id: 'pc-3', name: 'Cass', level: 4, characterClassSlug: 'srd-2024_wizard' },
-  { id: 'pc-4', name: 'Dez', level: 4, characterClassSlug: null },
+  { id: 'pc-3', name: 'Cass', level: 4, classLabel: 'Wizard 4' },
+  { id: 'pc-4', name: 'Dez', level: 4, classLabel: null },
 ];
 
 const creatureOptions = [
@@ -115,4 +117,39 @@ export const NoCharactersOnRoster: Story = {
 
 export const TokenArmed: Story = {
   args: { armedTokenKey: 'party:member-2' },
+};
+
+export const AddingAPartyMember: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Cass' }));
+
+    await expect(args.onAddPartyMember).toHaveBeenCalledWith('pc-3');
+  },
+};
+
+export const SearchingTheParty: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.type(
+      canvas.getByLabelText('Search characters to add'),
+      'zzz',
+    );
+
+    await expect(canvas.getByText('No matches.')).toBeVisible();
+  },
+};
+
+export const AddingAMonster: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Orc' }));
+
+    await expect(args.onAddMonsterEntry).toHaveBeenCalledWith(
+      creatureOptions[0],
+    );
+  },
 };

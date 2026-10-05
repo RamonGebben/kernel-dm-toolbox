@@ -15,7 +15,9 @@ export const updateScenarioInputSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1).max(80),
   note: z.string().trim().max(200).optional(),
-  trialCount: z.number().int().min(1).max(MAX_TRIAL_COUNT),
+  /** Optional — the Build tab no longer edits this; only `runBatch` (via
+   * `Run batch` on the Results tab) sets it, as the count it just ran with. */
+  trialCount: z.number().int().min(1).max(MAX_TRIAL_COUNT).optional(),
 });
 
 export type UpdateScenarioInput = z.infer<typeof updateScenarioInputSchema>;

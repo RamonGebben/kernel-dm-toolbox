@@ -48,7 +48,7 @@ export const PickStep: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByLabelText('Class')).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Class' })).toBeVisible();
     await expect(canvas.getByLabelText('Level')).toBeVisible();
   },
 };
@@ -57,8 +57,12 @@ export const PickStepWithSubclass: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.selectOptions(canvas.getByLabelText('Class'), 'Barbarian');
-    await expect(canvas.getByLabelText('Subclass')).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: 'Class' }));
+    await userEvent.click(canvas.getByRole('option', { name: 'Barbarian' }));
+
+    await expect(
+      canvas.getByRole('button', { name: 'Subclass' }),
+    ).toBeVisible();
   },
 };
 

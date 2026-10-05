@@ -7,6 +7,7 @@ const meta = {
   component: CombatantRow,
   args: {
     displayName: 'Meat',
+    classLabel: null,
     initiative: 19,
     currentHitPoints: 35,
     maxHitPoints: 52,
@@ -51,6 +52,15 @@ export const Downed: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText('0/127')).toBeVisible();
+  },
+};
+
+export const WithClass: Story = {
+  args: { classLabel: 'Barbarian 5' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('Barbarian 5')).toBeVisible();
   },
 };
 

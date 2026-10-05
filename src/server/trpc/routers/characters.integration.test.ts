@@ -338,6 +338,82 @@ describe('characters.applyClassTemplate', () => {
     expect(combatData.resources).toHaveLength(1);
     expect(combatData.resources[0]?.maxUses).toBe(3);
   });
+
+  it('grants a default weapon attack so a martial PC has something to do', async () => {
+    await seedBarbarian();
+    const created = await caller.characters.create(validCharacter);
+
+    await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_barbarian',
+      level: 3,
+    });
+
+    const combatData = await caller.characters.getCombatData({
+      id: created.id,
+    });
+
+    expect(combatData.actions).toHaveLength(1);
+    expect(combatData.actions[0]).toMatchObject({
+      name: 'Greataxe',
+      attack: expect.objectContaining({
+        name: 'Greataxe',
+        damageDieType: 'd12',
+        damageType: 'slashing',
+      }),
+    });
+  });
+
+  it('grants an offensive cantrip so a fresh caster has something to do', async () => {
+    await seedWizard();
+    await db.insert(schema.spells).values([
+      {
+        slug: 'srd-2024_fire-bolt',
+        document: 'srd-2024',
+        name: 'Fire Bolt',
+        desc: 'A mote of fire.',
+        level: 0,
+        school: 'evocation',
+        castingTime: '1 action',
+        duration: 'Instantaneous',
+        attackRoll: true,
+        classes: ['srd-2024_wizard'],
+      },
+      {
+        slug: 'srd-2024_prestidigitation',
+        document: 'srd-2024',
+        name: 'Prestidigitation',
+        desc: 'A minor magical trick.',
+        level: 0,
+        school: 'transmutation',
+        castingTime: '1 action',
+        duration: '1 hour',
+        classes: ['srd-2024_wizard'],
+      },
+    ]);
+    const created = await caller.characters.create(validCharacter);
+
+    await caller.characters.applyClassTemplate({
+      id: created.id,
+      characterClassSlug: 'srd-2024_wizard',
+      level: 3,
+    });
+
+    const combatData = await caller.characters.getCombatData({
+      id: created.id,
+    });
+
+    // Fire Bolt (attack roll) is granted; Prestidigitation (no attack roll,
+    // no save) is a utility cantrip `selectAction` could never use, so it's
+    // left out.
+    expect(combatData.spells).toEqual([
+      expect.objectContaining({
+        spellSlug: 'srd-2024_fire-bolt',
+        isPrepared: true,
+        isAlwaysAvailable: true,
+      }),
+    ]);
+  });
 });
 
 describe('characters.updateCombatData', () => {

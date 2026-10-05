@@ -6,7 +6,8 @@ import { Modal } from '~/atoms/Modal';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { TextInput } from '~/atoms/TextInput';
-import { Field, Label, Select } from '~/molecules/CustomCreatureForm/styled';
+import { SearchableSelect } from '~/atoms/SearchableSelect';
+import { Field, Label } from '~/molecules/CustomCreatureForm/styled';
 import {
   PlayerCharacterCombatDataForm,
   type PlayerCharacterCombatDataFormValues,
@@ -150,41 +151,35 @@ const PickStep = ({
   return (
     <PickWrapper>
       <Field>
-        <Label htmlFor="class-wizard-class">Class</Label>
-        <Select
-          id="class-wizard-class"
+        <Label>Class</Label>
+        <SearchableSelect
+          label="Class"
+          placeholder="Choose a class…"
           value={classSlug}
-          onChange={event => {
-            setClassSlug(event.target.value);
+          options={baseClasses.map(option => ({
+            value: option.slug,
+            label: option.name,
+          }))}
+          onChange={slug => {
+            setClassSlug(slug);
             setSubclassSlug('');
           }}
-        >
-          <option value="" disabled>
-            Choose a class…
-          </option>
-          {baseClasses.map(option => (
-            <option key={option.slug} value={option.slug}>
-              {option.name}
-            </option>
-          ))}
-        </Select>
+        />
       </Field>
 
       {subclassOptions.length > 0 && (
         <Field>
-          <Label htmlFor="class-wizard-subclass">Subclass</Label>
-          <Select
-            id="class-wizard-subclass"
+          <Label>Subclass</Label>
+          <SearchableSelect
+            label="Subclass"
+            placeholder="None yet"
             value={subclassSlug}
-            onChange={event => setSubclassSlug(event.target.value)}
-          >
-            <option value="">None yet</option>
-            {subclassOptions.map(option => (
-              <option key={option.slug} value={option.slug}>
-                {option.name}
-              </option>
-            ))}
-          </Select>
+            options={subclassOptions.map(option => ({
+              value: option.slug,
+              label: option.name,
+            }))}
+            onChange={setSubclassSlug}
+          />
         </Field>
       )}
 

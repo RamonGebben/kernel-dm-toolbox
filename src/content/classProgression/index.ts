@@ -38,9 +38,36 @@
  *   flagged here rather than silently wrong.
  * - Warlock's Pact Magic slots live in `~/content/spellSlotsByCasterType`
  *   (`pactCasterSlotsByLevel`), not duplicated here.
+ * - `defaultWeapon` (added for the class wizard's auto-fill step, issue #5
+ *   follow-up) is one hand-picked, thematically-typical weapon per base
+ *   class — not the character's actual choice, which a DM remains free to
+ *   replace via the combat-data editor. It exists so a freshly class-
+ *   templated PC always has at least one usable `attack`, matching a
+ *   spellcaster's auto-granted cantrip (see
+ *   `~/server/trpc/helpers/buildDefaultWeaponAction`).
  */
 
 export type ResetTiming = 'SHORT_REST' | 'LONG_REST';
+
+/**
+ * One hand-picked, class-typical weapon, materialized onto a PC alongside
+ * its class template so `selectAction` always has an `attack` to fall back
+ * on. `reach` is set for a melee weapon, `range`/`longRange` for a ranged
+ * one — never both.
+ */
+export type ClassDefaultWeapon = {
+  name: string;
+  attackType: 'Melee Weapon Attack' | 'Ranged Weapon Attack';
+  reach: number | null;
+  range: number | null;
+  longRange: number | null;
+  damageDieCount: number;
+  /** Dice notation's die-type half only, e.g. `d8` — `damageDieCount` carries
+   * the count separately, matching `player_character_action_attacks`' own
+   * split columns. */
+  damageDieType: string;
+  damageType: string;
+};
 
 export type ClassResourcePool = {
   /** Stable key, so a materialized `player_character_resources` row can be
@@ -69,6 +96,7 @@ export type ClassProgression = {
   /** Monk only: the die size of an unarmed strike/monk weapon, as dice
    * notation ("1d6", "1d8", …), or null before the feature applies. */
   martialArtsDieByLevel?: ReadonlyArray<string | null>;
+  defaultWeapon: ClassDefaultWeapon;
 };
 
 /**
@@ -121,11 +149,31 @@ const barbarianProgression: ClassProgression = {
     ],
     2,
   ),
+  defaultWeapon: {
+    name: 'Greataxe',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd12',
+    damageType: 'slashing',
+  },
 };
 
 const bardProgression: ClassProgression = {
   classSlug: 'srd-2024_bard',
   attacksPerActionByLevel: noExtraAttack,
+  defaultWeapon: {
+    name: 'Rapier',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd8',
+    damageType: 'piercing',
+  },
   resources: [
     {
       key: 'bardic-inspiration',
@@ -149,6 +197,16 @@ const bardProgression: ClassProgression = {
 const clericProgression: ClassProgression = {
   classSlug: 'srd-2024_cleric',
   attacksPerActionByLevel: noExtraAttack,
+  defaultWeapon: {
+    name: 'Mace',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd6',
+    damageType: 'bludgeoning',
+  },
   resources: [
     {
       key: 'channel-divinity',
@@ -169,6 +227,16 @@ const clericProgression: ClassProgression = {
 const druidProgression: ClassProgression = {
   classSlug: 'srd-2024_druid',
   attacksPerActionByLevel: noExtraAttack,
+  defaultWeapon: {
+    name: 'Scimitar',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd6',
+    damageType: 'slashing',
+  },
   resources: [
     {
       key: 'wild-shape',
@@ -189,6 +257,16 @@ const fighterProgression: ClassProgression = {
     ],
     1,
   ),
+  defaultWeapon: {
+    name: 'Longsword',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd8',
+    damageType: 'slashing',
+  },
   resources: [
     {
       key: 'second-wind',
@@ -245,11 +323,34 @@ const monkProgression: ClassProgression = {
     ],
     '1d6',
   ),
+  // Overridden per-level by `buildDefaultWeaponAction` using
+  // `martialArtsDieByLevel` above — this entry only supplies the name/type/
+  // reach a Monk's unarmed strike never changes.
+  defaultWeapon: {
+    name: 'Unarmed Strike',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd6',
+    damageType: 'bludgeoning',
+  },
 };
 
 const paladinProgression: ClassProgression = {
   classSlug: 'srd-2024_paladin',
   attacksPerActionByLevel: extraAttackAtFive,
+  defaultWeapon: {
+    name: 'Longsword',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd8',
+    damageType: 'slashing',
+  },
   resources: [
     {
       key: 'lay-on-hands',
@@ -283,6 +384,16 @@ const paladinProgression: ClassProgression = {
 const rangerProgression: ClassProgression = {
   classSlug: 'srd-2024_ranger',
   attacksPerActionByLevel: extraAttackAtFive,
+  defaultWeapon: {
+    name: 'Longbow',
+    attackType: 'Ranged Weapon Attack',
+    reach: null,
+    range: 150,
+    longRange: 600,
+    damageDieCount: 1,
+    damageDieType: 'd8',
+    damageType: 'piercing',
+  },
   // No headline "N uses per rest" resource in the base class at v1's fidelity
   // — Favored Enemy/terrain are flavor, not mechanically simulated here.
   resources: [],
@@ -291,6 +402,16 @@ const rangerProgression: ClassProgression = {
 const rogueProgression: ClassProgression = {
   classSlug: 'srd-2024_rogue',
   attacksPerActionByLevel: noExtraAttack,
+  defaultWeapon: {
+    name: 'Shortsword',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd6',
+    damageType: 'piercing',
+  },
   resources: [],
   sneakAttackDiceByLevel: Array.from({ length: 20 }, (_, index) =>
     Math.ceil((index + 1) / 2),
@@ -300,6 +421,16 @@ const rogueProgression: ClassProgression = {
 const sorcererProgression: ClassProgression = {
   classSlug: 'srd-2024_sorcerer',
   attacksPerActionByLevel: noExtraAttack,
+  defaultWeapon: {
+    name: 'Dagger',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd4',
+    damageType: 'piercing',
+  },
   resources: [
     {
       key: 'sorcery-points',
@@ -322,6 +453,19 @@ const warlockProgression: ClassProgression = {
   // No Extra Attack — Eldritch Blast's extra beams are cantrip damage
   // scaling, not the Attack action's attack count, and are not modeled here.
   attacksPerActionByLevel: noExtraAttack,
+  // A backup only — Eldritch Blast (an unlimited-use attack cantrip) is the
+  // spell auto-selection's near-universal pick for this class and takes
+  // priority whenever it's in range.
+  defaultWeapon: {
+    name: 'Quarterstaff',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd6',
+    damageType: 'bludgeoning',
+  },
   // Pact Magic slots live in spellSlotsByCasterType; Eldritch Invocations
   // aren't a "uses per rest" pool.
   resources: [],
@@ -330,6 +474,16 @@ const warlockProgression: ClassProgression = {
 const wizardProgression: ClassProgression = {
   classSlug: 'srd-2024_wizard',
   attacksPerActionByLevel: noExtraAttack,
+  defaultWeapon: {
+    name: 'Quarterstaff',
+    attackType: 'Melee Weapon Attack',
+    reach: 5,
+    range: null,
+    longRange: null,
+    damageDieCount: 1,
+    damageDieType: 'd6',
+    damageType: 'bludgeoning',
+  },
   // Arcane Recovery recovers slots rather than being itself a use-limited
   // action, so it doesn't fit this module's resource-pool shape — deferred.
   resources: [],

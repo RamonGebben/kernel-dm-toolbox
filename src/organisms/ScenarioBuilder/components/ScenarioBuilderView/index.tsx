@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { TextInput } from '~/atoms/TextInput';
+import { AddableListItem } from '~/molecules/AddableListItem';
 import {
   PlacementGrid,
   type PlacementGridCell,
@@ -25,6 +26,8 @@ export type BuilderPartyMember = {
   playerCharacterId: string;
   name: string;
   level: number;
+  /** Null for a PC with no class applied yet. */
+  classLabel: string | null;
   position: BuilderPosition | null;
 };
 
@@ -45,7 +48,7 @@ export type RosterOption = {
    * present on the board but never attacking (see `loadScenarioCombatants`).
    * Flagged here so a DM picks it knowingly rather than discovering it mid-
    * fight. */
-  characterClassSlug: string | null;
+  classLabel: string | null;
 };
 
 export type CreatureOption = {
@@ -75,11 +78,7 @@ export type ScenarioBuilderViewProps = {
   onArmToken: (key: string) => void;
   onPlaceCell: (cell: PlacementGridCell) => void;
   onClearPosition: (key: string) => void;
-  onUpdateScenario: (values: {
-    name: string;
-    note: string;
-    trialCount: number;
-  }) => void;
+  onUpdateScenario: (values: { name: string; note: string }) => void;
   onAddPartyMember: (playerCharacterId: string) => void;
   onRemovePartyMember: (id: string) => void;
   onAddMonsterEntry: (option: CreatureOption) => void;
@@ -157,113 +156,118 @@ export const ScenarioBuilderView = ({
     <Wrapper>
       <ScenarioHeader scenario={scenario} onUpdateScenario={onUpdateScenario} />
 
-      <Sections>
-        <Section>
-          <SectionTitle>Party</SectionTitle>
-          <AddPartyMemberForm
-            roster={availableRoster}
-            hasAnyCharacters={roster.length > 0}
-            onAdd={onAddPartyMember}
-          />
-          <TokenList>
-            {party.map(member => (
-              <TokenCard key={member.id}>
-                <TokenSwatch $color={PARTY_TOKEN_COLOR} />
-                <TokenLabel>
-                  {member.name} <Muted>(lvl {member.level})</Muted>
-                </TokenLabel>
-                <PositionLabel position={member.position} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onArmToken(partyTokenKey(member.id))}
-                  aria-pressed={armedTokenKey === partyTokenKey(member.id)}
-                >
-                  Place
-                </Button>
-                {member.position && (
+      <Columns>
+        <PickerColumn>
+          <Section>
+            <SectionTitle>Party</SectionTitle>
+            <AddPartyMemberSection
+              roster={availableRoster}
+              hasAnyCharacters={roster.length > 0}
+              onAdd={onAddPartyMember}
+            />
+            <TokenList>
+              {party.map(member => (
+                <TokenCard key={member.id}>
+                  <TokenSwatch $color={PARTY_TOKEN_COLOR} />
+                  <TokenLabel>
+                    {member.name}{' '}
+                    <Muted>
+                      ({member.classLabel ?? `lvl ${member.level}, no class`})
+                    </Muted>
+                  </TokenLabel>
+                  <PositionLabel position={member.position} />
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onClearPosition(partyTokenKey(member.id))}
+                    onClick={() => onArmToken(partyTokenKey(member.id))}
+                    aria-pressed={armedTokenKey === partyTokenKey(member.id)}
                   >
-                    Clear
+                    Place
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove ${member.name} from the party`}
-                  onClick={() => onRemovePartyMember(member.id)}
-                >
-                  Remove
-                </Button>
-              </TokenCard>
-            ))}
-            {!party.length && <Muted>No party members yet.</Muted>}
-          </TokenList>
-        </Section>
+                  {member.position && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onClearPosition(partyTokenKey(member.id))}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove ${member.name} from the party`}
+                    onClick={() => onRemovePartyMember(member.id)}
+                  >
+                    Remove
+                  </Button>
+                </TokenCard>
+              ))}
+              {!party.length && <Muted>No party members yet.</Muted>}
+            </TokenList>
+          </Section>
 
-        <Section>
-          <SectionTitle>Monsters</SectionTitle>
-          <AddMonsterEntryForm
-            search={monsterSearch}
-            onSearchChange={onMonsterSearchChange}
-            options={creatureOptions}
-            isPending={isCreatureOptionsPending}
-            onAdd={onAddMonsterEntry}
-          />
-          <TokenList>
-            {monsters.map(entry => (
-              <TokenCard key={entry.id}>
-                <TokenSwatch $color={MONSTER_TOKEN_COLOR} />
-                <TokenLabel>
-                  {entry.name} <Muted>CR {entry.challengeRatingLabel}</Muted>
-                </TokenLabel>
-                <CountInput
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={entry.count}
-                  aria-label={`Count of ${entry.name}`}
-                  onChange={event => {
-                    const next = Number(event.target.value);
-                    if (Number.isInteger(next) && next >= 1) {
-                      onUpdateMonsterEntryCount(entry.id, next);
-                    }
-                  }}
-                />
-                <PositionLabel position={entry.position} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onArmToken(monsterTokenKey(entry.id))}
-                  aria-pressed={armedTokenKey === monsterTokenKey(entry.id)}
-                >
-                  Place
-                </Button>
-                {entry.position && (
+          <Section>
+            <SectionTitle>Monsters</SectionTitle>
+            <AddMonsterEntrySection
+              search={monsterSearch}
+              onSearchChange={onMonsterSearchChange}
+              options={creatureOptions}
+              isPending={isCreatureOptionsPending}
+              onAdd={onAddMonsterEntry}
+            />
+            <TokenList>
+              {monsters.map(entry => (
+                <TokenCard key={entry.id}>
+                  <TokenSwatch $color={MONSTER_TOKEN_COLOR} />
+                  <TokenLabel>
+                    {entry.name} <Muted>CR {entry.challengeRatingLabel}</Muted>
+                  </TokenLabel>
+                  <CountInput
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={entry.count}
+                    aria-label={`Count of ${entry.name}`}
+                    onChange={event => {
+                      const next = Number(event.target.value);
+                      if (Number.isInteger(next) && next >= 1) {
+                        onUpdateMonsterEntryCount(entry.id, next);
+                      }
+                    }}
+                  />
+                  <PositionLabel position={entry.position} />
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onClearPosition(monsterTokenKey(entry.id))}
+                    onClick={() => onArmToken(monsterTokenKey(entry.id))}
+                    aria-pressed={armedTokenKey === monsterTokenKey(entry.id)}
                   >
-                    Clear
+                    Place
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove ${entry.name} from the scenario`}
-                  onClick={() => onRemoveMonsterEntry(entry.id)}
-                >
-                  Remove
-                </Button>
-              </TokenCard>
-            ))}
-            {!monsters.length && <Muted>No monsters yet.</Muted>}
-          </TokenList>
-        </Section>
+                  {entry.position && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onClearPosition(monsterTokenKey(entry.id))}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove ${entry.name} from the scenario`}
+                    onClick={() => onRemoveMonsterEntry(entry.id)}
+                  >
+                    Remove
+                  </Button>
+                </TokenCard>
+              ))}
+              {!monsters.length && <Muted>No monsters yet.</Muted>}
+            </TokenList>
+          </Section>
+        </PickerColumn>
 
         <Section>
           <SectionTitle>Grid</SectionTitle>
@@ -277,7 +281,7 @@ export const ScenarioBuilderView = ({
             onPlaceCell={onPlaceCell}
           />
         </Section>
-      </Sections>
+      </Columns>
     </Wrapper>
   );
 };
@@ -307,12 +311,11 @@ const ScenarioHeader = ({
 }: ScenarioHeaderProps) => {
   const [name, setName] = useState(scenario.name);
   const [note, setNote] = useState(scenario.note ?? '');
-  const [trialCount, setTrialCount] = useState(scenario.trialCount);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!name.trim()) return;
-    onUpdateScenario({ name: name.trim(), note: note.trim(), trialCount });
+    onUpdateScenario({ name: name.trim(), note: note.trim() });
   };
 
   return (
@@ -328,14 +331,6 @@ const ScenarioHeader = ({
         aria-label="Scenario note"
         onChange={event => setNote(event.target.value)}
       />
-      <TrialCountInput
-        type="number"
-        min={1}
-        max={10000}
-        value={trialCount}
-        aria-label="Monte Carlo trial count"
-        onChange={event => setTrialCount(Number(event.target.value))}
-      />
       <Button type="submit" size="sm">
         Save
       </Button>
@@ -343,7 +338,7 @@ const ScenarioHeader = ({
   );
 };
 
-type AddPartyMemberFormProps = {
+type AddPartyMemberSectionProps = {
   roster: readonly RosterOption[];
   /** Whether the character roster has anyone on it at all, independent of
    * how many are already in this scenario — see `roster`'s own doc comment
@@ -352,12 +347,15 @@ type AddPartyMemberFormProps = {
   onAdd: (playerCharacterId: string) => void;
 };
 
-const AddPartyMemberForm = ({
+/** Search-and-click, matching the tracker's own `CreatureLibraryView` — no
+ * separate "Add" submit step, and filtering is local since the roster is
+ * always small enough to filter client-side. */
+const AddPartyMemberSection = ({
   roster,
   hasAnyCharacters,
   onAdd,
-}: AddPartyMemberFormProps) => {
-  const [selectedId, setSelectedId] = useState('');
+}: AddPartyMemberSectionProps) => {
+  const [search, setSearch] = useState('');
 
   if (!roster.length) {
     return (
@@ -369,36 +367,34 @@ const AddPartyMemberForm = ({
     );
   }
 
+  const filtered = roster.filter(pc =>
+    pc.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
   return (
-    <AddForm
-      onSubmit={event => {
-        event.preventDefault();
-        if (!selectedId) return;
-        onAdd(selectedId);
-        setSelectedId('');
-      }}
-    >
-      <Select
-        value={selectedId}
-        aria-label="Add a character to the party"
-        onChange={event => setSelectedId(event.target.value)}
-      >
-        <option value="">Add a character…</option>
-        {roster.map(pc => (
-          <option key={pc.id} value={pc.id}>
-            {pc.name} (lvl {pc.level})
-            {pc.characterClassSlug === null ? ' — no class, won’t attack' : ''}
-          </option>
+    <PickerBody>
+      <TextInput
+        value={search}
+        placeholder="Search characters…"
+        aria-label="Search characters to add"
+        onChange={event => setSearch(event.target.value)}
+      />
+      <PickerList>
+        {filtered.map(pc => (
+          <AddableListItem
+            key={pc.id}
+            name={pc.name}
+            subtitle={pc.classLabel ?? `Level ${pc.level} · no class`}
+            onAdd={() => onAdd(pc.id)}
+          />
         ))}
-      </Select>
-      <Button type="submit" size="sm" disabled={!selectedId}>
-        Add
-      </Button>
-    </AddForm>
+        {!filtered.length && <Muted>No matches.</Muted>}
+      </PickerList>
+    </PickerBody>
   );
 };
 
-type AddMonsterEntryFormProps = {
+type AddMonsterEntrySectionProps = {
   search: string;
   onSearchChange: (value: string) => void;
   options: readonly CreatureOption[];
@@ -406,50 +402,35 @@ type AddMonsterEntryFormProps = {
   onAdd: (option: CreatureOption) => void;
 };
 
-const AddMonsterEntryForm = ({
+const AddMonsterEntrySection = ({
   search,
   onSearchChange,
   options,
   isPending,
   onAdd,
-}: AddMonsterEntryFormProps) => {
-  const [selectedKey, setSelectedKey] = useState('');
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    const option = options.find(candidate => candidate.key === selectedKey);
-    if (!option) return;
-    onAdd(option);
-    setSelectedKey('');
-  };
-
-  return (
-    <AddForm onSubmit={handleSubmit}>
-      <TextInput
-        value={search}
-        placeholder="Search creatures…"
-        aria-label="Search creatures to add"
-        onChange={event => onSearchChange(event.target.value)}
-      />
-      <Select
-        value={selectedKey}
-        aria-label="Add a creature to the monster group"
-        disabled={isPending}
-        onChange={event => setSelectedKey(event.target.value)}
-      >
-        <option value="">{isPending ? 'Loading…' : 'Add a creature…'}</option>
-        {options.map(option => (
-          <option key={option.key} value={option.key}>
-            {option.name} (CR {option.challengeRatingLabel})
-          </option>
+}: AddMonsterEntrySectionProps) => (
+  <PickerBody>
+    <TextInput
+      value={search}
+      placeholder="Search creatures…"
+      aria-label="Search creatures to add"
+      onChange={event => onSearchChange(event.target.value)}
+    />
+    <PickerList>
+      {isPending && <Muted>Loading…</Muted>}
+      {!isPending &&
+        options.map(option => (
+          <AddableListItem
+            key={option.key}
+            name={option.name}
+            subtitle={`CR ${option.challengeRatingLabel}`}
+            onAdd={() => onAdd(option)}
+          />
         ))}
-      </Select>
-      <Button type="submit" size="sm" disabled={!selectedKey}>
-        Add
-      </Button>
-    </AddForm>
-  );
-};
+      {!isPending && !options.length && <Muted>No matches.</Muted>}
+    </PickerList>
+  </PickerBody>
+);
 
 const Wrapper = styled.div`
   display: flex;
@@ -467,20 +448,31 @@ const HeaderForm = styled.form`
   align-items: center;
 `;
 
-const TrialCountInput = styled(TextInput)`
-  max-width: 8rem;
+/** Pickers in one column, the placement grid in the other — same
+ * `grid-template-columns` convention `SimulatorTemplate`'s own `Columns`
+ * and `TrackerTemplate` already use. */
+const Columns = styled.div`
+  display: grid;
+  gap: ${props => props.theme.space.lg};
+  grid-template-columns: 1fr;
+
+  ${props => props.theme.media.lg} {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 `;
 
-const Sections = styled.div`
+const PickerColumn = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.space.lg};
+  min-width: 0;
 `;
 
 const Section = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${props => props.theme.space.sm};
+  min-width: 0;
 `;
 
 const SectionTitle = styled.h3`
@@ -489,22 +481,18 @@ const SectionTitle = styled.h3`
   color: ${props => props.theme.color.textPrimary};
 `;
 
-const AddForm = styled.form`
+const PickerBody = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: ${props => props.theme.space.sm};
 `;
 
-const Select = styled.select`
-  flex: 1;
-  min-width: 12rem;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
+const PickerList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${props => props.theme.space.xs};
+  max-height: 14rem;
+  overflow-y: auto;
 `;
 
 const TokenList = styled.div`

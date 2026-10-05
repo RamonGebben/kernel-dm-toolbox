@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseTokenKey,
   toCreatureOptions,
+  toRosterOptions,
 } from '~/organisms/ScenarioBuilder/hooks/useScenarioBuilder';
 
 describe('toCreatureOptions', () => {
@@ -73,5 +74,32 @@ describe('parseTokenKey', () => {
 
   it('rejects a key with no id', () => {
     expect(parseTokenKey('party:')).toBeNull();
+  });
+});
+
+describe('toRosterOptions', () => {
+  const wizard = { slug: 'srd-2024_wizard', name: 'Wizard' };
+
+  it('resolves a class slug into a formatted label', () => {
+    const [result] = toRosterOptions(
+      [
+        {
+          id: 'pc-1',
+          name: 'Cass',
+          level: 4,
+          characterClassSlug: 'srd-2024_wizard',
+        },
+      ],
+      [wizard],
+    );
+    expect(result?.classLabel).toBe('Wizard 4');
+  });
+
+  it('reads a PC with no class slug as no class', () => {
+    const [result] = toRosterOptions(
+      [{ id: 'pc-1', name: 'Cass', level: 4, characterClassSlug: null }],
+      [wizard],
+    );
+    expect(result?.classLabel).toBe(null);
   });
 });

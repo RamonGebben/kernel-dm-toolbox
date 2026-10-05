@@ -13,6 +13,7 @@ const combatant = {
   isDelayed: false,
   conditions: [],
   isPlayerCharacter: false,
+  classLabel: null,
   initiativeBonus: 2,
 };
 

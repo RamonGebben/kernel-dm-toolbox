@@ -28,6 +28,8 @@ import {
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { buildClassTemplateMaterialization } from '~/server/trpc/helpers/buildClassTemplateMaterialization';
+import { buildDefaultWeaponAction } from '~/server/trpc/helpers/buildDefaultWeaponAction';
+import { buildDefaultCharacterSpells } from '~/server/trpc/helpers/buildDefaultCharacterSpells';
 import type { Database } from '~/server/db';
 
 /** Live rows only — a tombstoned character is gone as far as the app cares. */
@@ -525,9 +527,15 @@ export const charactersRouter = createTRPCRouter({
    * Materializes a class/subclass/level onto a PC: writes the class fields
    * onto `player_characters` and regenerates its spell-slot and resource
    * rows from `~/content/classProgression`/`spellSlotsByCasterType`
-   * (deterministic, so always derivable from class+level). Actions, attacks
-   * and known/prepared spells are cleared, not guessed — see
-   * `buildClassTemplateMaterialization`'s own doc comment for why.
+   * (deterministic, so always derivable from class+level), **plus** a
+   * starter kit of actions/spells so the PC isn't left with nothing a
+   * simulation can do — a class-typical weapon attack
+   * (`buildDefaultWeaponAction`) and, for a spellcasting class, a small
+   * offensive-leaning cantrip/spell selection (`buildDefaultCharacterSpells`,
+   * via `selectDefaultCharacterSpells`). None of this is the player's actual
+   * choice — it's an educated guess a DM remains free to replace wholesale
+   * via the class wizard's edit step (`characters.updateCombatData`), same as
+   * ever.
    *
    * A second call on a PC that already has a class is a full re-apply: every
    * materialized row is wiped and recreated. The UI confirms this with the
@@ -568,6 +576,19 @@ export const charactersRouter = createTRPCRouter({
         input.level,
       );
 
+      const defaultWeaponAction = buildDefaultWeaponAction(
+        characterClass,
+        input.level,
+        existing.initiativeModifier,
+      );
+
+      const defaultSpells = await buildDefaultCharacterSpells(
+        ctx.db,
+        input.characterClassSlug,
+        characterClass.casterType,
+        materialization.spellSlots.map(slot => slot.spellLevel),
+      );
+
       const [updated] = await ctx.db
         .update(playerCharacters)
         .set({
@@ -589,8 +610,8 @@ export const charactersRouter = createTRPCRouter({
       await replaceCombatDataRows(
         ctx.db,
         input.id,
-        [],
-        [],
+        [defaultWeaponAction],
+        defaultSpells,
         materialization.spellSlots,
         materialization.resources,
       );

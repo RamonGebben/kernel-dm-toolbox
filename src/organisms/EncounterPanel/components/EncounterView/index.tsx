@@ -20,6 +20,8 @@ export type EncounterCombatantSummary = {
   isHidden: boolean;
   isDelayed: boolean;
   isPlayerCharacter: boolean;
+  /** Null for a monster, or a PC with no class applied yet. */
+  classLabel: string | null;
   /** Null for a player character; drives the reroll in the initiative form. */
   initiativeBonus: number | null;
   conditions: {
@@ -245,6 +247,7 @@ const OrderBody = ({
           <li key={combatant.id}>
             <CombatantRow
               displayName={combatant.displayName}
+              classLabel={combatant.classLabel}
               initiative={combatant.initiative}
               currentHitPoints={combatant.currentHitPoints}
               maxHitPoints={combatant.maxHitPoints}
