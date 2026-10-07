@@ -79,7 +79,7 @@ export const Working: Story = {
 
     await expect(
       canvas.getByText(
-        /Working on Magic item \(Arcana\) \(Wand of Magic Missiles\) — 13 days left/,
+        /Working on Magic item \(Arcana\) \(Wand of Magic Missiles\), 13 days left/,
       ),
     ).toBeVisible();
   },

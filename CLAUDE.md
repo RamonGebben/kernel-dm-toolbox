@@ -686,6 +686,35 @@ bastion_storage_items       produced, not yet collected; claimed_by_character_id
 - **A turn is seven days** (`TURN_DAYS`). A job finishing within them is
   offered in the next turn's first step for what it produced; one running
   longer is busy; an out-of-action facility takes no orders that turn.
+- **A character has only so many orders a turn.** `orderLimit`
+  (`~/utils/bastionTurn`): as many as their level allows special facilities
+  (2/4/5/6), or as many as they hold if the DM let them hold more. Any
+  facility can take one of them. `planTurnCommit` refuses a member over
+  their limit, and the orders step only offers givers with one to spare.
+- **A cost the bastion decides is worked out, not described.**
+  `toTurnOrderOption` fills in an option's cost and summary where they
+  follow from the bastion (stocking the Armory: defenders, and a Smithy
+  halving it). Do not make the DM do arithmetic the app has the numbers for.
+- **An option's known result lives in the catalog**, as `yields` (a fixed
+  output, offered when the job finishes) or `effect` (`stock-armory`,
+  `buy-goods`, `sell-goods`). `planTurnCommit` acts on the effect, never on
+  a facility key.
+- **A Barrack's order says how many it recruits** (`quantity`, at most
+  `MAX_RECRUITS`), kept on the job as `job_quantity` and added to the roster
+  when the order finishes. Recruits never join in the turn they are ordered.
+- **The turn log is the committed turns' `summary.lines`.** Write each line
+  so it stands on its own later: what a finished job produced, what an order
+  will bring, and where each bastion stands at the end of the turn.
+- **Trade goods are storage items with a `value_gp`.** A Storehouse's Buy
+  goods stores the lot at what was paid when the order finishes
+  (`job_value_gp` carries the amount across the turn). Sell goods takes a
+  lot out of storage when the order is given and pays out its value plus the
+  giver's margin (`storehouseSalePrice`) when it finishes.
+- **A rule or table the catalog mentions is cited with its page**, through
+  `cite()` and `~/content/bastion/sources`. Page numbers live only there.
+- **No em-dashes in anything the app renders**: labels, hints, catalog copy,
+  the history lines the server writes. Use a colon, a comma or two
+  sentences.
 - **Spend first.** The commit spends the treasury before any other write, so
   a short treasury refuses the whole turn. A d100 of 0 means "not rolled".
 

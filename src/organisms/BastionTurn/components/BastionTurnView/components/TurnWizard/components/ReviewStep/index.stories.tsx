@@ -10,7 +10,7 @@ const meta = {
       ok: true,
       lines: [
         'Arcane Study finished: Blank book.',
-        'Sigrid rolled 53: Attack — 1 defender lost.',
+        'Sigrid rolled 53: Attack (1 defender lost).',
       ],
       treasuryDelta: -10,
       storedItems: ['Blank book'],
@@ -29,7 +29,7 @@ export const Ready: Story = {
     const canvas = within(canvasElement);
 
     await expect(
-      canvas.getByText('Sigrid rolled 53: Attack — 1 defender lost.'),
+      canvas.getByText('Sigrid rolled 53: Attack (1 defender lost).'),
     ).toBeVisible();
     await expect(
       canvas.getByText(/Treasury: 1,500 gp → 1,490 gp/),

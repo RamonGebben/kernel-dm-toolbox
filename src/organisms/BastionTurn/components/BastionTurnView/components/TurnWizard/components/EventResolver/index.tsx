@@ -230,7 +230,7 @@ const CriminalHirelingSteps = ({ children, ...props }: StepsProps) => {
             checked={!paid}
             onChange={() => setInput(props, 'pay', 0)}
           />
-          Refuse — the facility is out of action next turn
+          Refuse: the facility is out of action next turn
         </label>
       </Row>
       {children}
@@ -252,7 +252,7 @@ const OpportunitySteps = ({ children, ...props }: StepsProps) => {
             checked={accepted}
             onChange={() => setInput(props, 'accept', 1)}
           />
-          Take it — pay 500 GP and roll again
+          Take it: pay 500 GP and roll again
         </label>
         <label>
           <input
@@ -407,7 +407,7 @@ const RequestForAidSteps = ({ children, ...props }: StepsProps) => {
           </Row>
           {sent ? (
             <DieInput
-              label="Their rolls, added up — 10 or more succeeds"
+              label="Their rolls, added up (10 or more succeeds)"
               count={sent}
               sides={6}
               value={event.inputs.total ?? 0}

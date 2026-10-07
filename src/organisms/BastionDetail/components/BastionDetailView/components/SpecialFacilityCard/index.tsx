@@ -56,13 +56,14 @@ export const SpecialFacilityCard = ({
         {facility.job ? (
           <Status>
             Working on {facility.job.label}
-            {facility.job.note ? ` (${facility.job.note})` : ''} —{' '}
+            {facility.job.note ? ` (${facility.job.note})` : ''},{' '}
             {facility.job.daysRemaining} days left
           </Status>
         ) : null}
         {facility.isDuplicate ? (
           <Status role="note">
-            A second {facility.name}: a bastion keeps one of each — remove one.
+            A second {facility.name}: a bastion keeps one of each, so remove
+            one.
           </Status>
         ) : null}
         {facility.isOutOfAction ? (
@@ -132,7 +133,7 @@ type EnlargeRowProps = Pick<
 
 const EnlargeRow = ({ facility, treasuryGold, onEnlarge }: EnlargeRowProps) => {
   if (facility.isBeingEnlarged)
-    return <Note>Being enlarged — see Construction.</Note>;
+    return <Note>Being enlarged. See Construction.</Note>;
   if (!facility.enlarge) return null;
 
   const canAfford = treasuryGold >= facility.enlarge.costGp;

@@ -96,7 +96,7 @@ export const FoundBastionForm = ({
     return (
       <Message>
         {mode === 'party'
-          ? 'Nobody in the party is level 5 yet — a bastion needs at least one member who is.'
+          ? 'Nobody in the party is level 5 yet. A bastion needs at least one member who is.'
           : 'Nobody can found a bastion right now. A character needs to be level 5 or higher, active, and not already own one.'}
       </Message>
     );

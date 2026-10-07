@@ -24,6 +24,8 @@ const completionSchema = z.object({
   quantity: z.number().int().min(1).max(10_000).default(1),
   goldGained: gold.default(0),
   defendersGained: z.number().int().min(0).max(100).default(0),
+  /** What the stored lot is worth, for goods a Storehouse bought. */
+  valueGp: gold.optional(),
 });
 
 /** One order to one facility: which option, what it cost, any detail. */
@@ -32,6 +34,10 @@ const facilityOrderSchema = z.object({
   optionKey: z.string().min(1).max(80),
   costGp: gold.default(0),
   note: z.string().trim().max(500).default(''),
+  /** The stored lot a Storehouse is told to sell. */
+  storageItemId: z.uuid().optional(),
+  /** How many Bastion Defenders a Barrack is told to recruit. */
+  quantity: z.number().int().min(1).max(100).optional(),
 });
 
 /**

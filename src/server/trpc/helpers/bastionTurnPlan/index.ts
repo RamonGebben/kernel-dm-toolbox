@@ -1,5 +1,18 @@
 import { findSpecialFacility } from '~/content/bastion/specialFacilities';
-import { eventForRoll, isMaintaining, TURN_DAYS } from '~/utils/bastionTurn';
+import type {
+  FacilityOrderOption,
+  FacilitySpace,
+} from '~/content/bastion/types';
+import { allowanceForLevel, defenderCapacity } from '~/utils/bastionRules';
+import {
+  armoryStockCost,
+  eventForRoll,
+  isMaintaining,
+  MAX_RECRUITS,
+  orderLimit,
+  storehouseSalePrice,
+  TURN_DAYS,
+} from '~/utils/bastionTurn';
 import type { TurnDraft } from '~/server/trpc/schemas/bastionTurns';
 
 /**
@@ -13,11 +26,22 @@ type FacilityRow = {
   id: string;
   bastionId: string;
   facilityKey: string;
+  space: FacilitySpace;
   holderCharacterId: string | null;
   jobOptionKey: string | null;
   jobNote: string | null;
   jobDaysRemaining: number;
+  jobValueGp: number;
+  jobQuantity: number;
   outOfActionTurns: number;
+};
+
+type StorageRow = {
+  id: string;
+  bastionId: string;
+  name: string;
+  valueGp: number | null;
+  claimedByCharacterId: string | null;
 };
 
 type BastionRow = {
@@ -37,7 +61,45 @@ type ProjectRow = {
   daysRemaining: number;
 };
 
-type Character = { id: string; name: string; isActive: boolean };
+type Character = {
+  id: string;
+  name: string;
+  level: number;
+  isActive: boolean;
+};
+
+/**
+ * An order option as this bastion sees it. Where the cost follows from the
+ * bastion itself it is worked out here, so the wizard shows the amount
+ * instead of the formula.
+ */
+const toTurnOrderOption = (
+  option: FacilityOrderOption,
+  bastion: { defenderCount: number; hasSmithy: boolean },
+) => {
+  const base = {
+    key: option.key,
+    label: option.label,
+    summary: option.summary,
+    durationDays: option.durationDays,
+    costGp: option.costGp,
+    effect: option.effect ?? null,
+    yields: option.yields ?? null,
+  };
+  if (option.effect !== 'stock-armory') return base;
+
+  const costGp = armoryStockCost({
+    defenders: bastion.defenderCount,
+    hasSmithy: bastion.hasSmithy,
+  });
+  const defenders = `${bastion.defenderCount} defender${bastion.defenderCount === 1 ? '' : 's'}`;
+
+  return {
+    ...base,
+    costGp,
+    summary: `${costGp} GP for ${defenders}${bastion.hasSmithy ? ', halved by the Smithy' : ''}. While stocked, defender loss dice are d8 instead of d6.`,
+  };
+};
 
 export const toTurnContext = ({
   turnNumber,
@@ -45,6 +107,7 @@ export const toTurnContext = ({
   bastions,
   facilities,
   projects,
+  storage,
   characters,
 }: {
   turnNumber: number;
@@ -52,6 +115,7 @@ export const toTurnContext = ({
   bastions: readonly BastionRow[];
   facilities: readonly FacilityRow[];
   projects: readonly ProjectRow[];
+  storage: readonly StorageRow[];
   characters: readonly Character[];
 }) => {
   const nameOf = (id: string | null) =>
@@ -67,6 +131,7 @@ export const toTurnContext = ({
       const holderIds = new Set(
         own.map(facility => facility.holderCharacterId),
       );
+      const hasSmithy = own.some(facility => facility.facilityKey === 'smithy');
 
       // The owner takes their own bastion's turn; in the party's, every
       // active member does, plus anyone benched who still holds a facility.
@@ -83,10 +148,35 @@ export const toTurnContext = ({
           ? ('character' as const)
           : ('party' as const),
         defenderCount: bastion.defenderCount,
+        /** Bunks in the barracks: a guide for recruiting, not a cap. */
+        defenderCapacity: defenderCapacity(own),
         isFullyEnclosed: bastion.isFullyEnclosed,
         isArmoryStocked: bastion.isArmoryStocked,
         hasGuestMonster: bastion.hasGuestMonster,
-        actors: actors.map(({ id, name }) => ({ id, name })),
+        actors: actors.map(({ id, name, level }) => ({
+          id,
+          name,
+          level,
+          /** Orders they can give this turn, across the whole bastion. */
+          orderLimit: orderLimit({
+            allowance: allowanceForLevel(level),
+            held: own.filter(facility => facility.holderCharacterId === id)
+              .length,
+          }),
+        })),
+        /** Trade goods in storage a Storehouse could sell. */
+        goods: storage
+          .filter(
+            item =>
+              item.bastionId === bastion.id &&
+              !item.claimedByCharacterId &&
+              (item.valueGp ?? 0) > 0,
+          )
+          .map(item => ({
+            id: item.id,
+            name: item.name,
+            valueGp: item.valueGp ?? 0,
+          })),
         facilities: own.map(facility => {
           const definition = findSpecialFacility(facility.facilityKey);
           const job = definition?.orderOptions.find(
@@ -101,15 +191,20 @@ export const toTurnContext = ({
             order: definition?.order ?? 'craft',
             holderId: facility.holderCharacterId,
             holderName: nameOf(facility.holderCharacterId),
-            orderOptions: (definition?.orderOptions ?? []).map(option => ({
-              key: option.key,
-              label: option.label,
-              summary: option.summary,
-              durationDays: option.durationDays,
-              costGp: option.costGp,
-            })),
+            orderOptions: (definition?.orderOptions ?? []).map(option =>
+              toTurnOrderOption(option, {
+                defenderCount: bastion.defenderCount,
+                hasSmithy,
+              }),
+            ),
             jobOptionKey: facility.jobOptionKey,
             jobLabel: job?.label ?? null,
+            /** What the running job produces, for the step that records it. */
+            jobSummary: job?.summary ?? null,
+            jobEffect: job?.effect ?? null,
+            jobYields: job?.yields ?? null,
+            jobValueGp: facility.jobValueGp,
+            jobQuantity: facility.jobQuantity,
             jobNote: facility.jobNote,
             jobDaysRemaining: remaining,
             /** Its job ends within these seven days. */
@@ -147,11 +242,56 @@ export type TurnContext = ReturnType<typeof toTurnContext>;
 export type TurnContextBastion = TurnContext['bastions'][number];
 export type TurnContextFacility = TurnContextBastion['facilities'][number];
 
-/** Craft and Harvest jobs make something; suggest it as the stored item. */
-const suggestedItem = (facility: TurnContextFacility): string =>
-  facility.order === 'craft' || facility.order === 'harvest'
-    ? (facility.jobLabel ?? '')
-    : '';
+export const TRADE_GOODS = 'Trade goods';
+
+/**
+ * What a finished job most likely produced, for the DM to confirm or change.
+ * A Storehouse's result is known from the order: the goods it paid for, or
+ * the sale it made. A fixed output comes from the catalog. Anything else
+ * that is crafted or harvested suggests the job's own name.
+ */
+const suggestedCompletion = (facility: TurnContextFacility) => {
+  const blank = {
+    facilityId: facility.id,
+    itemName: '',
+    quantity: 1,
+    goldGained: 0,
+    defendersGained: 0,
+  };
+
+  if (facility.jobEffect === 'buy-goods') {
+    return {
+      ...blank,
+      itemName: facility.jobNote || TRADE_GOODS,
+      valueGp: facility.jobValueGp,
+    };
+  }
+  if (facility.jobEffect === 'sell-goods') {
+    return { ...blank, goldGained: facility.jobValueGp };
+  }
+  if (facility.jobEffect === 'recruit-defenders') {
+    // An order from before the count was recorded brings the full four.
+    return {
+      ...blank,
+      defendersGained: facility.jobQuantity || MAX_RECRUITS,
+    };
+  }
+  if (facility.jobYields) {
+    return {
+      ...blank,
+      itemName: facility.jobYields.name,
+      quantity: facility.jobYields.quantity,
+    };
+  }
+  if (facility.order === 'craft' || facility.order === 'harvest') {
+    return {
+      ...blank,
+      itemName: facility.jobNote || (facility.jobLabel ?? ''),
+    };
+  }
+
+  return blank;
+};
 
 /**
  * Where a new turn starts: every finished job listed for the DM to record,
@@ -162,13 +302,7 @@ export const startTurnDraft = (context: TurnContext): TurnDraft => ({
   completions: context.bastions.flatMap(bastion =>
     bastion.facilities
       .filter(facility => facility.finishesThisTurn)
-      .map(facility => ({
-        facilityId: facility.id,
-        itemName: suggestedItem(facility),
-        quantity: 1,
-        goldGained: 0,
-        defendersGained: 0,
-      })),
+      .map(suggestedCompletion),
   ),
   actors: context.bastions.flatMap(bastion =>
     bastion.actors.map(actor => ({
@@ -195,6 +329,8 @@ export type TurnCommitPlan = {
     jobOptionKey: string | null;
     jobNote: string | null;
     jobDaysRemaining: number;
+    jobValueGp: number;
+    jobQuantity: number;
     outOfActionTurns: number;
   }[];
   projectsToComplete: string[];
@@ -204,7 +340,10 @@ export type TurnCommitPlan = {
     name: string;
     quantity: number;
     note: string | null;
+    valueGp: number | null;
   }[];
+  /** Stored lots a Storehouse was told to sell: gone once the turn commits. */
+  storageItemsToRemove: string[];
   /** One line per thing that happened, for the turn's history. */
   lines: string[];
 };
@@ -247,7 +386,7 @@ export const findStaleDraftProblems = (
   );
   if (added.length) {
     return [
-      `${added.map(({ name }) => name).join(', ')} ${added.length === 1 ? 'is' : 'are'} not part of this turn — ${added.length === 1 ? 'it was' : 'they were'} founded after the turn was started. ${STALE_DRAFT_ADVICE}`,
+      `${added.map(({ name }) => name).join(', ')} ${added.length === 1 ? 'is' : 'are'} not part of this turn: ${added.length === 1 ? 'it was' : 'they were'} founded after the turn was started. ${STALE_DRAFT_ADVICE}`,
     ];
   }
 
@@ -295,6 +434,8 @@ export const planTurnCommit = (
           jobOptionKey: remaining > 0 ? facility.jobOptionKey : null,
           jobNote: remaining > 0 ? facility.jobNote : null,
           jobDaysRemaining: remaining,
+          jobValueGp: remaining > 0 ? facility.jobValueGp : 0,
+          jobQuantity: remaining > 0 ? facility.jobQuantity : 0,
           outOfActionTurns: Math.max(0, facility.outOfActionTurns - 1),
         },
       ];
@@ -322,20 +463,41 @@ export const planTurnCommit = (
         name: completion.itemName,
         quantity: completion.quantity,
         note: `From the ${facility.name}`,
+        valueGp: completion.valueGp || null,
       });
+    }
+    if (facility.jobEffect === 'stock-armory') {
+      armory.set(facility.bastionId, true);
     }
     treasuryDelta += completion.goldGained;
     defenders.set(
       facility.bastionId,
       (defenders.get(facility.bastionId) ?? 0) + completion.defendersGained,
     );
-    lines.push(`${facility.name} finished: ${facility.jobLabel ?? 'its job'}.`);
+
+    const stored = completion.itemName
+      ? `stored ${completion.itemName}${completion.quantity > 1 ? ` ×${completion.quantity}` : ''}${completion.valueGp ? ` worth ${completion.valueGp} gp` : ''}`
+      : null;
+    const came = [
+      stored,
+      completion.goldGained ? `+${completion.goldGained} gp` : null,
+      completion.defendersGained
+        ? `+${completion.defendersGained} defender${completion.defendersGained === 1 ? '' : 's'}`
+        : null,
+      facility.jobEffect === 'stock-armory' ? 'the Armory is stocked' : null,
+    ].filter(Boolean);
+    lines.push(
+      `${facility.name} finished ${facility.jobLabel ?? 'its job'}${came.length ? `: ${came.join(', ')}` : ''}.`,
+    );
   }
 
   // 3. New orders, from whoever is home and not maintaining.
   const ordered = new Set<string>();
+  const storageItemsToRemove: string[] = [];
   for (const actor of draft.actors) {
     const who = actorName(actor.bastionId, actor.characterId);
+    const bastion = context.bastions.find(({ id }) => id === actor.bastionId);
+    const member = bastion?.actors.find(({ id }) => id === actor.characterId);
 
     if (isMaintaining(actor)) {
       const hasEvent = draft.events.some(
@@ -350,6 +512,13 @@ export const planTurnCommit = (
         `${who} ${actor.isPresent ? 'maintained' : 'was away; the bastion was maintained'}.`,
       );
       continue;
+    }
+
+    const limit = member?.orderLimit ?? 0;
+    if (actor.facilityOrders.length > limit) {
+      problems.push(
+        `${who} gave ${actor.facilityOrders.length} orders but can give ${limit} this turn.`,
+      );
     }
 
     for (const order of actor.facilityOrders) {
@@ -384,16 +553,51 @@ export const planTurnCommit = (
         continue;
       }
 
+      // Selling takes a lot out of storage now; the gold comes in when the
+      // sale finishes, at the margin of whoever ordered it.
+      const lot =
+        option.effect === 'sell-goods'
+          ? bastion?.goods.find(({ id }) => id === order.storageItemId)
+          : undefined;
+      if (option.effect === 'sell-goods') {
+        if (!lot || storageItemsToRemove.includes(lot.id)) {
+          problems.push(
+            `The ${facility.name} was told to sell goods that are not in storage.`,
+          );
+          continue;
+        }
+        storageItemsToRemove.push(lot.id);
+      }
+      const salePrice = lot
+        ? storehouseSalePrice(lot.valueGp, member?.level ?? 0)
+        : 0;
+      const jobValueGp =
+        option.effect === 'buy-goods' ? order.costGp : salePrice;
+      const recruits =
+        option.effect === 'recruit-defenders'
+          ? Math.min(order.quantity ?? MAX_RECRUITS, MAX_RECRUITS)
+          : 0;
+
       ordered.add(facility.id);
       facilityState.set(facility.id, {
         ...state,
         jobOptionKey: option.key,
         jobNote: order.note || null,
         jobDaysRemaining: option.durationDays ?? TURN_DAYS,
+        jobValueGp,
+        jobQuantity: recruits,
       });
       treasuryDelta -= order.costGp;
+
+      const detail = lot
+        ? `${lot.name} worth ${lot.valueGp} gp, for ${salePrice} gp`
+        : recruits
+          ? `${recruits} defender${recruits === 1 ? '' : 's'}`
+          : order.costGp
+            ? `${order.costGp} gp`
+            : '';
       lines.push(
-        `${who}: ${facility.name} — ${option.label}${order.costGp ? ` (${order.costGp} gp)` : ''}.`,
+        `${who}: ${facility.name}, ${option.label}${detail ? ` (${detail})` : ''}.`,
       );
     }
   }
@@ -442,6 +646,7 @@ export const planTurnCommit = (
         name: event.storageItem,
         quantity: 1,
         note: name,
+        valueGp: null,
       });
     }
 
@@ -459,7 +664,7 @@ export const planTurnCommit = (
       event.note || null,
     ].filter(Boolean);
     lines.push(
-      `${who} rolled ${event.roll}: ${name}${outcome.length ? ` — ${outcome.join(', ')}` : ''}.`,
+      `${who} rolled ${event.roll}: ${name}${outcome.length ? ` (${outcome.join(', ')})` : ''}.`,
     );
   }
 
@@ -486,6 +691,15 @@ export const planTurnCommit = (
     .filter(project => project.finishes)
     .forEach(project => lines.push(`Finished: ${project.description}.`));
 
+  // Where each bastion stands once it is all applied, so the log can be read
+  // on its own later.
+  context.bastions.forEach(bastion => {
+    const count = defenders.get(bastion.id) ?? bastion.defenderCount;
+    lines.push(
+      `${bastion.name} ends the turn with ${count} defender${count === 1 ? '' : 's'}${armory.get(bastion.id) ? ' and a stocked Armory' : ''}.`,
+    );
+  });
+
   return {
     ok: true,
     plan: {
@@ -503,6 +717,7 @@ export const planTurnCommit = (
         .filter(p => !p.finishes)
         .map(p => ({ id: p.id, daysRemaining: p.daysLeftAfter })),
       storageItems,
+      storageItemsToRemove,
       lines,
     },
   };

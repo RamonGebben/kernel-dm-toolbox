@@ -26,8 +26,12 @@ export const AskingEachMember: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByText(/Is Sigrid at The Hall/)).toBeVisible();
-    await expect(canvas.getByText(/Is Wren at The Hall/)).toBeVisible();
+    await expect(
+      canvas.getByText(/What does Sigrid do at The Hall/),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(/What does Wren do at The Hall/),
+    ).toBeVisible();
   },
 };
 

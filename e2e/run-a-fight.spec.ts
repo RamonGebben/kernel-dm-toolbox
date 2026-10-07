@@ -22,7 +22,7 @@ const openHitPoints = async (
   await page
     .getByRole('button', { name: `Edit hit points for ${name}`, exact: true })
     .click();
-  const dialog = page.getByRole('dialog', { name: `Hit points — ${name}` });
+  const dialog = page.getByRole('dialog', { name: `Hit points: ${name}` });
   await expect(dialog).toBeVisible();
   return dialog;
 };

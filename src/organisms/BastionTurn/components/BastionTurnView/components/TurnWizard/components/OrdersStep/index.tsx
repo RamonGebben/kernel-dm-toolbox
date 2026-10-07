@@ -4,8 +4,10 @@ import styled from 'styled-components';
 import { Select } from '~/atoms/FormControls';
 import { TextInput } from '~/atoms/TextInput';
 import { bastionOrderLabels } from '~/content/bastion/orders';
+import type { FacilityOrderEffect } from '~/content/bastion/types';
 import type {
   TurnContext,
+  TurnContextBastion,
   TurnContextFacility,
 } from '~/server/trpc/helpers/bastionTurnPlan';
 import type {
@@ -13,7 +15,14 @@ import type {
   TurnFacilityOrder,
 } from '~/server/trpc/schemas/bastionTurns';
 import { formatGold } from '~/utils/applyGoldChange';
-import { isMaintaining } from '~/utils/bastionTurn';
+import {
+  isMaintaining,
+  MAX_RECRUITS,
+  storehouseBuyLimit,
+  storehouseSalePrice,
+  storehouseSellMargin,
+  suggestedRecruits,
+} from '~/utils/bastionTurn';
 import {
   findFacilityOrder,
   setFacilityOrder,
@@ -33,11 +42,21 @@ const unavailableBecause = (facility: TurnContextFacility): string | null => {
   return null;
 };
 
+/** Someone home to give orders, and how many of theirs are spoken for. */
+type Giver = {
+  id: string;
+  name: string;
+  level: number;
+  given: number;
+  limit: number;
+};
+
 /**
  * Step 3: orders, facility by facility. Every facility in a bastion is there
  * for everyone (DECISIONS #34), so whoever is home can give it its one order
- * this turn — the DM picks who when more than one is. A facility left on
- * "No order" idles.
+ * this turn. Each member has only so many orders (`orderLimit`); once theirs
+ * are given they drop out of the choice of who gives the next one. A
+ * facility left on "No order" idles.
  */
 export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
   const ordering = (bastionId: string) =>
@@ -51,7 +70,7 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
   if (!bastions.length) {
     return (
       <Muted>
-        Nobody is giving orders this turn — everyone maintains. On to the
+        Nobody is giving orders this turn, so everyone maintains. On to the
         Bastion Events.
       </Muted>
     );
@@ -60,12 +79,19 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
   return (
     <Wrapper>
       {bastions.map(bastion => {
-        const home = ordering(bastion.id).map(actor => ({
-          id: actor.characterId,
-          name:
-            bastion.actors.find(({ id }) => id === actor.characterId)?.name ??
-            'Someone',
-        }));
+        const home: Giver[] = ordering(bastion.id).map(actor => {
+          const member = bastion.actors.find(
+            ({ id }) => id === actor.characterId,
+          );
+
+          return {
+            id: actor.characterId,
+            name: member?.name ?? 'Someone',
+            level: member?.level ?? 0,
+            given: actor.facilityOrders.length,
+            limit: member?.orderLimit ?? 0,
+          };
+        });
 
         return (
           <Actor key={bastion.id} aria-label={`Orders for ${bastion.name}`}>
@@ -73,7 +99,12 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
               {bastion.name}
               <Muted as="span">
                 {' '}
-                · giving orders: {home.map(({ name }) => name).join(', ')}
+                · orders given:{' '}
+                {home
+                  .map(
+                    ({ name, given, limit }) => `${name} ${given} of ${limit}`,
+                  )
+                  .join(', ')}
               </Muted>
             </Heading>
             {bastion.facilities.length ? null : (
@@ -84,6 +115,11 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
                 key={facility.id}
                 facility={facility}
                 home={home}
+                goods={bastion.goods}
+                roster={{
+                  defenders: bastion.defenderCount,
+                  capacity: bastion.defenderCapacity,
+                }}
                 current={findFacilityOrder(draft, facility.id)}
                 onChange={order =>
                   onChange(
@@ -102,28 +138,40 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
 type FacilityOrderProps = {
   facility: TurnContextFacility;
   /** Who is home to give it an order. */
-  home: readonly { id: string; name: string }[];
+  home: readonly Giver[];
+  /** Trade goods in storage, for a Storehouse to sell. */
+  goods: TurnContextBastion['goods'];
+  /** Defenders now and the bunks the barracks have, for recruiting. */
+  roster: { defenders: number; capacity: number };
   current: { characterId: string; order: TurnFacilityOrder } | null;
   onChange: (
     order: { characterId: string; order: TurnFacilityOrder } | null,
   ) => void;
 };
 
-/** One facility's order: what it does, and — if several are home — who said so. */
+/** One facility's order: what it does, and who of those home said so. */
 const FacilityOrder = ({
   facility,
   home,
+  goods,
+  roster,
   current,
   onChange,
 }: FacilityOrderProps) => {
-  const blocked = unavailableBecause(facility);
   const option = facility.orderOptions.find(
     ({ key }) => key === current?.order.optionKey,
   );
-  // Whoever took it gives the order by default, if they are home.
+  // Whoever gave this order stays in the list; anyone else needs one to spare.
+  const givers = home.filter(
+    member => member.given < member.limit || member.id === current?.characterId,
+  );
+  // Whoever took it gives the order by default, if they can.
   const defaultGiver =
-    home.find(({ id }) => id === facility.holderId)?.id ?? home[0]?.id ?? '';
-  const giver = current?.characterId ?? defaultGiver;
+    givers.find(({ id }) => id === facility.holderId)?.id ?? givers[0]?.id;
+  const giver = home.find(({ id }) => id === current?.characterId);
+  const blocked =
+    unavailableBecause(facility) ??
+    (defaultGiver ? null : 'Everyone home has given all their orders');
 
   return (
     <Facility>
@@ -132,7 +180,7 @@ const FacilityOrder = ({
           {facility.name}{' '}
           <Muted as="span">· {bastionOrderLabels[facility.order]}</Muted>
         </FacilityName>
-        {blocked ? (
+        {blocked || !defaultGiver ? (
           <Muted as="span">{blocked}</Muted>
         ) : (
           <Select
@@ -145,12 +193,18 @@ const FacilityOrder = ({
               onChange(
                 picked
                   ? {
-                      characterId: giver,
+                      characterId: current?.characterId ?? defaultGiver,
                       order: {
                         facilityId: facility.id,
                         optionKey: picked.key,
                         costGp: picked.costGp ?? 0,
                         note: '',
+                        ...(picked.effect === 'sell-goods' && goods[0]
+                          ? { storageItemId: goods[0].id }
+                          : {}),
+                        ...(picked.effect === 'recruit-defenders'
+                          ? { quantity: suggestedRecruits(roster) }
+                          : {}),
                       },
                     }
                   : null,
@@ -172,10 +226,21 @@ const FacilityOrder = ({
             {option.summary}{' '}
             {option.durationDays
               ? `Takes ${option.durationDays} days.`
-              : 'Time per the crafting rules — 7 days unless you change it later.'}
+              : 'Its time follows the crafting rules; the turn counts 7 days.'}
           </Muted>
+          {option.effect === 'recruit-defenders' ? (
+            <Muted>
+              {roster.defenders} of {roster.capacity} bunks in the barracks are
+              taken. The recruits join when the order finishes next turn.
+            </Muted>
+          ) : null}
+          <TradeHint
+            effect={option.effect}
+            giver={giver}
+            lot={goods.find(({ id }) => id === current.order.storageItemId)}
+          />
           <Row>
-            {home.length > 1 ? (
+            {givers.length > 1 ? (
               <label>
                 Given by
                 <Select
@@ -185,7 +250,7 @@ const FacilityOrder = ({
                     onChange({ ...current, characterId: event.target.value })
                   }
                 >
-                  {home.map(member => (
+                  {givers.map(member => (
                     <option key={member.id} value={member.id}>
                       {member.name}
                     </option>
@@ -193,27 +258,82 @@ const FacilityOrder = ({
                 </Select>
               </label>
             ) : null}
-            <label>
-              Cost (gp)
-              <Small
-                aria-label={`Cost of the ${facility.name} order`}
-                type="number"
-                min={0}
-                value={current.order.costGp}
-                onChange={event =>
-                  onChange({
-                    ...current,
-                    order: {
-                      ...current.order,
-                      costGp: Math.max(0, Number(event.target.value) || 0),
-                    },
-                  })
-                }
-              />
-            </label>
+            {option.effect === 'sell-goods' ? (
+              <label>
+                Goods to sell
+                <Select
+                  aria-label={`Goods the ${facility.name} sells`}
+                  value={current.order.storageItemId ?? ''}
+                  onChange={event =>
+                    onChange({
+                      ...current,
+                      order: {
+                        ...current.order,
+                        storageItemId: event.target.value || undefined,
+                      },
+                    })
+                  }
+                >
+                  {goods.length ? null : <option value="">None stored</option>}
+                  {goods.map(lot => (
+                    <option key={lot.id} value={lot.id}>
+                      {lot.name} ({formatGold(lot.valueGp)})
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : option.effect === 'recruit-defenders' ? (
+              <label>
+                Defenders to recruit
+                <Small
+                  aria-label={`Defenders the ${facility.name} recruits`}
+                  type="number"
+                  min={1}
+                  max={MAX_RECRUITS}
+                  value={current.order.quantity ?? MAX_RECRUITS}
+                  onChange={event =>
+                    onChange({
+                      ...current,
+                      order: {
+                        ...current.order,
+                        quantity: Math.min(
+                          MAX_RECRUITS,
+                          Math.max(1, Number(event.target.value) || 1),
+                        ),
+                      },
+                    })
+                  }
+                />
+              </label>
+            ) : (
+              <label>
+                {option.effect === 'buy-goods'
+                  ? 'Goods bought (gp)'
+                  : 'Cost (gp)'}
+                <Small
+                  aria-label={`Cost of the ${facility.name} order`}
+                  type="number"
+                  min={0}
+                  value={current.order.costGp}
+                  onChange={event =>
+                    onChange({
+                      ...current,
+                      order: {
+                        ...current.order,
+                        costGp: Math.max(0, Number(event.target.value) || 0),
+                      },
+                    })
+                  }
+                />
+              </label>
+            )}
             <TextInput
               aria-label={`Details for the ${facility.name} order`}
-              placeholder="Details — which item, which topic…"
+              placeholder={
+                option.effect === 'buy-goods'
+                  ? 'What goods: silk, iron, spices…'
+                  : 'Details: which item, which topic…'
+              }
               value={current.order.note}
               onChange={event =>
                 onChange({
@@ -231,6 +351,43 @@ const FacilityOrder = ({
         </Detail>
       ) : null}
     </Facility>
+  );
+};
+
+type TradeHintProps = {
+  effect: FacilityOrderEffect | null;
+  giver: Giver | undefined;
+  lot: TurnContextBastion['goods'][number] | undefined;
+};
+
+/** What a Storehouse order comes to for whoever gives it. */
+const TradeHint = ({ effect, giver, lot }: TradeHintProps) => {
+  if (!giver) return null;
+
+  if (effect === 'buy-goods') {
+    return (
+      <Muted>
+        {giver.name} is level {giver.level}: up to{' '}
+        {formatGold(storehouseBuyLimit(giver.level))} of goods in one order.
+        They arrive in storage, at what was paid, when the order finishes.
+      </Muted>
+    );
+  }
+  if (effect !== 'sell-goods') return null;
+  if (!lot) {
+    return (
+      <Muted>
+        There are no trade goods in storage to sell. Buy some first.
+      </Muted>
+    );
+  }
+
+  return (
+    <Muted>
+      Sells for {formatGold(storehouseSalePrice(lot.valueGp, giver.level))} (
+      {storehouseSellMargin(giver.level)}% profit at level {giver.level}). The
+      goods leave storage now and the gold comes in when the sale finishes.
+    </Muted>
   );
 };
 

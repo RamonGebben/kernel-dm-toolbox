@@ -129,7 +129,7 @@ export const SelectionDeleted: Story = {
 
     await expect(canvas.getByText('Creature unavailable')).toBeVisible();
     await expect(
-      canvas.getByText(/no longer exists — it may have been deleted/),
+      canvas.getByText(/no longer exists\. It may have been deleted/),
     ).toBeVisible();
   },
 };

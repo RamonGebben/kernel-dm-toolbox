@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import { OrdersStep } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/OrdersStep';
 import {
+  BARRACK,
   SIGRID,
   STUDY,
   WREN,
@@ -29,7 +30,9 @@ export const EveryFacilityForEveryone: Story = {
     const canvas = within(canvasElement);
     const hall = within(canvas.getByLabelText('Orders for The Hall'));
 
-    await expect(hall.getByText(/giving orders: Sigrid, Wren/)).toBeVisible();
+    await expect(
+      hall.getByText(/orders given: Sigrid 0 of 2, Wren 0 of 2/),
+    ).toBeVisible();
     await expect(
       hall.getByLabelText('Order for the Arcane Study'),
     ).toBeVisible();
@@ -138,5 +141,97 @@ export const EveryoneMaintains: Story = {
     const canvas = within(canvasElement);
 
     await expect(canvas.getByText(/Nobody is giving orders/)).toBeVisible();
+  },
+};
+
+/**
+ * Wren has given both of her orders, so the third facility can only be
+ * ordered by someone with one to spare: she is not offered as its giver.
+ */
+export const OutOfOrders: Story = {
+  args: {
+    context: {
+      ...turnContext,
+      bastions: turnContext.bastions.map(bastion => ({
+        ...bastion,
+        facilities: [
+          ...bastion.facilities,
+          {
+            ...bastion.facilities[1]!,
+            id: '00000000-0000-4000-8000-0000000000f9',
+            name: 'Library',
+          },
+        ],
+      })),
+    },
+    draft: turnDraft({
+      step: 'orders',
+      actors: turnDraft().actors.map(actor =>
+        actor.characterId === WREN
+          ? {
+              ...actor,
+              facilityOrders: [
+                { facilityId: STUDY, optionKey: 'book', costGp: 10, note: '' },
+                {
+                  facilityId: BARRACK,
+                  optionKey: 'defenders',
+                  costGp: 0,
+                  note: '',
+                },
+              ],
+            }
+          : actor,
+      ),
+    }),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      canvas.getByText(/orders given: Sigrid 0 of 2, Wren 2 of 2/),
+    ).toBeVisible();
+
+    await userEvent.selectOptions(
+      canvas.getByLabelText('Order for the Library'),
+      'defenders',
+    );
+
+    await expect(args.onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actors: expect.arrayContaining([
+          expect.objectContaining({
+            characterId: SIGRID,
+            facilityOrders: [
+              expect.objectContaining({ optionKey: 'defenders' }),
+            ],
+          }),
+        ]),
+      }),
+    );
+  },
+};
+
+/** A Barrack is told how many to recruit: four, or what the bunks allow. */
+export const RecruitingDefenders: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.selectOptions(
+      canvas.getByLabelText('Order for the Barrack'),
+      'defenders',
+    );
+
+    await expect(args.onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actors: expect.arrayContaining([
+          expect.objectContaining({
+            characterId: SIGRID,
+            facilityOrders: [
+              expect.objectContaining({ optionKey: 'defenders', quantity: 4 }),
+            ],
+          }),
+        ]),
+      }),
+    );
   },
 };

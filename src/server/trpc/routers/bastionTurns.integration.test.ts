@@ -134,7 +134,7 @@ describe('bastionTurns.commit', () => {
     const history = await caller.bastionTurns.history();
     expect(history.map(turn => turn.number)).toEqual([2, 1]);
     expect(history[1]?.lines).toContain(
-      'Wren: Arcane Study — Blank book (10 gp).',
+      'Wren: Arcane Study, Blank book (10 gp).',
     );
   });
 

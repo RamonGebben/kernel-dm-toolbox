@@ -91,7 +91,7 @@ test.describe('run a bastion turn', () => {
     await next(page);
 
     await expect(
-      wizard(page).getByText(/Arcane Study — Blank book \(10 gp\)/),
+      wizard(page).getByText(/Arcane Study, Blank book \(10 gp\)/),
     ).toBeVisible();
     await wizard(page)
       .getByRole('button', { name: /Commit turn/ })
@@ -105,10 +105,10 @@ test.describe('run a bastion turn', () => {
         .getByRole('article', { name: 'Arcane Study' })
         .getByText(/Working on Blank book/),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Past turns' }).click();
+    await page.getByRole('button', { name: 'Turn log' }).click();
     await expect(
       page
-        .getByRole('dialog', { name: 'Past bastion turns' })
+        .getByRole('dialog', { name: 'Bastion turn log' })
         .getByText(/Blank book \(10 gp\)/)
         .first(),
     ).toBeVisible();

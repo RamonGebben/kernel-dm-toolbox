@@ -162,6 +162,20 @@
       "when": 1790861642894,
       "tag": "0022_early_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1791382353510,
+      "tag": "0023_marvelous_mephisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791383408481,
+      "tag": "0024_worthless_wraith",
+      "breakpoints": true
     }
   ]
 }

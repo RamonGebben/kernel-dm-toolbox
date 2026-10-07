@@ -1245,6 +1245,17 @@ export const bastionSpecialFacilities = sqliteTable(
     /** Days left on the job. Each bastion turn takes 7 off. */
     jobDaysRemaining: integer('job_days_remaining').notNull().default(0),
     /**
+     * Gold riding on the job, for the orders whose result is known up front:
+     * what a Storehouse paid for the goods it is buying, or what the goods it
+     * is selling will bring in. 0 for everything else.
+     */
+    jobValueGp: integer('job_value_gp').notNull().default(0),
+    /**
+     * A head count riding on the job: the Bastion Defenders a Barrack was
+     * told to recruit, who join when the order finishes. 0 otherwise.
+     */
+    jobQuantity: integer('job_quantity').notNull().default(0),
+    /**
      * Bastion turns it can take no orders — hirelings arrested, lost, or the
      * facility hit in an attack with no defenders.
      */
@@ -1356,6 +1367,11 @@ export const bastionStorageItems = sqliteTable(
     name: text('name').notNull(),
     quantity: integer('quantity').notNull().default(1),
     note: text('note'),
+    /**
+     * What the lot is worth, for trade goods a Storehouse bought and can sell
+     * on. Null for everything that is simply an item.
+     */
+    valueGp: integer('value_gp'),
     claimedByCharacterId: text('claimed_by_character_id').references(
       () => playerCharacters.id,
     ),

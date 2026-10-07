@@ -7,6 +7,7 @@ import { Select } from '~/atoms/FormControls';
 import { SectionHeading } from '~/atoms/SectionHeading';
 import { TextInput } from '~/atoms/TextInput';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
+import { formatGold } from '~/utils/applyGoldChange';
 
 export type StorageSectionProps = {
   items: BastionDetail['storage'];
@@ -51,6 +52,9 @@ export const StorageSection = ({
               <span>
                 {item.name}
                 {item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                {item.valueGp ? (
+                  <Muted> · worth {formatGold(item.valueGp)}</Muted>
+                ) : null}
                 {item.note ? <Muted> · {item.note}</Muted> : null}
               </span>
               <Actions>

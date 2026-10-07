@@ -1,0 +1,1 @@
+ALTER TABLE `bastion_special_facilities` ADD `job_quantity` integer DEFAULT 0 NOT NULL;

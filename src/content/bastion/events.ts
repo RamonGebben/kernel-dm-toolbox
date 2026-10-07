@@ -32,7 +32,7 @@ export const bastionEvents: readonly BastionEventDefinition[] = [
     name: 'All Is Well',
     from: 1,
     to: 50,
-    summary: 'Nothing of note. A quiet week — add some colour if you like.',
+    summary: 'Nothing of note. A quiet week; add some colour if you like.',
   },
   {
     key: 'attack',
@@ -72,7 +72,7 @@ export const bastionEvents: readonly BastionEventDefinition[] = [
     from: 73,
     to: 76,
     summary:
-      'Someone comes to stay — roll 1d4: a renowned guest, a guest seeking sanctuary (1d6 × 100 GP gift), a mercenary (+1 defender), or a friendly monster (no defender losses in the next attack).',
+      'Someone comes to stay. Roll 1d4: a renowned guest, a guest seeking sanctuary (1d6 × 100 GP gift), a mercenary (+1 defender), or a friendly monster (no defender losses in the next attack).',
   },
   {
     key: 'lost-hirelings',
@@ -112,7 +112,7 @@ export const bastionEvents: readonly BastionEventDefinition[] = [
     from: 99,
     to: 100,
     summary:
-      'The hirelings turn up treasure — roll d100 on the treasure table. It goes to storage.',
+      'The hirelings turn up treasure. Roll d100 on the treasure table. It goes to storage.',
   },
 ];
 
@@ -121,23 +121,22 @@ export const guestKinds = [
   {
     roll: 1,
     key: 'renowned',
-    label: 'A renowned guest — stays 7 days, leaves a letter of recommendation',
+    label: 'A renowned guest: stays 7 days, leaves a letter of recommendation',
   },
   {
     roll: 2,
     key: 'sanctuary',
-    label:
-      'A guest seeking sanctuary — stays 7 days, gives a 1d6 × 100 GP gift',
+    label: 'A guest seeking sanctuary: stays 7 days, gives a 1d6 × 100 GP gift',
   },
   {
     roll: 3,
     key: 'mercenary',
-    label: 'A mercenary — joins as one more defender',
+    label: 'A mercenary: joins as one more defender',
   },
   {
     roll: 4,
     key: 'monster',
-    label: 'A friendly monster — no defender losses in the next attack',
+    label: 'A friendly monster: no defender losses in the next attack',
   },
 ] as const;
 

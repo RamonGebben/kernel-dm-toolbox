@@ -17,10 +17,13 @@ const facility = (overrides: object) => ({
   id: STUDY,
   bastionId: B,
   facilityKey: 'arcane-study',
+  space: 'roomy',
   holderCharacterId: WREN,
   jobOptionKey: null,
   jobNote: null,
   jobDaysRemaining: 0,
+  jobValueGp: 0,
+  jobQuantity: 0,
   outOfActionTurns: 0,
   ...overrides,
 });
@@ -45,9 +48,10 @@ const contextWith = (
     ],
     facilities: facilities as Parameters<typeof toTurnContext>[0]['facilities'],
     projects: [],
+    storage: [],
     characters: [
-      { id: SIGRID, name: 'Sigrid', isActive: true },
-      { id: WREN, name: 'Wren', isActive: true },
+      { id: SIGRID, name: 'Sigrid', level: 5, isActive: true },
+      { id: WREN, name: 'Wren', level: 5, isActive: true },
     ],
     ...overrides,
   });
@@ -224,6 +228,7 @@ describe('planTurnCommit', () => {
         name: 'Blank book',
         quantity: 2,
         note: 'From the Arcane Study',
+        valueGp: null,
       },
     ]);
     expect(result.treasuryDelta).toBe(50);
@@ -266,9 +271,7 @@ describe('planTurnCommit', () => {
     );
 
     expect(result.facilities[0]).toMatchObject({ jobOptionKey: 'book' });
-    expect(result.lines).toContain(
-      'Sigrid: Arcane Study — Blank book (10 gp).',
-    );
+    expect(result.lines).toContain('Sigrid: Arcane Study, Blank book (10 gp).');
   });
 
   it('still allows one order per facility, whoever gives it', () => {
@@ -518,7 +521,13 @@ describe('planTurnCommit', () => {
     );
 
     expect(result.storageItems).toEqual([
-      { bastionId: B, name: 'Ruby goblet', quantity: 1, note: 'Treasure' },
+      {
+        bastionId: B,
+        name: 'Ruby goblet',
+        quantity: 1,
+        note: 'Treasure',
+        valueGp: null,
+      },
     ]);
     expect(result.treasuryDelta).toBe(300);
   });
@@ -596,7 +605,7 @@ describe('planTurnCommit history lines', () => {
     );
 
     expect(result.lines).toContain(
-      'Sigrid rolled 53: Attack — 1 defender lost.',
+      'Sigrid rolled 53: Attack (1 defender lost).',
     );
   });
 
@@ -689,5 +698,334 @@ describe('planTurnCommit on a stale draft', () => {
         expect.stringMatching(/The New Hall is not part of this turn/),
       ],
     });
+  });
+});
+
+const ARMORY = '00000000-0000-4000-8000-0000000000f3';
+const STOREHOUSE = '00000000-0000-4000-8000-0000000000f4';
+const GOODS = '00000000-0000-4000-8000-0000000000a1';
+
+const ordersFrom = (
+  characterId: string,
+  facilityOrders: TurnDraft['actors'][number]['facilityOrders'],
+) => ({
+  bastionId: B,
+  characterId,
+  isPresent: true,
+  maintain: false,
+  facilityOrders,
+});
+
+describe('the Armory in a turn', () => {
+  const armory = facility({ id: ARMORY, facilityKey: 'armory' });
+  const stockOption = (facilities: object[]) =>
+    contextWith(facilities).bastions[0]!.facilities[0]!.orderOptions[0]!;
+
+  it('prices stocking it from the defenders on the roster', () => {
+    expect(stockOption([armory])).toMatchObject({ costGp: 700 });
+    expect(stockOption([armory]).summary).toMatch(/^700 GP for 6 defenders\./);
+  });
+
+  it('halves the price when the bastion has a Smithy', () => {
+    const option = stockOption([
+      armory,
+      facility({ id: SMITHY, facilityKey: 'smithy' }),
+    ]);
+
+    expect(option.costGp).toBe(350);
+    expect(option.summary).toMatch(/halved by the Smithy/);
+  });
+
+  it('is stocked once the order finishes', () => {
+    const context = contextWith([
+      facility({
+        id: ARMORY,
+        facilityKey: 'armory',
+        jobOptionKey: 'stock',
+        jobDaysRemaining: 7,
+      }),
+    ]);
+
+    expect(
+      plan(
+        draftFor({ completions: startTurnDraft(context).completions }),
+        context,
+      ).bastions[0]?.isArmoryStocked,
+    ).toBe(true);
+  });
+});
+
+describe('orders per character', () => {
+  const three = [
+    facility({}),
+    facility({ id: SMITHY, facilityKey: 'smithy', holderCharacterId: SIGRID }),
+    facility({ id: ARMORY, facilityKey: 'armory', holderCharacterId: SIGRID }),
+  ];
+  const order = (facilityId: string, optionKey: string) => ({
+    facilityId,
+    optionKey,
+    costGp: 0,
+    note: '',
+  });
+
+  it('allows as many as the level does, or as many as they hold', () => {
+    const [bastion] = contextWith([
+      ...three,
+      facility({
+        id: STOREHOUSE,
+        facilityKey: 'storehouse',
+        holderCharacterId: SIGRID,
+      }),
+    ]).bastions;
+
+    expect(bastion?.actors).toMatchObject([
+      { name: 'Sigrid', orderLimit: 3 },
+      { name: 'Wren', orderLimit: 2 },
+    ]);
+  });
+
+  it('refuses more orders from one character than they have', () => {
+    const result = planTurnCommit(
+      draftFor({
+        actors: [
+          ordersFrom(WREN, [
+            order(STUDY, 'book'),
+            order(SMITHY, 'smith-tools'),
+            order(ARMORY, 'stock'),
+          ]),
+        ],
+      }),
+      contextWith(three),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      problems: ['Wren gave 3 orders but can give 2 this turn.'],
+    });
+  });
+});
+
+describe('the Storehouse in a turn', () => {
+  const storehouse = (overrides: object = {}) =>
+    facility({ id: STOREHOUSE, facilityKey: 'storehouse', ...overrides });
+  const withGoods = (facilities: object[]) =>
+    contextWith(facilities, {
+      storage: [
+        {
+          id: GOODS,
+          bastionId: B,
+          name: 'Silk',
+          valueGp: 300,
+          claimedByCharacterId: null,
+        },
+        {
+          id: 'plain',
+          bastionId: B,
+          name: 'Blank book',
+          valueGp: null,
+          claimedByCharacterId: null,
+        },
+      ],
+    });
+
+  it('remembers what a Buy goods order paid', () => {
+    const result = plan(
+      draftFor({
+        actors: [
+          ordersFrom(WREN, [
+            {
+              facilityId: STOREHOUSE,
+              optionKey: 'buy',
+              costGp: 300,
+              note: 'Silk',
+            },
+          ]),
+        ],
+      }),
+      contextWith([storehouse()]),
+    );
+
+    expect(result.treasuryDelta).toBe(-300);
+    expect(result.facilities[0]).toMatchObject({
+      jobOptionKey: 'buy',
+      jobValueGp: 300,
+    });
+  });
+
+  it('stores the goods at what was paid when the order finishes', () => {
+    const context = contextWith([
+      storehouse({
+        jobOptionKey: 'buy',
+        jobNote: 'Silk',
+        jobValueGp: 300,
+        jobDaysRemaining: 7,
+      }),
+    ]);
+    const { completions } = startTurnDraft(context);
+
+    expect(completions).toMatchObject([{ itemName: 'Silk', valueGp: 300 }]);
+    expect(plan(draftFor({ completions }), context).storageItems).toEqual([
+      {
+        bastionId: B,
+        name: 'Silk',
+        quantity: 1,
+        note: 'From the Storehouse',
+        valueGp: 300,
+      },
+    ]);
+  });
+
+  it('offers only lots with a value for sale', () => {
+    expect(withGoods([storehouse()]).bastions[0]?.goods).toEqual([
+      { id: GOODS, name: 'Silk', valueGp: 300 },
+    ]);
+  });
+
+  it('takes a sold lot out of storage and books the sale for later', () => {
+    const result = plan(
+      draftFor({
+        actors: [
+          ordersFrom(WREN, [
+            {
+              facilityId: STOREHOUSE,
+              optionKey: 'sell',
+              costGp: 0,
+              note: '',
+              storageItemId: GOODS,
+            },
+          ]),
+        ],
+      }),
+      withGoods([storehouse()]),
+    );
+
+    expect(result.storageItemsToRemove).toEqual([GOODS]);
+    expect(result.treasuryDelta).toBe(0);
+    expect(result.facilities[0]).toMatchObject({ jobValueGp: 330 });
+    expect(result.lines).toContain(
+      'Wren: Storehouse, Sell goods (Silk worth 300 gp, for 330 gp).',
+    );
+  });
+
+  it('pays the sale out when it finishes', () => {
+    const context = contextWith([
+      storehouse({
+        jobOptionKey: 'sell',
+        jobValueGp: 330,
+        jobDaysRemaining: 7,
+      }),
+    ]);
+    const { completions } = startTurnDraft(context);
+
+    expect(completions).toMatchObject([{ itemName: '', goldGained: 330 }]);
+    expect(plan(draftFor({ completions }), context).treasuryDelta).toBe(330);
+  });
+
+  it('refuses to sell goods that are not in storage', () => {
+    const result = planTurnCommit(
+      draftFor({
+        actors: [
+          ordersFrom(WREN, [
+            { facilityId: STOREHOUSE, optionKey: 'sell', costGp: 0, note: '' },
+          ]),
+        ],
+      }),
+      contextWith([storehouse()]),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      problems: [
+        'The Storehouse was told to sell goods that are not in storage.',
+      ],
+    });
+  });
+});
+
+describe('the Barrack in a turn', () => {
+  const BARRACK = '00000000-0000-4000-8000-0000000000f5';
+  const barrack = (overrides: object = {}) =>
+    facility({ id: BARRACK, facilityKey: 'barrack', ...overrides });
+
+  it('remembers how many defenders the order recruits', () => {
+    const result = plan(
+      draftFor({
+        actors: [
+          ordersFrom(WREN, [
+            {
+              facilityId: BARRACK,
+              optionKey: 'defenders',
+              costGp: 0,
+              note: '',
+              quantity: 3,
+            },
+          ]),
+        ],
+      }),
+      contextWith([barrack()]),
+    );
+
+    expect(result.facilities[0]).toMatchObject({ jobQuantity: 3 });
+    expect(result.bastions[0]?.defenderCount).toBe(6);
+    expect(result.lines).toContain(
+      'Wren: Barrack, Recruit defenders (3 defenders).',
+    );
+  });
+
+  it('never recruits more than four with one order', () => {
+    const result = plan(
+      draftFor({
+        actors: [
+          ordersFrom(WREN, [
+            {
+              facilityId: BARRACK,
+              optionKey: 'defenders',
+              costGp: 0,
+              note: '',
+              quantity: 9,
+            },
+          ]),
+        ],
+      }),
+      contextWith([barrack()]),
+    );
+
+    expect(result.facilities[0]).toMatchObject({ jobQuantity: 4 });
+  });
+
+  it('adds the recruits to the roster when the order finishes', () => {
+    const context = contextWith([
+      barrack({
+        jobOptionKey: 'defenders',
+        jobQuantity: 3,
+        jobDaysRemaining: 7,
+      }),
+    ]);
+    const { completions } = startTurnDraft(context);
+    const result = plan(draftFor({ completions }), context);
+
+    expect(completions).toMatchObject([{ defendersGained: 3 }]);
+    expect(result.bastions[0]?.defenderCount).toBe(9);
+    expect(result.lines).toEqual([
+      'Barrack finished Recruit defenders: +3 defenders.',
+      'The Hall ends the turn with 9 defenders.',
+    ]);
+  });
+
+  it('brings the full four for an order given before counts were kept', () => {
+    const context = contextWith([
+      barrack({ jobOptionKey: 'defenders', jobDaysRemaining: 7 }),
+    ]);
+
+    expect(startTurnDraft(context).completions).toMatchObject([
+      { defendersGained: 4 },
+    ]);
+  });
+
+  it('counts the bunks the barracks have', () => {
+    expect(
+      contextWith([barrack(), barrack({ id: SMITHY, space: 'vast' })])
+        .bastions[0]?.defenderCapacity,
+    ).toBe(37);
   });
 });

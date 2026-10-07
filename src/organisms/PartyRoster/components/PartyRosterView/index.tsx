@@ -107,7 +107,7 @@ const RosterBody = ({
     return (
       <EmptyState
         title="No party yet"
-        description="Add each character once — the tracker picks from this roster for every fight."
+        description="Add each character once. The tracker picks from this roster for every fight."
       />
     );
   }

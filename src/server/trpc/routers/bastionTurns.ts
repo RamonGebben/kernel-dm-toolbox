@@ -68,7 +68,7 @@ const loadTurnContext = async (db: Database, turnNumber: number) => {
       isNull(table.deletedAt as never),
     );
 
-  const [special, basic, projects, characters] = bastionIds.length
+  const [special, basic, projects, storage, characters] = bastionIds.length
     ? await Promise.all([
         db
           .select()
@@ -91,11 +91,16 @@ const loadTurnContext = async (db: Database, turnNumber: number) => {
           .orderBy(asc(bastionProjects.createdAt)),
         db
           .select()
+          .from(bastionStorageItems)
+          .where(ofLiveBastions(bastionStorageItems))
+          .orderBy(asc(bastionStorageItems.createdAt)),
+        db
+          .select()
           .from(playerCharacters)
           .where(isNull(playerCharacters.deletedAt))
           .orderBy(asc(playerCharacters.name)),
       ])
-    : [[], [], [], []];
+    : [[], [], [], [], []];
 
   const facilityNames = new Map([
     ...special.map(
@@ -119,6 +124,7 @@ const loadTurnContext = async (db: Database, turnNumber: number) => {
       description: describeProject(project, facilityNames),
       daysRemaining: project.daysRemaining,
     })),
+    storage,
     characters,
   });
 };
@@ -303,6 +309,8 @@ export const bastionTurnsRouter = createTRPCRouter({
             jobOptionKey: facility.jobOptionKey,
             jobNote: facility.jobNote,
             jobDaysRemaining: facility.jobDaysRemaining,
+            jobValueGp: facility.jobValueGp,
+            jobQuantity: facility.jobQuantity,
             outOfActionTurns: facility.outOfActionTurns,
             updatedAt: now,
           })
@@ -327,6 +335,12 @@ export const bastionTurnsRouter = createTRPCRouter({
 
       if (plan.storageItems.length) {
         await ctx.db.insert(bastionStorageItems).values(plan.storageItems);
+      }
+      if (plan.storageItemsToRemove.length) {
+        await ctx.db
+          .update(bastionStorageItems)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(inArray(bastionStorageItems.id, plan.storageItemsToRemove));
       }
 
       await ctx.db

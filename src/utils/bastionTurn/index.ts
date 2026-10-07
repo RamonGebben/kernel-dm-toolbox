@@ -14,6 +14,74 @@ export const isMaintaining = (actor: {
 /** Every bastion turn is seven days of in-game time. */
 export const TURN_DAYS = 7;
 
+/**
+ * Stocking the Armory: 100 GP plus 100 GP per Bastion Defender, halved when
+ * the bastion has a Smithy.
+ */
+export const armoryStockCost = ({
+  defenders,
+  hasSmithy,
+}: {
+  defenders: number;
+  hasSmithy: boolean;
+}): number => {
+  const full = 100 + 100 * Math.max(0, defenders);
+  return hasSmithy ? full / 2 : full;
+};
+
+/** The most Bastion Defenders one Recruit order to a Barrack brings in. */
+export const MAX_RECRUITS = 4;
+
+/**
+ * How many defenders to suggest recruiting: as many as the order allows, or
+ * as many as the barracks still have bunks for when that is fewer. Capacity
+ * is a guide (`defenderCapacity`), so a full barrack still suggests the lot
+ * and leaves it to the DM.
+ */
+export const suggestedRecruits = ({
+  capacity,
+  defenders,
+}: {
+  capacity: number;
+  defenders: number;
+}): number => {
+  const free = capacity - defenders;
+  return free > 0 ? Math.min(MAX_RECRUITS, free) : MAX_RECRUITS;
+};
+
+/** The most a Storehouse can buy in one order, by the level of who orders it. */
+export const storehouseBuyLimit = (level: number): number => {
+  if (level >= 13) return 5000;
+  if (level >= 9) return 2000;
+  return 500;
+};
+
+/** The profit, in percent, a Storehouse makes selling its goods. */
+export const storehouseSellMargin = (level: number): number => {
+  if (level >= 17) return 100;
+  if (level >= 13) return 50;
+  if (level >= 9) return 20;
+  return 10;
+};
+
+/** What goods bought for this much sell for, in whole gold pieces. */
+export const storehouseSalePrice = (valueGp: number, level: number): number =>
+  valueGp + Math.floor((valueGp * storehouseSellMargin(level)) / 100);
+
+/**
+ * Orders one character can give in a turn. By the book they order their own
+ * special facilities, so it is as many as their level allows them. A pooled
+ * bastion lets them spend those on any facility (DECISIONS #34), and someone
+ * the DM let hold more than their level allows can still order all of theirs.
+ */
+export const orderLimit = ({
+  allowance,
+  held,
+}: {
+  allowance: number;
+  held: number;
+}): number => Math.max(allowance, held);
+
 /** The Bastion Event a d100 roll lands on (100 is the 00 on the die). */
 export const eventForRoll = (roll: number): BastionEventDefinition =>
   bastionEvents.find(event => roll >= event.from && roll <= event.to) ??

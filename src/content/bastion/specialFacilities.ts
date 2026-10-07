@@ -1,3 +1,4 @@
+import { cite } from '~/content/bastion/sources';
 import type { SpecialFacilityDefinition } from '~/content/bastion/types';
 
 /**
@@ -23,6 +24,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
         summary: 'Makes one Arcane Focus. Free.',
         durationDays: 7,
         costGp: null,
+        yields: { name: 'Arcane Focus', quantity: 1 },
       },
       {
         key: 'book',
@@ -30,12 +32,12 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
         summary: 'Makes one blank book.',
         durationDays: 7,
         costGp: 10,
+        yields: { name: 'Blank book', quantity: 1 },
       },
       {
         key: 'magic-item',
         label: 'Magic item (Arcana)',
-        summary:
-          'A Common or Uncommon item from the Arcana tables. Time and cost per the magic item crafting rules.',
+        summary: `A Common or Uncommon item from the Arcana tables (${cite('random-magic-items')}). Time and cost per the magic item crafting rules (${cite('crafting-magic-items')}).`,
         durationDays: null,
         costGp: null,
         minimumLevel: 9,
@@ -61,6 +63,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
           '100 GP + 100 GP per defender, halved with a Smithy. While stocked, defender loss dice are d8 instead of d6.',
         durationDays: 7,
         costGp: null,
+        effect: 'stock-armory',
       },
     ],
     benefits: ['Stock is used up by any event that rolls for defender losses.'],
@@ -80,6 +83,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
         summary: 'Up to 4 Bastion Defenders join, free. Not while full.',
         durationDays: 7,
         costGp: null,
+        effect: 'recruit-defenders',
       },
     ],
     benefits: ['Houses up to 12 Bastion Defenders.'],
@@ -112,6 +116,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
         summary: '100 days of Rations.',
         durationDays: 7,
         costGp: null,
+        yields: { name: 'Rations (days)', quantity: 100 },
       },
       {
         key: 'herb',
@@ -176,6 +181,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
         summary: 'Makes one Holy Symbol or Druidic Focus. Free.',
         durationDays: 7,
         costGp: null,
+        yields: { name: 'Holy Symbol or Druidic Focus', quantity: 1 },
       },
     ],
     benefits: [
@@ -194,15 +200,14 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
       {
         key: 'smith-tools',
         label: "Smith's Tools work",
-        summary: "Anything Smith's Tools can make, per the PHB crafting rules.",
+        summary: `Anything Smith's Tools can make (${cite('tools')}), per the crafting rules (${cite('crafting-equipment')}).`,
         durationDays: null,
         costGp: null,
       },
       {
         key: 'magic-item',
         label: 'Magic item (Armaments)',
-        summary:
-          'An item from the Armaments tables. Time and cost per the magic item crafting rules.',
+        summary: `An item from the Armaments tables (${cite('random-magic-items')}). Time and cost per the magic item crafting rules (${cite('crafting-magic-items')}).`,
         durationDays: null,
         costGp: null,
         minimumLevel: 9,
@@ -226,6 +231,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
           'Stock up to 500 GP of nonmagical goods (2,000 at level 9, 5,000 at level 13).',
         durationDays: 7,
         costGp: null,
+        effect: 'buy-goods',
       },
       {
         key: 'sell',
@@ -234,6 +240,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
           'Sell stored goods at +10% (+20% at level 9, +50% at 13, +100% at 17).',
         durationDays: 7,
         costGp: null,
+        effect: 'sell-goods',
       },
     ],
     benefits: [],
@@ -250,16 +257,14 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
       {
         key: 'adventuring-gear',
         label: 'Adventuring gear',
-        summary:
-          "Anything the workshop's tools can make, per the PHB crafting rules.",
+        summary: `Anything the workshop's tools can make (${cite('tools')}), per the crafting rules (${cite('crafting-equipment')}).`,
         durationDays: null,
         costGp: null,
       },
       {
         key: 'magic-item',
         label: 'Magic item (Implements)',
-        summary:
-          'An item from the Implements tables. Time and cost per the magic item crafting rules.',
+        summary: `An item from the Implements tables (${cite('random-magic-items')}). Time and cost per the magic item crafting rules (${cite('crafting-magic-items')}).`,
         durationDays: null,
         costGp: null,
         minimumLevel: 9,
@@ -312,12 +317,12 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
         summary: 'One Potion of Healing (greater). Free.',
         durationDays: 7,
         costGp: null,
+        yields: { name: 'Potion of Healing (greater)', quantity: 1 },
       },
       {
         key: 'poison',
         label: 'Poison',
-        summary:
-          "One dose of Assassin's Blood, Malice, Pale Tincture or Truth Serum. Free.",
+        summary: `One dose of Assassin's Blood, Malice, Pale Tincture or Truth Serum (${cite('poisons')}). Free.`,
         durationDays: 7,
         costGp: null,
       },
@@ -338,16 +343,14 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
       {
         key: 'alchemist-supplies',
         label: "Alchemist's Supplies work",
-        summary:
-          "Anything Alchemist's Supplies can make, per the PHB crafting rules.",
+        summary: `Anything Alchemist's Supplies can make (${cite('tools')}), per the crafting rules (${cite('crafting-equipment')}).`,
         durationDays: null,
         costGp: null,
       },
       {
         key: 'poison',
         label: 'Poison',
-        summary:
-          'One dose of Burnt Othur Fumes, Essence of Ether or Torpor, at half its price.',
+        summary: `One dose of Burnt Othur Fumes, Essence of Ether or Torpor, at half its price (${cite('poisons')}).`,
         durationDays: 7,
         costGp: null,
       },
@@ -370,12 +373,12 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
           'One flask, free. Each 100 GP spent (max 500) adds +1d8 to its damage.',
         durationDays: 7,
         costGp: null,
+        yields: { name: 'Holy Water', quantity: 1 },
       },
       {
         key: 'magic-item',
         label: 'Magic item (Relics)',
-        summary:
-          'An item from the Relics tables. Time and cost per the magic item crafting rules.',
+        summary: `An item from the Relics tables (${cite('random-magic-items')}). Time and cost per the magic item crafting rules (${cite('crafting-magic-items')}).`,
         durationDays: null,
         costGp: null,
       },
@@ -403,8 +406,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
       {
         key: 'spell-scroll',
         label: 'Spell Scroll',
-        summary:
-          'A Cleric or Wizard spell of level 3 or lower. Time and cost per the PHB.',
+        summary: `A Cleric or Wizard spell of level 3 or lower. Time and cost per the scroll scribing rules (${cite('scribing-spell-scrolls')}).`,
         durationDays: null,
         costGp: null,
       },
@@ -545,8 +547,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
       {
         key: 'trinket-trophy',
         label: 'Trinket trophy',
-        summary:
-          'Roll any die: even, one Common item from the Implements tables.',
+        summary: `Roll any die: even, one Common item from the Implements tables (${cite('random-magic-items')}).`,
         durationDays: 7,
         costGp: null,
       },
@@ -696,6 +697,7 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
           'Free. Stands in for one spell material component worth up to 1,000 GP; harvest again after use.',
         durationDays: 7,
         costGp: null,
+        yields: { name: 'Talisman', quantity: 1 },
       },
     ],
     benefits: [
@@ -757,12 +759,13 @@ export const specialFacilities: readonly SpecialFacilityDefinition[] = [
         summary: '50 barrels of ale, 10 GP each.',
         durationDays: 7,
         costGp: null,
+        yields: { name: 'Barrel of ale', quantity: 50 },
       },
       {
         key: 'masons',
         label: "Masons' assignment",
         summary:
-          'Defensive walls at no cost, 1 day per 5-ft square — also for an ally’s bastion within 1 mile.',
+          "Defensive walls at no cost, 1 day per 5-ft square. Also for an ally's bastion within 1 mile.",
         durationDays: null,
         costGp: null,
       },

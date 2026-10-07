@@ -170,7 +170,7 @@ export const EncounterView = ({
       </Modal>
 
       <Modal
-        title={`Hit points — ${hitPointsCombatant?.displayName ?? ''}`}
+        title={`Hit points: ${hitPointsCombatant?.displayName ?? ''}`}
         isOpen={hitPointsCombatant !== null}
         onClose={onCloseHitPoints}
       >

@@ -128,10 +128,11 @@ export const toBastionDetail = ({
     | 'costGp'
     | 'daysRemaining'
   >[];
-  storageItems: readonly Pick<
+  storageItems: readonly (Pick<
     BastionStorageItem,
     'id' | 'name' | 'quantity' | 'note' | 'claimedByCharacterId' | 'claimedAt'
-  >[];
+  > &
+    Partial<Pick<BastionStorageItem, 'valueGp'>>)[];
   /** Every character's name by id, for "claimed by" and "held by". */
   characterNames: ReadonlyMap<string, string>;
 }) => {
@@ -277,6 +278,8 @@ export const toBastionDetail = ({
       name: item.name,
       quantity: item.quantity,
       note: item.note,
+      /** What a lot of trade goods is worth; null for a plain item. */
+      valueGp: item.valueGp ?? null,
       claimedBy: item.claimedByCharacterId
         ? {
             id: item.claimedByCharacterId,

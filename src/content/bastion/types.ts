@@ -57,7 +57,21 @@ export type FacilityOrderOption = {
   costGp: number | null;
   /** Owner level needed for this option, when higher than the facility's. */
   minimumLevel?: FacilityLevel;
+  /**
+   * What the finished job leaves in storage, when that is always the same.
+   * The bastion turn offers it; the DM can still change it.
+   */
+  yields?: { name: string; quantity: number };
+  /**
+   * A result the bastion turn works out itself instead of asking for it:
+   * stocking the Armory, a Storehouse buying or selling its goods, or a
+   * Barrack's recruits joining the roster.
+   */
+  effect?: FacilityOrderEffect;
 };
+
+export type FacilityOrderEffect =
+  'stock-armory' | 'buy-goods' | 'sell-goods' | 'recruit-defenders';
 
 export type SpecialFacilityDefinition = {
   /** Stable key, stored on `bastion_special_facilities.facility_key`. */

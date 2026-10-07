@@ -1081,3 +1081,25 @@ The defender pool is shared too.
 **Left out.** Neglect (a bastion lost after a character's level in turns
 without orders) is not tracked. War Room lieutenants do not reduce attack
 dice automatically — the dice count is shown, and the DM enters the result.
+
+**Revised after the first turns were played.** Four things the DM asked for:
+
+- _Orders are capped per character._ By the book a character orders their
+  own special facilities, so they have as many orders as their level allows
+  facilities. Pooling (#34) lets them spend those on any facility, but not
+  give more of them. Someone the DM let hold more than their level allows
+  can still order everything they hold (`orderLimit`).
+- _"Orders are generic" gave way where the app already has the numbers._
+  Stocking the Armory is priced from the defender count and the Smithy, and
+  finishing it now actually stocks the Armory (before, nothing ever set the
+  flag). Options with a fixed output carry it in the catalog (`yields`) so
+  the first step is filled in rather than asked for. Dice-driven results (a
+  Gaming Hall's winnings) are still typed in.
+- _Storehouse goods are tracked by value._ "Buy goods" used to finish with
+  nothing to show for it. A stored lot now has a `value_gp`; buying stores
+  the lot at what was paid, selling removes a lot when the order is given
+  and pays value plus margin when it finishes. Removing at order time, not
+  at completion, means a lot cannot be claimed or sold twice mid-sale.
+- _Rules and tables are cited by book and page_
+  (`~/content/bastion/sources`), since "the Arcana tables" is no help
+  without knowing where they are.

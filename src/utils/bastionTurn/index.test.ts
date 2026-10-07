@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  armoryStockCost,
   attackDice,
   attackLosses,
   eventForRoll,
   guestForRoll,
+  orderLimit,
   requestForAidOutcome,
   resolveEventOutcome,
+  storehouseBuyLimit,
+  storehouseSalePrice,
+  suggestedRecruits,
   treasureForRoll,
 } from '~/utils/bastionTurn';
 
@@ -185,5 +190,60 @@ describe('resolveEventOutcome', () => {
       defendersLost: 0,
       guestKind: null,
     });
+  });
+});
+
+describe('armoryStockCost', () => {
+  it('is 100 GP plus 100 GP per defender', () => {
+    expect(armoryStockCost({ defenders: 4, hasSmithy: false })).toBe(500);
+    expect(armoryStockCost({ defenders: 0, hasSmithy: false })).toBe(100);
+  });
+
+  it('is halved by a Smithy', () => {
+    expect(armoryStockCost({ defenders: 4, hasSmithy: true })).toBe(250);
+  });
+});
+
+describe('the Storehouse', () => {
+  it.each([
+    [5, 500],
+    [9, 2000],
+    [13, 5000],
+    [20, 5000],
+  ])('at level %i buys up to %i GP of goods', (level, limit) => {
+    expect(storehouseBuyLimit(level)).toBe(limit);
+  });
+
+  it.each([
+    [5, 330],
+    [9, 360],
+    [13, 450],
+    [17, 600],
+  ])('at level %i sells 300 GP of goods for %i GP', (level, price) => {
+    expect(storehouseSalePrice(300, level)).toBe(price);
+  });
+});
+
+describe('orderLimit', () => {
+  it('is what the level allows', () => {
+    expect(orderLimit({ allowance: 2, held: 1 })).toBe(2);
+  });
+
+  it('still covers everything someone was let hold beyond that', () => {
+    expect(orderLimit({ allowance: 2, held: 3 })).toBe(3);
+  });
+});
+
+describe('suggestedRecruits', () => {
+  it('suggests the full four when there is room', () => {
+    expect(suggestedRecruits({ capacity: 12, defenders: 4 })).toBe(4);
+  });
+
+  it('suggests only what the barracks still have bunks for', () => {
+    expect(suggestedRecruits({ capacity: 12, defenders: 10 })).toBe(2);
+  });
+
+  it('leaves a full barrack to the DM', () => {
+    expect(suggestedRecruits({ capacity: 12, defenders: 12 })).toBe(4);
   });
 });

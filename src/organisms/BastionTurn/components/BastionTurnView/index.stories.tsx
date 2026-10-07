@@ -93,7 +93,7 @@ export const PastTurns: Story = {
         id: 't3',
         number: 3,
         committedAt: new Date('2026-01-01'),
-        lines: ['Wren: Arcane Study — Blank book (10 gp).'],
+        lines: ['Wren: Arcane Study, Blank book (10 gp).'],
         treasuryDelta: -10,
       },
     ],
@@ -101,7 +101,7 @@ export const PastTurns: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Past turns' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Turn log' }));
 
     await expect(screen.getByText(/Turn 3 · treasury −10 gp/)).toBeVisible();
   },

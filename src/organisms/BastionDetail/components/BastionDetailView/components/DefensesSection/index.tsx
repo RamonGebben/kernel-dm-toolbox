@@ -65,7 +65,7 @@ export const DefensesSection = ({
             ? `barracks house ${defenderCapacity}`
             : 'no Barrack to house them'}
           {defenderCount > defenderCapacity && defenderCapacity
-            ? ' — more than the barracks hold'
+            ? ', more than the barracks hold'
             : ''}
         </Muted>
       </Line>

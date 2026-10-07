@@ -36,7 +36,7 @@ export type BastionTurnViewProps = {
 
 /**
  * The bastion turn's way in: start one (or resume the one under way), and
- * look back at earlier turns. Seven days pass for every bastion at once.
+ * the log of every turn so far, newest first. Seven days pass for every bastion at once.
  */
 export const BastionTurnView = ({
   isPending,
@@ -88,7 +88,7 @@ export const BastionTurnView = ({
       <Text>
         {turn
           ? `Bastion turn ${turn.number} is under way.`
-          : `Next up: bastion turn ${context.turnNumber} — seven days for every bastion.`}
+          : `Next up: bastion turn ${context.turnNumber}, seven days for every bastion.`}
       </Text>
       <Actions>
         <Button
@@ -104,7 +104,7 @@ export const BastionTurnView = ({
             size="sm"
             onClick={() => setIsHistoryOpen(true)}
           >
-            Past turns
+            Turn log
           </Button>
         ) : null}
       </Actions>
@@ -135,7 +135,7 @@ export const BastionTurnView = ({
       </Modal>
 
       <Modal
-        title="Past bastion turns"
+        title="Bastion turn log"
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         size="wide"
@@ -147,6 +147,9 @@ export const BastionTurnView = ({
                 Turn {entry.number}
                 {entry.treasuryDelta
                   ? ` · treasury ${entry.treasuryDelta > 0 ? '+' : '−'}${formatGold(Math.abs(entry.treasuryDelta))}`
+                  : ''}
+                {entry.committedAt
+                  ? ` · ${entry.committedAt.toLocaleDateString()}`
                   : ''}
               </Entry>
               <ul>

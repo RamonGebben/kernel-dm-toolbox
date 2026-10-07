@@ -10,10 +10,47 @@ export type PresenceStepProps = {
   onChange: (draft: TurnDraft) => void;
 };
 
+type Plan = 'orders' | 'maintain' | 'away';
+
+const planOf = (actor: TurnActor): Plan => {
+  if (!actor.isPresent) return 'away';
+  return actor.maintain ? 'maintain' : 'orders';
+};
+
+/** What each choice means for the rest of the turn, in the DM's terms. */
+const plans: readonly {
+  plan: Plan;
+  label: string;
+  hint: (name: string) => string;
+  change: Partial<TurnActor>;
+}[] = [
+  {
+    plan: 'orders',
+    label: 'Gives orders',
+    hint: name =>
+      `${name} is at the bastion, or reaches it by Sending. They tell facilities what to do in the next step and roll no Bastion Event.`,
+    change: { isPresent: true, maintain: false },
+  },
+  {
+    plan: 'maintain',
+    label: 'Maintains',
+    hint: name =>
+      `${name} is there but gives no orders this turn. Facilities start nothing new, and ${name} rolls one Bastion Event.`,
+    change: { isPresent: true, maintain: true, facilityOrders: [] },
+  },
+  {
+    plan: 'away',
+    label: 'Away',
+    hint: name =>
+      `${name} is out of reach. The hirelings keep things running, which counts as maintaining: no orders, and ${name} rolls one Bastion Event.`,
+    change: { isPresent: false, facilityOrders: [] },
+  },
+];
+
 /**
- * Step 2: who is at their bastion. Only someone home — or in touch by
- * Sending — can give orders; anyone away maintains, and rolls a Bastion
- * Event. Someone home may choose to maintain too.
+ * Step 2: what each character does with their bastion this turn. Only
+ * someone home, or in touch by Sending, can give orders; anyone else
+ * maintains, and maintaining is what rolls a Bastion Event.
  */
 export const PresenceStep = ({
   context,
@@ -33,6 +70,10 @@ export const PresenceStep = ({
 
   return (
     <Wrapper>
+      <Intro>
+        Each character either gives orders to facilities this turn or leaves the
+        bastion to look after itself. Pick one for everyone.
+      </Intro>
       {context.bastions.map(bastion => (
         <Bastion key={bastion.id} aria-label={bastion.name}>
           <Heading>{bastion.name}</Heading>
@@ -47,61 +88,23 @@ export const PresenceStep = ({
               return (
                 <Actor key={group} aria-label={name}>
                   <Question>
-                    Is {name} at {bastion.name}, or in touch by <em>Sending</em>
-                    ?
+                    What does {name} do at {bastion.name} this turn?
                   </Question>
-                  <Choices>
-                    <label>
-                      <input
-                        type="radio"
-                        name={`${group}-presence`}
-                        checked={actor.isPresent}
-                        onChange={() => setActor(actor, { isPresent: true })}
-                      />
-                      Home
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name={`${group}-presence`}
-                        checked={!actor.isPresent}
-                        onChange={() =>
-                          setActor(actor, {
-                            isPresent: false,
-                            facilityOrders: [],
-                          })
-                        }
-                      />
-                      Away — the bastion is maintained
-                    </label>
-                  </Choices>
-                  {actor.isPresent ? (
-                    <Choices>
+                  {plans.map(({ plan, label, hint, change }) => (
+                    <Choice key={plan}>
                       <label>
                         <input
                           type="radio"
-                          name={`${group}-plan`}
-                          checked={!actor.maintain}
-                          onChange={() => setActor(actor, { maintain: false })}
+                          name={group}
+                          checked={planOf(actor) === plan}
+                          aria-describedby={`${group}-${plan}`}
+                          onChange={() => setActor(actor, change)}
                         />
-                        Gives orders to their facilities
+                        {label}
                       </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name={`${group}-plan`}
-                          checked={actor.maintain}
-                          onChange={() =>
-                            setActor(actor, {
-                              maintain: true,
-                              facilityOrders: [],
-                            })
-                          }
-                        />
-                        Maintains — no orders, one Bastion Event roll
-                      </label>
-                    </Choices>
-                  ) : null}
+                      <Hint id={`${group}-${plan}`}>{hint(name)}</Hint>
+                    </Choice>
+                  ))}
                 </Actor>
               );
             })}
@@ -138,15 +141,19 @@ const Actor = styled.div`
   border-radius: ${props => props.theme.radius.sm};
 `;
 
+const Intro = styled.p`
+  margin: 0;
+  color: ${props => props.theme.color.textMuted};
+`;
+
 const Question = styled.p`
   margin: 0;
   color: ${props => props.theme.color.textPrimary};
 `;
 
-const Choices = styled.div`
+const Choice = styled.div`
   display: flex;
-  flex-wrap: wrap;
-  gap: ${props => props.theme.space.md};
+  flex-direction: column;
   font-size: ${props => props.theme.fontSize.sm};
   color: ${props => props.theme.color.textPrimary};
 
@@ -155,4 +162,9 @@ const Choices = styled.div`
     align-items: center;
     gap: ${props => props.theme.space.xs};
   }
+`;
+
+const Hint = styled.span`
+  padding-left: ${props => props.theme.space.lg};
+  color: ${props => props.theme.color.textMuted};
 `;

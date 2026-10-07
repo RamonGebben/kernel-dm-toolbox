@@ -10,6 +10,7 @@ const meta = {
       {
         id: 'i1',
         name: 'Potion of Healing',
+        valueGp: null,
         quantity: 2,
         note: 'From the Greenhouse',
         claimedBy: null,
@@ -18,6 +19,7 @@ const meta = {
       {
         id: 'i2',
         name: 'Arcane Focus',
+        valueGp: null,
         quantity: 1,
         note: null,
         claimedBy: { id: 'sigrid', name: 'Sigrid' },
@@ -75,6 +77,28 @@ export const Storing: Story = {
       name: 'Holy Water',
       quantity: 3,
     });
+  },
+};
+
+/** Goods a Storehouse bought show what they are worth. */
+export const TradeGoods: Story = {
+  args: {
+    items: [
+      {
+        id: 'i3',
+        name: 'Silk',
+        valueGp: 300,
+        quantity: 1,
+        note: 'From the Storehouse',
+        claimedBy: null,
+        claimedAt: null,
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText(/worth 300 gp/)).toBeVisible();
   },
 };
 
