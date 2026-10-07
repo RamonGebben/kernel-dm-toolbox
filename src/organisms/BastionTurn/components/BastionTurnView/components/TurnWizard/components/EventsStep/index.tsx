@@ -8,6 +8,7 @@ import { eventForRoll } from '~/utils/bastionTurn';
 import {
   blankEvent,
   isRolled,
+  replaceEvent,
   updateEvent,
 } from '~/organisms/BastionTurn/hooks/useBastionTurn';
 import {
@@ -35,10 +36,7 @@ export const EventsStep = ({ context, draft, onChange }: EventsStepProps) => {
   }
 
   const replace = (index: number, next: TurnEvent) =>
-    onChange({
-      ...draft,
-      events: draft.events.map((event, at) => (at === index ? next : event)),
-    });
+    onChange({ ...draft, events: replaceEvent(draft.events, index, next) });
 
   const rollAgain = (index: number) => {
     const source = draft.events[index]!;

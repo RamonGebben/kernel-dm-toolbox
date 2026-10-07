@@ -26,12 +26,6 @@ export const allowanceForLevel = (level: number): number =>
     .filter(step => level >= step.level)
     .reduce((_, step) => step.total, 0);
 
-/** The highest facility tier unlocked at this level, or null below 5. */
-export const unlockedFacilityLevel = (level: number): FacilityLevel | null =>
-  specialFacilityAllowance
-    .filter(step => level >= step.level)
-    .reduce<FacilityLevel | null>((_, step) => step.level, null);
-
 export const canFoundBastion = (level: number): boolean =>
   level >= bastionLevel;
 

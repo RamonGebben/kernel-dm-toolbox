@@ -21,13 +21,14 @@ import {
   startTurnDraft,
   toTurnContext,
 } from '~/server/trpc/helpers/bastionTurnPlan';
-import { describeProject } from '~/server/trpc/helpers/toBastionDetail';
+import {
+  describeProject,
+  toFacilityNames,
+} from '~/server/trpc/helpers/toBastionDetail';
 import {
   tombstoneSyncMeta,
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
-import { findSpecialFacility } from '~/content/bastion/specialFacilities';
-import { basicTypeLabel } from '~/utils/bastionRules';
 import { ensureParty } from '~/server/party/state';
 import { refundToTreasury, spendFromTreasury } from '~/server/party/treasury';
 import { completeProject } from '~/server/bastions/rows';
@@ -39,6 +40,19 @@ const liveDraft = (db: Database) =>
       isNull(bastionTurns.deletedAt),
     ),
   });
+
+/** The draft with this id, or a refusal: it was committed or discarded. */
+const loadLiveDraft = async (db: Database, id: string) => {
+  const turn = await liveDraft(db);
+  if (!turn || turn.id !== id) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'That turn is no longer in progress.',
+    });
+  }
+
+  return turn;
+};
 
 const nextTurnNumber = async (db: Database) => {
   const [row] = await db
@@ -53,12 +67,14 @@ const nextTurnNumber = async (db: Database) => {
 
 /** Everything the wizard and the commit need, read in one place. */
 const loadTurnContext = async (db: Database, turnNumber: number) => {
-  const party = await ensureParty(db);
-  const liveBastions = await db
-    .select()
-    .from(bastions)
-    .where(isNull(bastions.deletedAt))
-    .orderBy(asc(bastions.name));
+  const [party, liveBastions] = await Promise.all([
+    ensureParty(db),
+    db
+      .select()
+      .from(bastions)
+      .where(isNull(bastions.deletedAt))
+      .orderBy(asc(bastions.name)),
+  ]);
   const bastionIds = liveBastions.map(({ id }) => id);
   const ofLiveBastions = <T extends { bastionId: unknown; deletedAt: unknown }>(
     table: T,
@@ -102,16 +118,7 @@ const loadTurnContext = async (db: Database, turnNumber: number) => {
       ])
     : [[], [], [], [], []];
 
-  const facilityNames = new Map([
-    ...special.map(
-      row =>
-        [
-          row.id,
-          findSpecialFacility(row.facilityKey)?.name ?? row.facilityKey,
-        ] as const,
-    ),
-    ...basic.map(row => [row.id, basicTypeLabel(row.type)] as const),
-  ]);
+  const facilityNames = toFacilityNames(special, basic);
 
   return toTurnContext({
     turnNumber,
@@ -135,8 +142,11 @@ export const bastionTurnsRouter = createTRPCRouter({
    * none is under way, the context a new one would start from.
    */
   current: publicProcedure.query(async ({ ctx }) => {
-    const draft = await liveDraft(ctx.db);
-    const turnNumber = draft?.number ?? (await nextTurnNumber(ctx.db));
+    const [draft, nextNumber] = await Promise.all([
+      liveDraft(ctx.db),
+      nextTurnNumber(ctx.db),
+    ]);
+    const turnNumber = draft?.number ?? nextNumber;
     const context = await loadTurnContext(ctx.db, turnNumber);
 
     return {
@@ -177,13 +187,7 @@ export const bastionTurnsRouter = createTRPCRouter({
   saveDraft: publicProcedure
     .input(saveTurnDraftInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const turn = await liveDraft(ctx.db);
-      if (!turn || turn.id !== input.id) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That turn is no longer in progress.',
-        });
-      }
+      const turn = await loadLiveDraft(ctx.db, input.id);
 
       await ctx.db
         .update(bastionTurns)
@@ -203,13 +207,7 @@ export const bastionTurnsRouter = createTRPCRouter({
   preview: publicProcedure
     .input(saveTurnDraftInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const turn = await liveDraft(ctx.db);
-      if (!turn || turn.id !== input.id) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That turn is no longer in progress.',
-        });
-      }
+      const turn = await loadLiveDraft(ctx.db, input.id);
 
       const context = await loadTurnContext(ctx.db, turn.number);
       const result = planTurnCommit(input.draft, context);
@@ -220,10 +218,6 @@ export const bastionTurnsRouter = createTRPCRouter({
             lines: result.plan.lines,
             treasuryDelta: result.plan.treasuryDelta,
             storedItems: result.plan.storageItems.map(item => item.name),
-            defenders: result.plan.bastions.map(bastion => ({
-              id: bastion.id,
-              defenderCount: bastion.defenderCount,
-            })),
           }
         : { ok: false as const, problems: result.problems };
     }),
@@ -232,13 +226,7 @@ export const bastionTurnsRouter = createTRPCRouter({
   discard: publicProcedure
     .input(turnIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const turn = await liveDraft(ctx.db);
-      if (!turn || turn.id !== input.id) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That turn is no longer in progress.',
-        });
-      }
+      const turn = await loadLiveDraft(ctx.db, input.id);
 
       await ctx.db
         .update(bastionTurns)
@@ -256,13 +244,7 @@ export const bastionTurnsRouter = createTRPCRouter({
   commit: publicProcedure
     .input(turnIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const turn = await liveDraft(ctx.db);
-      if (!turn || turn.id !== input.id) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'That turn is no longer in progress.',
-        });
-      }
+      const turn = await loadLiveDraft(ctx.db, input.id);
 
       const draft = turnDraftSchema.parse(turn.draft);
       const context = await loadTurnContext(ctx.db, turn.number);

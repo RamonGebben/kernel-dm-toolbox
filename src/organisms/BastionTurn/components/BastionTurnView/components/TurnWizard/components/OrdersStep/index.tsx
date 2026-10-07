@@ -22,6 +22,7 @@ import {
   storehouseSalePrice,
   storehouseSellMargin,
   suggestedRecruits,
+  TURN_DAYS,
 } from '~/utils/bastionTurn';
 import {
   findFacilityOrder,
@@ -38,7 +39,7 @@ export type OrdersStepProps = {
 const unavailableBecause = (facility: TurnContextFacility): string | null => {
   if (facility.isOutOfAction) return 'Out of action this turn';
   if (facility.isBusy)
-    return `Busy: ${facility.jobLabel ?? 'a job'}, ${facility.jobDaysRemaining - 7} days left after this week`;
+    return `Busy: ${facility.jobLabel ?? 'a job'}, ${facility.jobDaysRemaining - TURN_DAYS} days left after this week`;
   return null;
 };
 
@@ -226,7 +227,7 @@ const FacilityOrder = ({
             {option.summary}{' '}
             {option.durationDays
               ? `Takes ${option.durationDays} days.`
-              : 'Its time follows the crafting rules; the turn counts 7 days.'}
+              : `Its time follows the crafting rules; the turn counts ${TURN_DAYS} days.`}
           </Muted>
           {option.effect === 'recruit-defenders' ? (
             <Muted>

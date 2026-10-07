@@ -105,7 +105,6 @@ export const turnDraftSchema = z.object({
 });
 
 export type TurnDraft = z.infer<typeof turnDraftSchema>;
-export type TurnDraftInput = z.input<typeof turnDraftSchema>;
 export type TurnActor = TurnDraft['actors'][number];
 export type TurnEvent = TurnDraft['events'][number];
 export type TurnCompletion = TurnDraft['completions'][number];

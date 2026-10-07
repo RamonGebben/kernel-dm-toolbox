@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   blankEvent,
   findFacilityOrder,
+  replaceEvent,
   setFacilityOrder,
   stepAfter,
   stepBefore,
   stepBlocker,
+  stepState,
   syncEventsWithActors,
   updateEvent,
 } from '~/organisms/BastionTurn/hooks/useBastionTurn';
@@ -111,6 +113,63 @@ describe('updateEvent', () => {
       inputs: {},
       defendersLost: 0,
     });
+  });
+
+  it('un-picks the facility put out of action', () => {
+    const lost = updateEvent(
+      updateEvent(blankEvent('b', 's'), { roll: 78 }, bastion),
+      { outOfActionFacilityId: 'f1' },
+      bastion,
+    );
+
+    expect(
+      updateEvent(lost, { note: 'x' }, bastion).outOfActionFacilityId,
+    ).toBe('f1');
+    expect(
+      updateEvent(lost, { outOfActionFacilityId: null }, bastion)
+        .outOfActionFacilityId,
+    ).toBeNull();
+  });
+});
+
+describe('replaceEvent', () => {
+  const opportunity = updateEvent(blankEvent('b', 's'), { roll: 60 }, bastion);
+  const accepted = updateEvent(opportunity, { inputs: { accept: 1 } }, bastion);
+  const followUp = blankEvent('b', 's');
+  const other = blankEvent('b', 'w');
+
+  it('keeps the follow-up of an opportunity that was paid for', () => {
+    expect(replaceEvent([opportunity, followUp, other], 0, accepted)).toEqual([
+      accepted,
+      followUp,
+      other,
+    ]);
+  });
+
+  it('drops the follow-up once the opportunity is declined', () => {
+    const declined = updateEvent(accepted, { inputs: { accept: 0 } }, bastion);
+
+    expect(replaceEvent([accepted, followUp, other], 0, declined)).toEqual([
+      declined,
+      other,
+    ]);
+  });
+
+  it('drops the follow-up when the d100 becomes another event', () => {
+    const quiet = updateEvent(accepted, { roll: 10 }, bastion);
+
+    expect(replaceEvent([accepted, followUp, other], 0, quiet)).toEqual([
+      quiet,
+      other,
+    ]);
+  });
+});
+
+describe('stepState', () => {
+  it('marks the steps behind, under and ahead of the wizard', () => {
+    expect(stepState('since', 'orders')).toBe('done');
+    expect(stepState('orders', 'orders')).toBe('current');
+    expect(stepState('review', 'orders')).toBe('todo');
   });
 });
 

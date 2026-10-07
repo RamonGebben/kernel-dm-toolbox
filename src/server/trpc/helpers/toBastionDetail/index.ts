@@ -46,6 +46,28 @@ export const describeProject = (
   return `Enlarge ${target} to ${space}`;
 };
 
+/** Every facility's display name by id, for `describeProject`. */
+export const toFacilityNames = (
+  specialFacilities: readonly Pick<
+    BastionSpecialFacility,
+    'id' | 'facilityKey'
+  >[],
+  basicFacilities: readonly Pick<BastionBasicFacility, 'id' | 'type'>[],
+): Map<string, string> =>
+  new Map([
+    ...specialFacilities.map(
+      facility =>
+        [
+          facility.id,
+          findSpecialFacility(facility.facilityKey)?.name ??
+            facility.facilityKey,
+        ] as const,
+    ),
+    ...basicFacilities.map(
+      facility => [facility.id, basicTypeLabel(facility.type)] as const,
+    ),
+  ]);
+
 type SpecialFacilityRow = Pick<
   BastionSpecialFacility,
   'id' | 'facilityKey' | 'space' | 'variant' | 'holderCharacterId'
@@ -140,15 +162,7 @@ export const toBastionDetail = ({
     openProjects.map(project => project.facilityId).filter(Boolean),
   );
 
-  const facilityNames = new Map([
-    ...specialFacilities.map(
-      facility =>
-        [facility.id, definitionFor(facility.facilityKey).name] as const,
-    ),
-    ...basicFacilities.map(
-      facility => [facility.id, basicTypeLabel(facility.type)] as const,
-    ),
-  ]);
+  const facilityNames = toFacilityNames(specialFacilities, basicFacilities);
 
   return {
     id: bastion.id,

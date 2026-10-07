@@ -68,6 +68,9 @@ export const BastionTurnView = ({
   const open = async () => {
     setFinished(null);
     if (!turn) await onStart();
+    // The preview is worked out on the way into the review step and is not
+    // saved with the draft, so a turn resumed there has to ask for it again.
+    else if (turn.draft.step === 'review') onRequestPreview(turn.draft);
     setIsOpen(true);
   };
 

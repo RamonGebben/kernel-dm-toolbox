@@ -46,7 +46,12 @@ export const BastionModeSwitch = ({
 }: BastionModeSwitchProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState(suggestedName);
-  const [keeperId, setKeeperId] = useState(members[0]?.id ?? '');
+  const [pickedKeeperId, setKeeperId] = useState('');
+  // Until the DM picks, the keeper is whoever the list puts first: the same
+  // one the select shows. The members can load, or reorder, after this mounts.
+  const keeperId = members.some(({ id }) => id === pickedKeeperId)
+    ? pickedKeeperId
+    : (members[0]?.id ?? '');
   const target: BastionMode = mode === 'party' ? 'per-character' : 'party';
 
   const confirm = async () => {

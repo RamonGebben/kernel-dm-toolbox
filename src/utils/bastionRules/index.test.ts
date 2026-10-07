@@ -9,7 +9,6 @@ import {
   hirelingCount,
   meetsPrerequisite,
   spaceLabel,
-  unlockedFacilityLevel,
 } from '~/utils/bastionRules';
 
 describe('allowanceForLevel', () => {
@@ -25,17 +24,6 @@ describe('allowanceForLevel', () => {
     [20, 6],
   ])('level %i holds %i special facilities', (level, total) => {
     expect(allowanceForLevel(level)).toBe(total);
-  });
-});
-
-describe('unlockedFacilityLevel', () => {
-  it('unlocks nothing below level 5', () => {
-    expect(unlockedFacilityLevel(4)).toBeNull();
-  });
-
-  it('unlocks the highest tier reached', () => {
-    expect(unlockedFacilityLevel(10)).toBe(9);
-    expect(unlockedFacilityLevel(20)).toBe(17);
   });
 });
 

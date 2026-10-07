@@ -1,7 +1,8 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
+import { useInvalidateBastions } from '~/hooks/useInvalidateBastions';
 import { useBastionSelectionStore } from '~/stores/bastionSelection';
 import { resolveSelectedBastionId } from '~/utils/bastionSelection';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
@@ -47,7 +48,6 @@ export const latestErrorMessage = (
 
 export const useBastionDetail = () => {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const pickedId = useBastionSelectionStore(state => state.selectedBastionId);
 
   const list = useQuery(trpc.bastions.list.queryOptions());
@@ -60,17 +60,7 @@ export const useBastionDetail = () => {
   const party = useQuery(trpc.party.get.queryOptions());
   const characters = useQuery(trpc.characters.list.queryOptions());
 
-  /** Bastion writes can move treasury gold and list counts too. */
-  const invalidate = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: trpc.bastions.get.queryKey() }),
-      queryClient.invalidateQueries({
-        queryKey: trpc.bastions.list.queryKey(),
-      }),
-      queryClient.invalidateQueries({ queryKey: trpc.party.get.queryKey() }),
-    ]);
-
-  const options = { onSuccess: invalidate };
+  const options = { onSuccess: useInvalidateBastions() };
 
   const update = useMutation(trpc.bastions.update.mutationOptions(options));
   const abandon = useMutation(trpc.bastions.abandon.mutationOptions(options));

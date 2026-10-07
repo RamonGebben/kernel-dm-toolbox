@@ -1,8 +1,6 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, publicProcedure } from '~/server/trpc/init';
 import { bastions, playerCharacters } from '~/server/db/schema';
-import type { Database } from '~/server/db';
 import {
   characterIdInputSchema,
   createCharacterInputSchema,
@@ -14,25 +12,10 @@ import {
   touchSyncMeta,
 } from '~/server/trpc/helpers/touchSyncMeta';
 import { toCharacterColumns } from '~/server/trpc/helpers/toCharacterColumns';
-import { abandonBastion } from '~/server/bastions/rows';
+import { abandonBastion, loadLiveCharacter } from '~/server/bastions/rows';
 
 /** Live rows only — a tombstoned character is gone as far as the app cares. */
 const isLive = isNull(playerCharacters.deletedAt);
-
-const loadLiveCharacter = async (db: Database, id: string) => {
-  const existing = await db.query.playerCharacters.findFirst({
-    where: and(eq(playerCharacters.id, id), isLive),
-  });
-
-  if (!existing) {
-    throw new TRPCError({
-      code: 'NOT_FOUND',
-      message: 'That character no longer exists.',
-    });
-  }
-
-  return existing;
-};
 
 export const charactersRouter = createTRPCRouter({
   /**

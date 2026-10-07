@@ -1,7 +1,8 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
+import { useInvalidateBastions } from '~/hooks/useInvalidateBastions';
 import { useBastionSelectionStore } from '~/stores/bastionSelection';
 import {
   orderKeeperCandidates,
@@ -13,7 +14,6 @@ import type { ModeChange } from '~/organisms/BastionList/components/BastionListV
 
 export const useBastionList = () => {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const selectedId = useBastionSelectionStore(state => state.selectedBastionId);
   const selectBastion = useBastionSelectionStore(state => state.selectBastion);
 
@@ -21,14 +21,7 @@ export const useBastionList = () => {
   const characters = useQuery(trpc.characters.list.queryOptions());
   const party = useQuery(trpc.party.get.queryOptions());
 
-  const invalidate = () =>
-    Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: trpc.bastions.list.queryKey(),
-      }),
-      queryClient.invalidateQueries({ queryKey: trpc.bastions.get.queryKey() }),
-      queryClient.invalidateQueries({ queryKey: trpc.party.get.queryKey() }),
-    ]);
+  const invalidate = useInvalidateBastions();
 
   const found = useMutation(
     trpc.bastions.found.mutationOptions({

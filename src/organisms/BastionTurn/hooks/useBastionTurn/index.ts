@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
+import { useInvalidateBastions } from '~/hooks/useInvalidateBastions';
 import type { TurnContext } from '~/server/trpc/helpers/bastionTurnPlan';
 import {
   turnSteps,
@@ -21,6 +22,17 @@ export const stepAfter = (step: TurnStep): TurnStep =>
 
 export const stepBefore = (step: TurnStep): TurnStep =>
   turnSteps[Math.max(turnSteps.indexOf(step) - 1, 0)]!;
+
+/** Where a step sits in the stepper: behind the wizard, under it, or ahead. */
+export const stepState = (
+  step: TurnStep,
+  current: TurnStep,
+): 'done' | 'current' | 'todo' => {
+  if (step === current) return 'current';
+  if (turnSteps.indexOf(step) < turnSteps.indexOf(current)) return 'done';
+
+  return 'todo';
+};
 
 /**
  * Keeps the events in step with who is maintaining: anyone who now gives
@@ -63,7 +75,7 @@ export const blankEvent = (
   inputs: {},
 });
 
-export const isRolled = (event: TurnEvent): boolean =>
+export const isRolled = (event: Pick<TurnEvent, 'roll'>): boolean =>
   event.roll >= 1 && event.roll <= 100;
 
 /**
@@ -82,9 +94,15 @@ export const updateEvent = (
   bastion: { defenderCount: number; hasGuestMonster: boolean },
 ): TurnEvent => {
   const roll = change.roll ?? event.roll;
-  const key = roll >= 1 && roll <= 100 ? eventForRoll(roll).key : event.key;
+  const key = isRolled({ roll }) ? eventForRoll(roll).key : event.key;
   const isNewEvent = key !== event.key;
   const inputs = isNewEvent ? {} : (change.inputs ?? event.inputs);
+  // Null is a real choice here ("Choose a facility" un-picks one), so it is
+  // told apart from "not part of this change" by the key being there at all.
+  const outOfActionFacilityId =
+    change.outOfActionFacilityId !== undefined
+      ? change.outOfActionFacilityId
+      : event.outOfActionFacilityId;
 
   return {
     ...event,
@@ -92,12 +110,39 @@ export const updateEvent = (
     roll,
     key,
     inputs,
-    outOfActionFacilityId: isNewEvent
-      ? null
-      : (change.outOfActionFacilityId ?? event.outOfActionFacilityId),
+    outOfActionFacilityId: isNewEvent ? null : outOfActionFacilityId,
     storageItem: isNewEvent ? '' : (change.storageItem ?? event.storageItem),
     ...resolveEventOutcome(key, inputs, bastion),
   };
+};
+
+/**
+ * Puts a changed event back in the list. An Extraordinary Opportunity that
+ * was paid for is followed by the event it bought; once it is declined, or
+ * its d100 changed to something else, those follow-ups were never rolled for
+ * and go with it, rather than staying behind to be rolled and applied.
+ */
+export const replaceEvent = (
+  events: readonly TurnEvent[],
+  index: number,
+  next: TurnEvent,
+): TurnEvent[] => {
+  const keepsFollowUps =
+    next.key === 'extraordinary-opportunity' && next.inputs.accept === 1;
+  const firstOther = events.findIndex(
+    (event, at) =>
+      at > index &&
+      (event.bastionId !== next.bastionId ||
+        event.characterId !== next.characterId),
+  );
+  const followUpsEnd = firstOther === -1 ? events.length : firstOther;
+
+  return [
+    ...events.slice(0, index),
+    next,
+    ...(keepsFollowUps ? events.slice(index + 1, followUpsEnd) : []),
+    ...events.slice(followUpsEnd),
+  ];
 };
 
 /** The order a facility has this turn, and who gave it — or null. */
@@ -158,6 +203,8 @@ export const useBastionTurn = () => {
   const current = useQuery(trpc.bastionTurns.current.queryOptions());
   const history = useQuery(trpc.bastionTurns.history.queryOptions());
 
+  const invalidateBastions = useInvalidateBastions();
+
   const invalidateTurn = () =>
     queryClient.invalidateQueries({
       queryKey: trpc.bastionTurns.current.queryKey(),
@@ -165,23 +212,16 @@ export const useBastionTurn = () => {
 
   const invalidateEverything = () =>
     Promise.all([
-      invalidateTurn(),
+      invalidateBastions(),
       queryClient.invalidateQueries({
         queryKey: trpc.bastionTurns.history.queryKey(),
       }),
-      queryClient.invalidateQueries({ queryKey: trpc.bastions.get.queryKey() }),
-      queryClient.invalidateQueries({
-        queryKey: trpc.bastions.list.queryKey(),
-      }),
-      queryClient.invalidateQueries({ queryKey: trpc.party.get.queryKey() }),
     ]);
 
   const start = useMutation(
     trpc.bastionTurns.start.mutationOptions({ onSuccess: invalidateTurn }),
   );
-  const save = useMutation(
-    trpc.bastionTurns.saveDraft.mutationOptions({ onSuccess: invalidateTurn }),
-  );
+  const save = useMutation(trpc.bastionTurns.saveDraft.mutationOptions());
   const preview = useMutation(trpc.bastionTurns.preview.mutationOptions());
   const discard = useMutation(
     trpc.bastionTurns.discard.mutationOptions({ onSuccess: invalidateTurn }),
@@ -212,8 +252,18 @@ export const useBastionTurn = () => {
     preview: preview.data ?? null,
     isPreviewing: preview.isPending,
     start: () => start.mutateAsync(),
-    save: (draft: TurnDraft) =>
-      turn ? save.mutateAsync({ id: turn.id, draft }) : Promise.resolve(null),
+    save: async (draft: TurnDraft) => {
+      if (!turn) return null;
+
+      const saved = await save.mutateAsync({ id: turn.id, draft });
+      // Saving changes nothing but the draft, so it is written into the cache
+      // rather than reloading the whole turn context after every step.
+      queryClient.setQueryData(trpc.bastionTurns.current.queryKey(), old =>
+        old?.turn ? { ...old, turn: { ...old.turn, draft } } : old,
+      );
+
+      return saved;
+    },
     requestPreview: (draft: TurnDraft) =>
       turn ? preview.mutate({ id: turn.id, draft }) : undefined,
     discard: () => (turn ? discard.mutate({ id: turn.id }) : undefined),

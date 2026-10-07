@@ -14,6 +14,10 @@ export const isMaintaining = (actor: {
 /** Every bastion turn is seven days of in-game time. */
 export const TURN_DAYS = 7;
 
+/** "1 defender", "3 defenders": how the turn log and the hints count them. */
+export const countDefenders = (count: number): string =>
+  `${count} defender${count === 1 ? '' : 's'}`;
+
 /**
  * Stocking the Armory: 100 GP plus 100 GP per Bastion Defender, halved when
  * the bastion has a Smithy.

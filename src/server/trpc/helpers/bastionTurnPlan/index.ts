@@ -6,6 +6,7 @@ import type {
 import { allowanceForLevel, defenderCapacity } from '~/utils/bastionRules';
 import {
   armoryStockCost,
+  countDefenders,
   eventForRoll,
   isMaintaining,
   MAX_RECRUITS,
@@ -92,7 +93,7 @@ const toTurnOrderOption = (
     defenders: bastion.defenderCount,
     hasSmithy: bastion.hasSmithy,
   });
-  const defenders = `${bastion.defenderCount} defender${bastion.defenderCount === 1 ? '' : 's'}`;
+  const defenders = countDefenders(bastion.defenderCount);
 
   return {
     ...base,
@@ -242,7 +243,7 @@ export type TurnContext = ReturnType<typeof toTurnContext>;
 export type TurnContextBastion = TurnContext['bastions'][number];
 export type TurnContextFacility = TurnContextBastion['facilities'][number];
 
-export const TRADE_GOODS = 'Trade goods';
+const TRADE_GOODS = 'Trade goods';
 
 /**
  * What a finished job most likely produced, for the DM to confirm or change.
@@ -482,7 +483,7 @@ export const planTurnCommit = (
       stored,
       completion.goldGained ? `+${completion.goldGained} gp` : null,
       completion.defendersGained
-        ? `+${completion.defendersGained} defender${completion.defendersGained === 1 ? '' : 's'}`
+        ? `+${countDefenders(completion.defendersGained)}`
         : null,
       facility.jobEffect === 'stock-armory' ? 'the Armory is stocked' : null,
     ].filter(Boolean);
@@ -495,9 +496,9 @@ export const planTurnCommit = (
   const ordered = new Set<string>();
   const storageItemsToRemove: string[] = [];
   for (const actor of draft.actors) {
-    const who = actorName(actor.bastionId, actor.characterId);
     const bastion = context.bastions.find(({ id }) => id === actor.bastionId);
     const member = bastion?.actors.find(({ id }) => id === actor.characterId);
+    const who = member?.name ?? 'Someone';
 
     if (isMaintaining(actor)) {
       const hasEvent = draft.events.some(
@@ -592,7 +593,7 @@ export const planTurnCommit = (
       const detail = lot
         ? `${lot.name} worth ${lot.valueGp} gp, for ${salePrice} gp`
         : recruits
-          ? `${recruits} defender${recruits === 1 ? '' : 's'}`
+          ? countDefenders(recruits)
           : order.costGp
             ? `${order.costGp} gp`
             : '';
@@ -654,9 +655,9 @@ export const planTurnCommit = (
       event.goldGained ? `+${event.goldGained} gp` : null,
       event.goldPaid ? `paid ${event.goldPaid} gp` : null,
       event.defendersGained
-        ? `+${event.defendersGained} defender${event.defendersGained === 1 ? '' : 's'}`
+        ? `+${countDefenders(event.defendersGained)}`
         : null,
-      lost ? `${lost} defender${lost === 1 ? '' : 's'} lost` : null,
+      lost ? `${countDefenders(lost)} lost` : null,
       event.outOfActionFacilityId && !isBribed
         ? `${facilityById.get(event.outOfActionFacilityId)?.name ?? 'a facility'} out of action next turn`
         : null,
@@ -676,27 +677,15 @@ export const planTurnCommit = (
 
   if (problems.length) return { ok: false, problems };
 
-  const projects = context.bastions.flatMap(bastion => [
-    ...bastion.projectsFinishing.map(project => ({
-      ...project,
-      finishes: true,
-      daysLeftAfter: 0,
-    })),
-    ...bastion.projectsContinuing.map(project => ({
-      ...project,
-      finishes: false,
-    })),
-  ]);
-  projects
-    .filter(project => project.finishes)
-    .forEach(project => lines.push(`Finished: ${project.description}.`));
+  const finishing = context.bastions.flatMap(b => b.projectsFinishing);
+  const continuing = context.bastions.flatMap(b => b.projectsContinuing);
+  finishing.forEach(project => lines.push(`Finished: ${project.description}.`));
 
   // Where each bastion stands once it is all applied, so the log can be read
   // on its own later.
   context.bastions.forEach(bastion => {
-    const count = defenders.get(bastion.id) ?? bastion.defenderCount;
     lines.push(
-      `${bastion.name} ends the turn with ${count} defender${count === 1 ? '' : 's'}${armory.get(bastion.id) ? ' and a stocked Armory' : ''}.`,
+      `${bastion.name} ends the turn with ${countDefenders(defenders.get(bastion.id)!)}${armory.get(bastion.id) ? ' and a stocked Armory' : ''}.`,
     );
   });
 
@@ -706,16 +695,16 @@ export const planTurnCommit = (
       treasuryDelta,
       bastions: context.bastions.map(bastion => ({
         id: bastion.id,
-        defenderCount: defenders.get(bastion.id) ?? bastion.defenderCount,
-        isArmoryStocked: armory.get(bastion.id) ?? bastion.isArmoryStocked,
-        hasGuestMonster:
-          guestMonster.get(bastion.id) ?? bastion.hasGuestMonster,
+        defenderCount: defenders.get(bastion.id)!,
+        isArmoryStocked: armory.get(bastion.id)!,
+        hasGuestMonster: guestMonster.get(bastion.id)!,
       })),
       facilities: [...facilityState.values()],
-      projectsToComplete: projects.filter(p => p.finishes).map(p => p.id),
-      projectsToAdvance: projects
-        .filter(p => !p.finishes)
-        .map(p => ({ id: p.id, daysRemaining: p.daysLeftAfter })),
+      projectsToComplete: finishing.map(p => p.id),
+      projectsToAdvance: continuing.map(p => ({
+        id: p.id,
+        daysRemaining: p.daysLeftAfter,
+      })),
       storageItems,
       storageItemsToRemove,
       lines,

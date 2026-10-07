@@ -9,6 +9,7 @@ import { ConfirmButton } from '~/molecules/ConfirmButton';
 import {
   basicFacilityBuild,
   basicFacilityTypes,
+  isBasicFacilityType,
   facilitySpaces,
 } from '~/content/bastion/basicFacilities';
 import type { BasicFacilityType, FacilitySpace } from '~/content/bastion/types';
@@ -26,9 +27,6 @@ export type BasicFacilitiesSectionProps = {
   onEnlarge: (facilityId: string) => void;
   onRemove: (facilityId: string) => void;
 };
-
-const isBasicType = (value: string): value is BasicFacilityType =>
-  basicFacilityTypes.some(({ type }) => type === value);
 
 const isSpace = (value: string): value is FacilitySpace =>
   facilitySpaces.some(({ space }) => space === value);
@@ -80,7 +78,8 @@ export const BasicFacilitiesSection = ({
             id="basic-build-type"
             value={type}
             onChange={event => {
-              if (isBasicType(event.target.value)) setType(event.target.value);
+              if (isBasicFacilityType(event.target.value))
+                setType(event.target.value);
             }}
           >
             {basicFacilityTypes.map(entry => (

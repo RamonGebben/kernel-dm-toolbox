@@ -5,7 +5,10 @@ import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
 import { FieldRow, Select } from '~/atoms/FormControls';
-import { basicFacilityTypes } from '~/content/bastion/basicFacilities';
+import {
+  basicFacilityTypes,
+  isBasicFacilityType,
+} from '~/content/bastion/basicFacilities';
 import type { BasicFacilityType } from '~/content/bastion/types';
 import type { BastionMode } from '~/server/db/schema';
 import type { FoundableCharacter } from '~/utils/bastionSelection';
@@ -41,9 +44,6 @@ const defaultRooms: FreeRooms = {
   roomyBasicType: 'kitchen',
 };
 
-const isBasicType = (value: string): value is BasicFacilityType =>
-  basicFacilityTypes.some(({ type }) => type === value);
-
 /**
  * Founding a bastion. Per character: an owner, a name and their two free
  * rooms. For the party: a name, and every level 5+ member brings their own
@@ -66,7 +66,7 @@ export const FoundBastionForm = ({
   const roomsFor = (id: string) => rooms[id] ?? defaultRooms;
 
   const setRoom = (id: string, key: keyof FreeRooms, value: string) => {
-    if (!isBasicType(value)) return;
+    if (!isBasicFacilityType(value)) return;
     setRooms(current => ({
       ...current,
       [id]: { ...(current[id] ?? defaultRooms), [key]: value },

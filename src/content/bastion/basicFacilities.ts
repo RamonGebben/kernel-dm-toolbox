@@ -21,6 +21,11 @@ export const basicFacilityTypes: readonly {
   { type: 'storage', label: 'Storage' },
 ];
 
+export const isBasicFacilityType = (
+  value: string,
+): value is BasicFacilityType =>
+  basicFacilityTypes.some(({ type }) => type === value);
+
 export const facilitySpaces: readonly {
   space: FacilitySpace;
   label: string;

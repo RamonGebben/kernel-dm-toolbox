@@ -3,6 +3,7 @@ import {
   armoryStockCost,
   attackDice,
   attackLosses,
+  countDefenders,
   eventForRoll,
   guestForRoll,
   orderLimit,
@@ -13,6 +14,14 @@ import {
   suggestedRecruits,
   treasureForRoll,
 } from '~/utils/bastionTurn';
+
+describe('countDefenders', () => {
+  it('counts one in the singular and anything else in the plural', () => {
+    expect(countDefenders(1)).toBe('1 defender');
+    expect(countDefenders(0)).toBe('0 defenders');
+    expect(countDefenders(3)).toBe('3 defenders');
+  });
+});
 
 describe('eventForRoll', () => {
   it.each([

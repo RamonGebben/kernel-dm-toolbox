@@ -30,10 +30,16 @@ export const usePartyTreasury = () => {
 
   const adjust = useMutation(
     trpc.party.adjustTreasury.mutationOptions({
-      onSuccess: updated =>
+      onSuccess: updated => {
         queryClient.setQueryData(trpc.party.get.queryKey(), current =>
           current ? { ...current, ...updated } : current,
-        ),
+        );
+
+        // The bastion turn checks its orders against the same balance.
+        return queryClient.invalidateQueries({
+          queryKey: trpc.bastionTurns.current.queryKey(),
+        });
+      },
     }),
   );
 

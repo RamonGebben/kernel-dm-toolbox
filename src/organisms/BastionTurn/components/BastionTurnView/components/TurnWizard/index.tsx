@@ -13,6 +13,7 @@ import {
 import {
   stepAfter,
   stepBefore,
+  stepState,
   stepBlocker,
   syncEventsWithActors,
 } from '~/organisms/BastionTurn/hooks/useBastionTurn';
@@ -92,13 +93,7 @@ export const TurnWizard = ({
         {turnSteps.map((step, index) => (
           <Step
             key={step}
-            $state={
-              step === draft.step
-                ? 'current'
-                : turnSteps.indexOf(draft.step) > index
-                  ? 'done'
-                  : 'todo'
-            }
+            $state={stepState(step, draft.step)}
             aria-current={step === draft.step ? 'step' : undefined}
           >
             {index + 1}. {stepLabels[step]}

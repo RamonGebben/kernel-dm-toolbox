@@ -4,7 +4,10 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { Select } from '~/atoms/FormControls';
-import { basicFacilityTypes } from '~/content/bastion/basicFacilities';
+import {
+  basicFacilityTypes,
+  isBasicFacilityType,
+} from '~/content/bastion/basicFacilities';
 import type { BasicFacilityType } from '~/content/bastion/types';
 
 export type PendingFreeRoomsProps = {
@@ -15,9 +18,6 @@ export type PendingFreeRoomsProps = {
     roomyBasicType: BasicFacilityType;
   }) => void;
 };
-
-const isBasicType = (value: string): value is BasicFacilityType =>
-  basicFacilityTypes.some(({ type }) => type === value);
 
 /**
  * Party members who reached level 5 after the party bastion was founded:
@@ -51,7 +51,8 @@ const MemberPrompt = ({ member, onAdd }: MemberPromptProps) => {
         aria-label={`${member.name}'s free Cramped room`}
         value={cramped}
         onChange={event => {
-          if (isBasicType(event.target.value)) setCramped(event.target.value);
+          if (isBasicFacilityType(event.target.value))
+            setCramped(event.target.value);
         }}
       >
         {basicFacilityTypes.map(({ type, label }) => (
@@ -64,7 +65,8 @@ const MemberPrompt = ({ member, onAdd }: MemberPromptProps) => {
         aria-label={`${member.name}'s free Roomy room`}
         value={roomy}
         onChange={event => {
-          if (isBasicType(event.target.value)) setRoomy(event.target.value);
+          if (isBasicFacilityType(event.target.value))
+            setRoomy(event.target.value);
         }}
       >
         {basicFacilityTypes.map(({ type, label }) => (

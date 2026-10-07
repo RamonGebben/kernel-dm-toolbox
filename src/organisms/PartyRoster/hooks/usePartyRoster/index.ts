@@ -108,10 +108,21 @@ export const usePartyRoster = () => {
 
   const closeEditor = () => router.replace('/party', { scroll: false });
 
+  /**
+   * A character is more than a roster row: their name, level and whether they
+   * are active decide a bastion's members and allowance and who gives orders
+   * in a bastion turn, and removing one gives up their bastion and refunds
+   * its construction. So every roster write refreshes all of it.
+   */
   const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: trpc.characters.list.queryKey(),
-    });
+    Promise.all(
+      [
+        trpc.characters.list.queryKey(),
+        trpc.party.get.queryKey(),
+        trpc.bastions.pathKey(),
+        trpc.bastionTurns.pathKey(),
+      ].map(queryKey => queryClient.invalidateQueries({ queryKey })),
+    );
 
   const invalidateAndClose = async () => {
     await invalidate();
@@ -127,18 +138,7 @@ export const usePartyRoster = () => {
   );
 
   const remove = useMutation(
-    trpc.characters.remove.mutationOptions({
-      // Their bastion goes with them, and its construction is refunded.
-      onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: trpc.party.get.queryKey(),
-          }),
-          queryClient.invalidateQueries({ queryKey: trpc.bastions.pathKey() }),
-        ]);
-        await invalidateAndClose();
-      },
-    }),
+    trpc.characters.remove.mutationOptions({ onSuccess: invalidateAndClose }),
   );
 
   const setActive = useMutation(

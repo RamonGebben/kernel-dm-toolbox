@@ -6,7 +6,9 @@ import {
   bastionBasicFacilities,
   bastionProjects,
   bastionSpecialFacilities,
+  bastionStorageItems,
   bastions,
+  playerCharacters,
 } from '~/server/db/schema';
 import type { Database } from '~/server/db';
 import {
@@ -60,6 +62,44 @@ export const loadBasicFacility = async (db: Database, id: string) => {
   if (!facility) throw notFound('facility');
 
   return facility;
+};
+
+export const loadStorageItem = async (db: Database, id: string) => {
+  const item = await db.query.bastionStorageItems.findFirst({
+    where: and(
+      eq(bastionStorageItems.id, id),
+      isNull(bastionStorageItems.deletedAt),
+    ),
+  });
+  if (!item) throw notFound('item');
+
+  return item;
+};
+
+/** A live character: a tombstoned one is gone as far as the app cares. */
+export const loadLiveCharacter = async (db: Database, id: string) => {
+  const character = await db.query.playerCharacters.findFirst({
+    where: and(eq(playerCharacters.id, id), isNull(playerCharacters.deletedAt)),
+  });
+  if (!character) throw notFound('character');
+
+  return character;
+};
+
+/**
+ * Calls construction off and gives its full cost back to the treasury:
+ * cancelled by hand, or because what it was building on is gone.
+ */
+export const cancelProject = async (
+  db: Database,
+  project: typeof bastionProjects.$inferSelect,
+  now: Date,
+) => {
+  await db
+    .update(bastionProjects)
+    .set(tombstoneSyncMeta({ version: project.version, now }))
+    .where(eq(bastionProjects.id, project.id));
+  await refundToTreasury(db, project.costGp);
 };
 
 /** Applies a finished project's effect and stamps it complete. */
@@ -144,11 +184,7 @@ export const abandonBastion = async (
     );
 
   for (const project of open) {
-    await db
-      .update(bastionProjects)
-      .set(tombstoneSyncMeta({ version: project.version, now }))
-      .where(eq(bastionProjects.id, project.id));
-    await refundToTreasury(db, project.costGp);
+    await cancelProject(db, project, now);
   }
 
   await db

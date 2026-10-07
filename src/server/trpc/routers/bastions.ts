@@ -45,10 +45,13 @@ import {
 import { ensureParty } from '~/server/party/state';
 import {
   abandonBastion,
+  cancelProject,
   completeProject,
   loadBasicFacility,
   loadBastion,
+  loadLiveCharacter,
   loadSpecialFacility,
+  loadStorageItem,
   notFound,
 } from '~/server/bastions/rows';
 import { findTopHolder } from '~/utils/bastionSelection';
@@ -60,15 +63,6 @@ import {
   findEligibilityProblems,
 } from '~/utils/bastionRules';
 import { refundToTreasury, spendFromTreasury } from '~/server/party/treasury';
-
-const loadOwner = async (db: Database, id: string) => {
-  const owner = await db.query.playerCharacters.findFirst({
-    where: and(eq(playerCharacters.id, id), isNull(playerCharacters.deletedAt)),
-  });
-  if (!owner) throw notFound('character');
-
-  return owner;
-};
 
 const liveCharacters = (db: Database) =>
   db
@@ -297,11 +291,16 @@ const splitBastion = async (
   ] as const;
 
   for (const [table, assignment] of moves) {
-    for (const [rowId, ownerId] of assignment) {
+    for (const [ownerId, bastionId] of bastionFor) {
+      const rowIds = [...assignment]
+        .filter(([, assignedTo]) => assignedTo === ownerId)
+        .map(([rowId]) => rowId);
+      if (!rowIds.length) continue;
+
       await db
         .update(table)
-        .set({ bastionId: bastionFor.get(ownerId)!, updatedAt: now })
-        .where(eq(table.id, rowId));
+        .set({ bastionId, updatedAt: now })
+        .where(inArray(table.id, rowIds));
     }
   }
 
@@ -486,9 +485,11 @@ export const bastionsRouter = createTRPCRouter({
             message: 'The party already has a bastion.',
           });
         }
-        for (const member of input.members) {
-          await loadOwner(ctx.db, member.characterId);
-        }
+        await Promise.all(
+          input.members.map(member =>
+            loadLiveCharacter(ctx.db, member.characterId),
+          ),
+        );
 
         const [created] = await ctx.db
           .insert(bastions)
@@ -506,7 +507,7 @@ export const bastionsRouter = createTRPCRouter({
         return created!;
       }
 
-      const owner = await loadOwner(ctx.db, input.ownerCharacterId);
+      const owner = await loadLiveCharacter(ctx.db, input.ownerCharacterId);
 
       const existing = await ctx.db.query.bastions.findFirst({
         where: and(
@@ -538,7 +539,7 @@ export const bastionsRouter = createTRPCRouter({
     .input(addFreeRoomsInputSchema)
     .mutation(async ({ ctx, input }) => {
       const bastion = await loadBastion(ctx.db, input.bastionId);
-      const character = await loadOwner(ctx.db, input.characterId);
+      const character = await loadLiveCharacter(ctx.db, input.characterId);
 
       const alreadyBrought =
         await ctx.db.query.bastionBasicFacilities.findFirst({
@@ -589,7 +590,7 @@ export const bastionsRouter = createTRPCRouter({
             message: 'Choose who keeps the shared parts of the bastion.',
           });
         }
-        await loadOwner(ctx.db, keeperId);
+        await loadLiveCharacter(ctx.db, keeperId);
         for (const bastion of existing) {
           await splitBastion(ctx.db, bastion, keeperId, now);
         }
@@ -662,7 +663,7 @@ export const bastionsRouter = createTRPCRouter({
           message: 'Choose which party member takes this facility.',
         });
       }
-      const holder = await loadOwner(ctx.db, holderId);
+      const holder = await loadLiveCharacter(ctx.db, holderId);
 
       if (!input.ignoreRequirements) {
         const held = await liveSpecialFacilities(ctx.db, bastion.id);
@@ -740,13 +741,7 @@ export const bastionsRouter = createTRPCRouter({
 
       // An enlargement under way has nothing left to enlarge: refund it.
       const project = await openProjectFor(ctx.db, facility.id);
-      if (project) {
-        await ctx.db
-          .update(bastionProjects)
-          .set(tombstoneSyncMeta({ version: project.version, now }))
-          .where(eq(bastionProjects.id, project.id));
-        await refundToTreasury(ctx.db, project.costGp);
-      }
+      if (project) await cancelProject(ctx.db, project, now);
 
       return { id: facility.id };
     }),
@@ -776,13 +771,7 @@ export const bastionsRouter = createTRPCRouter({
         .where(eq(bastionBasicFacilities.id, facility.id));
 
       const project = await openProjectFor(ctx.db, facility.id);
-      if (project) {
-        await ctx.db
-          .update(bastionProjects)
-          .set(tombstoneSyncMeta({ version: project.version, now }))
-          .where(eq(bastionProjects.id, project.id));
-        await refundToTreasury(ctx.db, project.costGp);
-      }
+      if (project) await cancelProject(ctx.db, project, now);
 
       return { id: facility.id };
     }),
@@ -848,12 +837,7 @@ export const bastionsRouter = createTRPCRouter({
     .input(bastionRowIdInputSchema)
     .mutation(async ({ ctx, input }) => {
       const project = await loadOpenProject(ctx.db, input.id);
-
-      await ctx.db
-        .update(bastionProjects)
-        .set(tombstoneSyncMeta({ version: project.version, now: new Date() }))
-        .where(eq(bastionProjects.id, project.id));
-      await refundToTreasury(ctx.db, project.costGp);
+      await cancelProject(ctx.db, project, new Date());
 
       return { id: project.id };
     }),
@@ -879,14 +863,8 @@ export const bastionsRouter = createTRPCRouter({
   claimStorageItem: publicProcedure
     .input(claimStorageItemInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const item = await ctx.db.query.bastionStorageItems.findFirst({
-        where: and(
-          eq(bastionStorageItems.id, input.id),
-          isNull(bastionStorageItems.deletedAt),
-        ),
-      });
-      if (!item) throw notFound('item');
-      if (input.characterId) await loadOwner(ctx.db, input.characterId);
+      const item = await loadStorageItem(ctx.db, input.id);
+      if (input.characterId) await loadLiveCharacter(ctx.db, input.characterId);
 
       const now = new Date();
       const [updated] = await ctx.db
@@ -905,13 +883,7 @@ export const bastionsRouter = createTRPCRouter({
   removeStorageItem: publicProcedure
     .input(bastionRowIdInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const item = await ctx.db.query.bastionStorageItems.findFirst({
-        where: and(
-          eq(bastionStorageItems.id, input.id),
-          isNull(bastionStorageItems.deletedAt),
-        ),
-      });
-      if (!item) throw notFound('item');
+      const item = await loadStorageItem(ctx.db, input.id);
 
       await ctx.db
         .update(bastionStorageItems)

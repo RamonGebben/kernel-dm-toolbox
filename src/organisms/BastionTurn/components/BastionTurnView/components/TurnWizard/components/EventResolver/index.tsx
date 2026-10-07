@@ -10,7 +10,12 @@ import { guestKinds } from '~/content/bastion/events';
 import type { TurnContextBastion } from '~/server/trpc/helpers/bastionTurnPlan';
 import type { TurnEvent } from '~/server/trpc/schemas/bastionTurns';
 import { formatGold } from '~/utils/applyGoldChange';
-import { attackDice, guestForRoll, treasureForRoll } from '~/utils/bastionTurn';
+import {
+  attackDice,
+  countDefenders,
+  guestForRoll,
+  treasureForRoll,
+} from '~/utils/bastionTurn';
 import { rollDie } from '~/utils/rollDice';
 
 export type EventChange = Partial<
@@ -73,10 +78,8 @@ const Outcome = ({ event }: { event: TurnEvent }) => {
   const parts = [
     event.goldGained ? `+${formatGold(event.goldGained)}` : null,
     event.goldPaid ? `−${formatGold(event.goldPaid)}` : null,
-    event.defendersGained ? `+${event.defendersGained} defender` : null,
-    event.defendersLost
-      ? `−${event.defendersLost} defender${event.defendersLost === 1 ? '' : 's'}`
-      : null,
+    event.defendersGained ? `+${countDefenders(event.defendersGained)}` : null,
+    event.defendersLost ? `−${countDefenders(event.defendersLost)}` : null,
     event.storageItem ? `to storage: ${event.storageItem}` : null,
   ].filter(Boolean);
 
