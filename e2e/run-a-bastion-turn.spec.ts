@@ -29,9 +29,15 @@ const trpc = async (
   ).result.data.json;
 };
 
+const wizard = (page: Page) =>
+  page.getByRole('dialog', { name: /Bastion turn/ });
+const next = (page: Page) =>
+  wizard(page).getByRole('button', { name: /^Next/ }).click();
+
 const setUpTower = async (request: APIRequestContext, baseURL: string) => {
+  const ownerName = uniqueName('Wren');
   const wren = await trpc(request, baseURL, 'characters.create', {
-    name: uniqueName('Wren'),
+    name: ownerName,
     armorClass: 12,
     maxHitPoints: 30,
     level: 5,
@@ -49,19 +55,49 @@ const setUpTower = async (request: APIRequestContext, baseURL: string) => {
     facilityKey: 'arcane-study',
   });
   await trpc(request, baseURL, 'party.adjustTreasury', { delta: 100 });
+
+  return { ownerName };
 };
 
-const wizard = (page: Page) =>
-  page.getByRole('dialog', { name: /Bastion turn/ });
-const next = (page: Page) =>
-  wizard(page).getByRole('button', { name: /^Next/ }).click();
+const treasuryGold = async (request: APIRequestContext, baseURL: string) => {
+  const response = await request.get(`${baseURL}/api/trpc/party.get`);
+  const body = (await response.json()) as {
+    result: { data: { json: { treasuryGold: number } } };
+  };
+
+  return body.result.data.json.treasuryGold;
+};
+
+const gold = (amount: number) => `${amount.toLocaleString('en-US')} gp`;
+
+/**
+ * Through the rail, not `page.goto`: a client-side navigation keeps the query
+ * cache, which is the only way a stale bastion turn could survive the trip.
+ */
+const openTool = (page: Page, label: 'Party' | 'Bastions') =>
+  page.getByLabel('Tools').getByText(label, { exact: true }).click();
+
+/** Starts a turn, moves one step in so it is saved, and steps out of it. */
+const startTurnAndStepOut = async (page: Page) => {
+  await page.goto('/bastions');
+  await page.getByRole('button', { name: 'Start bastion turn' }).click();
+  const saved = page.waitForResponse(response =>
+    response.url().includes('bastionTurns.saveDraft'),
+  );
+  await next(page);
+  await saved;
+  await page.keyboard.press('Escape');
+  await expect(wizard(page)).toBeHidden();
+};
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('run a bastion turn', () => {
+  let ownerName = '';
+
   test.beforeEach(async ({ request, baseURL }) => {
     await resetBastions(request, baseURL!, 'per-character');
-    await setUpTower(request, baseURL!);
+    ({ ownerName } = await setUpTower(request, baseURL!));
   });
 
   test.afterAll(async ({ request, baseURL }) => {
@@ -163,5 +199,63 @@ test.describe('run a bastion turn', () => {
       'aria-current',
       'step',
     );
+  });
+
+  test('a turn under way sees gold banked on the Party page', async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    const before = await treasuryGold(request, baseURL!);
+    await startTurnAndStepOut(page);
+
+    await openTool(page, 'Party');
+    await page.getByLabel('Amount (gp)').fill('300');
+    await page.getByRole('button', { name: 'Deposit' }).click();
+    await expect(page.getByLabel('Treasury balance')).toHaveText(
+      gold(before + 300),
+    );
+
+    await openTool(page, 'Bastions');
+    await page.getByRole('button', { name: /Resume turn/ }).click();
+    await next(page);
+    await next(page);
+    await next(page);
+
+    await expect(
+      wizard(page).getByText(`Treasury: ${gold(before + 300)}`),
+    ).toBeVisible();
+  });
+
+  test('a turn under way sees a character changed on the Party page', async ({
+    page,
+  }) => {
+    const renamed = uniqueName('Wrenna');
+    await startTurnAndStepOut(page);
+    await expect(
+      page.getByText(`${ownerName} · level 5 · 1/2 facilities`),
+    ).toBeVisible();
+
+    await openTool(page, 'Party');
+    await page
+      .getByRole('article', { name: ownerName, exact: true })
+      .getByRole('button', { name: `Edit ${ownerName}` })
+      .click();
+    await page.getByLabel('Name', { exact: true }).fill(renamed);
+    await page.getByLabel('Level', { exact: true }).fill('9');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+
+    await openTool(page, 'Bastions');
+    // The list: a level 9 character may hold four special facilities.
+    await expect(
+      page.getByText(`${renamed} · level 9 · 1/4 facilities`),
+    ).toBeVisible();
+
+    // The turn: the same character, under their new name.
+    await page.getByRole('button', { name: /Resume turn/ }).click();
+    await expect(
+      wizard(page).getByText(new RegExp(`What does ${renamed} do at`)),
+    ).toBeVisible();
   });
 });
