@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
+import { Card } from '~/atoms/Card';
+import { Readout } from '~/molecules/HitPointControls/components/Readout';
+import { Current } from '~/molecules/HitPointControls/components/Current';
+import { Temporary } from '~/molecules/HitPointControls/components/Temporary';
+import { Row } from '~/molecules/HitPointControls/components/Row';
 
-export type HitPointControlsProps = {
+export interface HitPointControlsProps {
   currentHitPoints: number;
   maxHitPoints: number;
   temporaryHitPoints: number;
@@ -13,7 +17,7 @@ export type HitPointControlsProps = {
   onDamage: (amount: number) => void;
   onHeal: (amount: number) => void;
   onGrantTemporary: (amount: number) => void;
-};
+}
 
 /**
  * Damage, healing and temporary hit points for the selected combatant.
@@ -49,7 +53,7 @@ export const HitPointControls = ({
   };
 
   return (
-    <Wrapper onSubmit={handleSubmit}>
+    <Card as="form" onSubmit={handleSubmit}>
       <Readout>
         <Current>
           {currentHitPoints}/{maxHitPoints}
@@ -95,39 +99,6 @@ export const HitPointControls = ({
           Temp
         </Button>
       </Row>
-    </Wrapper>
+    </Card>
   );
 };
-
-const Wrapper = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.md};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Readout = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Current = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Temporary = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.accent};
-`;
-
-const Row = styled.div`
-  display: grid;
-  grid-template-columns: 4.5rem repeat(3, minmax(0, 1fr));
-  gap: ${props => props.theme.space.xs};
-`;

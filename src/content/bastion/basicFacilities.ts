@@ -9,10 +9,10 @@ import type {
  * costs and how long it takes. Numbers only (DECISIONS #33).
  */
 
-export const basicFacilityTypes: readonly {
+export const basicFacilityTypes: ReadonlyArray<{
   type: BasicFacilityType;
   label: string;
-}[] = [
+}> = [
   { type: 'bedroom', label: 'Bedroom' },
   { type: 'dining-room', label: 'Dining Room' },
   { type: 'parlor', label: 'Parlor' },
@@ -26,12 +26,12 @@ export const isBasicFacilityType = (
 ): value is BasicFacilityType =>
   basicFacilityTypes.some(({ type }) => type === value);
 
-export const facilitySpaces: readonly {
+export const facilitySpaces: ReadonlyArray<{
   space: FacilitySpace;
   label: string;
   /** Maximum area in 5-foot squares. */
   squares: number;
-}[] = [
+}> = [
   { space: 'cramped', label: 'Cramped', squares: 4 },
   { space: 'roomy', label: 'Roomy', squares: 16 },
   { space: 'vast', label: 'Vast', squares: 36 },
@@ -80,10 +80,10 @@ export const bastionLevel = 5;
  * Special facilities held in total, by the owner's level. A character gains
  * them as they level and cannot buy more.
  */
-export const specialFacilityAllowance: readonly {
+export const specialFacilityAllowance: ReadonlyArray<{
   level: FacilityLevel;
   total: number;
-}[] = [
+}> = [
   { level: 5, total: 2 },
   { level: 9, total: 4 },
   { level: 13, total: 5 },
@@ -91,7 +91,7 @@ export const specialFacilityAllowance: readonly {
 ];
 
 /** A new bastion starts with one Cramped and one Roomy basic facility, free. */
-export const startingBasicSpaces: readonly FacilitySpace[] = [
+export const startingBasicSpaces: ReadonlyArray<FacilitySpace> = [
   'cramped',
   'roomy',
 ];

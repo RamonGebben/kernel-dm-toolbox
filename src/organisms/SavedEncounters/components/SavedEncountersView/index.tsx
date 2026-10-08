@@ -1,37 +1,47 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { TextInput } from '~/atoms/TextInput';
+import { FillStack } from '~/atoms/FillStack';
+import { ScrollArea } from '~/atoms/ScrollArea';
+import { List } from '~/organisms/SavedEncounters/components/SavedEncountersView/components/List';
+import { Card } from '~/atoms/Card';
+import { CardHeader } from '~/organisms/SavedEncounters/components/SavedEncountersView/components/CardHeader';
+import { PresetName } from '~/organisms/SavedEncounters/components/SavedEncountersView/components/PresetName';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { Composition } from '~/organisms/SavedEncounters/components/SavedEncountersView/components/Composition';
+import { MutedInline } from '~/atoms/MutedInline';
+import { Cluster } from '~/atoms/Cluster';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type SavedEncounterEntry = {
+export interface SavedEncounterEntry {
   creatureSlug: string | null;
   customCreatureId: string | null;
   name: string;
   count: number;
   challengeRatingLabel: string;
-};
+}
 
-export type SavedEncounterSummary = {
+export interface SavedEncounterSummary {
   id: string;
   name: string;
   note: string | null;
   creatureCount: number;
-  entries: SavedEncounterEntry[];
-};
+  entries: Array<SavedEncounterEntry>;
+}
 
-export type SavedEncountersViewProps = {
+export interface SavedEncountersViewProps {
   isPending: boolean;
   isSaving: boolean;
-  presets: readonly SavedEncounterSummary[];
+  presets: ReadonlyArray<SavedEncounterSummary>;
   /** False when the board holds no monsters — there is nothing to save. */
   canSaveCurrent: boolean;
   onSave: (name: string) => void;
   onApply: (id: string) => void;
   onRemove: (id: string) => void;
-};
+}
 
 /**
  * Presentational: saved encounters, and the box that saves the current one.
@@ -59,8 +69,8 @@ export const SavedEncountersView = ({
   };
 
   return (
-    <Wrapper>
-      <SaveForm onSubmit={handleSubmit}>
+    <FillStack>
+      <Cluster as="form" onSubmit={handleSubmit}>
         <TextInput
           value={name}
           placeholder="Name this encounter…"
@@ -75,17 +85,17 @@ export const SavedEncountersView = ({
         >
           Save current
         </Button>
-      </SaveForm>
+      </Cluster>
 
-      <Results>
+      <ScrollArea>
         <PresetsBody
           isPending={isPending}
           presets={presets}
           onApply={onApply}
           onRemove={onRemove}
         />
-      </Results>
-    </Wrapper>
+      </ScrollArea>
+    </FillStack>
   );
 };
 
@@ -102,7 +112,7 @@ const PresetsBody = ({
   onRemove,
 }: PresetsBodyProps) => {
   if (isPending)
-    return <Skeleton role="status" aria-label="Loading saved encounters" />;
+    return <Skeleton $height="8rem" aria-label="Loading saved encounters" />;
 
   if (!presets.length) {
     return (
@@ -120,22 +130,25 @@ const PresetsBody = ({
           <Card>
             <CardHeader>
               <PresetName>{preset.name}</PresetName>
-              <Count>
+              <MutedCaption>
                 {preset.creatureCount}{' '}
                 {preset.creatureCount === 1 ? 'creature' : 'creatures'}
-              </Count>
+              </MutedCaption>
             </CardHeader>
 
             <Composition>
               {preset.entries.map(entry => (
-                <Line key={entry.creatureSlug ?? entry.customCreatureId}>
+                <Cluster
+                  as="span"
+                  key={entry.creatureSlug ?? entry.customCreatureId}
+                >
                   {entry.count} × {entry.name}{' '}
-                  <Cr>CR {entry.challengeRatingLabel}</Cr>
-                </Line>
+                  <MutedInline>CR {entry.challengeRatingLabel}</MutedInline>
+                </Cluster>
               ))}
             </Composition>
 
-            <Actions>
+            <Cluster>
               <Button
                 size="sm"
                 onClick={() => onApply(preset.id)}
@@ -151,94 +164,10 @@ const PresetsBody = ({
               >
                 Delete
               </Button>
-            </Actions>
+            </Cluster>
           </Card>
         </li>
       ))}
     </List>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  height: 100%;
-  min-height: 0;
-`;
-
-const SaveForm = styled.form`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Results = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Card = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.md};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const CardHeader = styled.div`
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const PresetName = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.md};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Count = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Composition = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Line = styled.span`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Cr = styled.span`
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Skeleton = styled.div`
-  height: 8rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

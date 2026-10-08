@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
-import { FieldRow, Select } from '~/atoms/FormControls';
+import { FieldRow } from '~/atoms/FieldRow';
+import { Select } from '~/atoms/Select';
 import {
   basicFacilityTypes,
   isBasicFacilityType,
@@ -12,11 +12,19 @@ import {
 import type { BasicFacilityType } from '~/content/bastion/types';
 import type { BastionMode } from '~/server/db/schema';
 import type { FoundableCharacter } from '~/utils/bastionSelection';
+import { Stack } from '~/atoms/Stack';
+import { MemberRooms } from '~/organisms/BastionList/components/BastionListView/components/FoundBastionForm/components/MemberRooms';
+import { MemberName } from '~/organisms/BastionList/components/BastionListView/components/FoundBastionForm/components/MemberName';
+import { Grid } from '~/organisms/BastionList/components/BastionListView/components/FoundBastionForm/components/Grid';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Message } from '~/organisms/BastionList/components/BastionListView/components/FoundBastionForm/components/Message';
+import { ErrorNote } from '~/atoms/ErrorNote';
+import { Cluster } from '~/atoms/Cluster';
 
-type FreeRooms = {
+interface FreeRooms {
   crampedBasicType: BasicFacilityType;
   roomyBasicType: BasicFacilityType;
-};
+}
 
 export type FoundBastionValues =
   | ({
@@ -27,17 +35,17 @@ export type FoundBastionValues =
   | {
       mode: 'party';
       name: string;
-      members: ({ characterId: string } & FreeRooms)[];
+      members: Array<{ characterId: string } & FreeRooms>;
     };
 
-export type FoundBastionFormProps = {
+export interface FoundBastionFormProps {
   mode: BastionMode;
-  characters: readonly FoundableCharacter[];
+  characters: ReadonlyArray<FoundableCharacter>;
   isSaving: boolean;
   error: string | null;
   onSubmit: (values: FoundBastionValues) => void;
   onCancel: () => void;
-};
+}
 
 const defaultRooms: FreeRooms = {
   crampedBasicType: 'bedroom',
@@ -106,7 +114,7 @@ export const FoundBastionForm = ({
     mode === 'party' ? eligible : eligible.filter(({ id }) => id === ownerId);
 
   return (
-    <Form onSubmit={submit}>
+    <Stack as="form" $gap="s" onSubmit={submit}>
       {mode === 'per-character' ? (
         <FieldRow>
           <label htmlFor="bastion-owner">Owner</label>
@@ -123,10 +131,10 @@ export const FoundBastionForm = ({
           </Select>
         </FieldRow>
       ) : (
-        <Hint>
+        <MutedNote>
           The whole party shares this bastion. Each member below brings two free
           rooms and picks their own special facilities.
-        </Hint>
+        </MutedNote>
       )}
 
       <FieldRow>
@@ -185,71 +193,23 @@ export const FoundBastionForm = ({
       ))}
 
       {tooLow.length ? (
-        <Hint>
+        <MutedNote>
           Not yet level 5: {tooLow.map(character => character.name).join(', ')}.
           {mode === 'party'
             ? ' They bring their rooms once they get there.'
             : ''}
-        </Hint>
+        </MutedNote>
       ) : null}
-      {error ? <ErrorText role="alert">{error}</ErrorText> : null}
+      {error ? <ErrorNote role="alert">{error}</ErrorNote> : null}
 
-      <Actions>
+      <Cluster>
         <Button type="submit" size="sm" disabled={isSaving}>
           {isSaving ? 'Founding…' : 'Found bastion'}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-      </Actions>
-    </Form>
+      </Cluster>
+    </Stack>
   );
 };
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const MemberRooms = styled.fieldset`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  border: 0;
-`;
-
-const MemberName = styled.legend`
-  padding: 0;
-  font-weight: 600;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Hint = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Message = styled(Hint)`
-  font-size: ${props => props.theme.fontSize.md};
-`;
-
-const ErrorText = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.danger};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;

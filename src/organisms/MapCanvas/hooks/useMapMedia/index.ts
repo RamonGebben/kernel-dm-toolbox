@@ -4,14 +4,16 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { computeCenteredViewport, type Viewport } from '~/utils/mapViewport';
 import type { MapCanvasMedia } from '~/organisms/MapCanvas/components/MapCanvasView';
 
-export type MapMediaHandle = {
+export interface MapMediaHandle {
   drawableRef: RefObject<CanvasImageSource | null>;
   sizeRef: RefObject<{ width: number; height: number }>;
   isLoadingRef: RefObject<boolean>;
   progressRef: RefObject<number>;
-};
+}
 
-type VideoFrameLoopHandle = { cancel: () => void };
+interface VideoFrameLoopHandle {
+  cancel: () => void;
+}
 
 /** Redraws every decoded video frame, independent of the pan/zoom draw dedup. */
 const startVideoFrameLoop = (
@@ -128,7 +130,7 @@ export const useMapMedia = ({
         let blob: Blob;
         if (total > 0 && response.body) {
           const reader = response.body.getReader();
-          const chunks: Uint8Array<ArrayBuffer>[] = [];
+          const chunks: Array<Uint8Array<ArrayBuffer>> = [];
           let loaded = 0;
           let done = false;
           while (!done) {

@@ -1,4 +1,7 @@
-export type FogStrokeLike = { radius: number; softness: number };
+export interface FogStrokeLike {
+  radius: number;
+  softness: number;
+}
 
 /**
  * Above this many uncompacted strokes, the client bakes the mask into

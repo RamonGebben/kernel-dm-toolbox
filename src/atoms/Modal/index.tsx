@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import styled from 'styled-components';
 import { Portal } from '~/atoms/Portal';
+import { Scrim } from '~/atoms/Modal/components/Scrim';
+import { Panel } from '~/atoms/Modal/components/Panel';
+import { Header } from '~/atoms/Modal/components/Header';
+import { Title } from '~/atoms/Modal/components/Title';
+import { CloseButton } from '~/atoms/Modal/components/CloseButton';
+import { Body } from '~/atoms/Modal/components/Body';
 
 export type ModalSize = 'default' | 'wide';
 
-export type ModalProps = {
+export interface ModalProps {
   title: string;
   isOpen: boolean;
   onClose: () => void;
@@ -18,7 +23,7 @@ export type ModalProps = {
    */
   size?: ModalSize;
   children: ReactNode;
-};
+}
 
 /**
  * A centred dialog over a scrim.
@@ -90,75 +95,3 @@ export const Modal = ({
     </Portal>
   );
 };
-
-const Scrim = styled.div`
-  position: fixed;
-  inset: 0;
-  /* Above FilterBar's Popover and MapRow's Menu (both z-index: 10)
-   * — all three now portal to document.body as siblings, so a modal opened
-   * while a dropdown/menu is still open must win on stacking order alone
-   * rather than on whichever one happened to mount last. */
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: ${props => props.theme.space.md};
-  background: ${props =>
-    `color-mix(in srgb, ${props.theme.color.canvas} 60%, transparent)`};
-`;
-
-const Panel = styled.div<{ $isWide: boolean }>`
-  display: flex;
-  flex-direction: column;
-  width: ${props => (props.$isWide ? 'min(64rem, 100%)' : 'min(32rem, 100%)')};
-  max-height: min(40rem, 90dvh);
-  background: ${props => props.theme.color.surface};
-  border: 1px solid ${props => props.theme.color.border};
-  border-top: 2px solid ${props => props.theme.color.accent};
-  border-radius: ${props => props.theme.radius.md};
-  box-shadow: ${props => props.theme.shadow.raised};
-  transition: width 0.25s ease;
-
-  &:focus {
-    outline: none;
-  }
-`;
-
-const Header = styled.header`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.md};
-  padding: ${props => props.theme.space.md};
-  border-bottom: 1px solid ${props => props.theme.color.border};
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const CloseButton = styled.button`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textMuted};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
-  line-height: 1;
-  cursor: pointer;
-
-  &:hover {
-    color: ${props => props.theme.color.textPrimary};
-    background: ${props => props.theme.color.surfaceRaised};
-  }
-`;
-
-const Body = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: ${props => props.theme.space.md};
-`;

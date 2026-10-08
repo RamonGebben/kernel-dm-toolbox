@@ -1,9 +1,9 @@
 import { slugToTitle } from '~/utils/slugToTitle';
 
-export type CreatureTypeOption = {
+export interface CreatureTypeOption {
   value: string;
   label: string;
-};
+}
 
 /**
  * The distinct creature types actually present across the library and the
@@ -16,8 +16,8 @@ export type CreatureTypeOption = {
  * differently-cased custom row (`Dragon` vs `dragon`) as the same option.
  */
 export const buildCreatureTypeOptions = (
-  types: readonly string[],
-): CreatureTypeOption[] => {
+  types: ReadonlyArray<string>,
+): Array<CreatureTypeOption> => {
   const values = new Set(
     types.map(type => type.trim().toLowerCase()).filter(Boolean),
   );

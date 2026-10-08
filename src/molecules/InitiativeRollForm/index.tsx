@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
 import {
@@ -10,17 +9,24 @@ import {
   toInitiativeValues,
   type InitiativeRollEntry,
 } from '~/utils/initiativeRoll';
+import { Stack } from '~/atoms/Stack';
+import { Row } from '~/molecules/InitiativeRollForm/components/Row';
+import { Name } from '~/molecules/InitiativeRollForm/components/Name';
+import { Tag } from '~/molecules/InitiativeRollForm/components/Tag';
+import { Field } from '~/molecules/InitiativeRollForm/components/Field';
+import { Actions } from '~/molecules/InitiativeRollForm/components/Actions';
+import { Spacer } from '~/molecules/InitiativeRollForm/components/Spacer';
 
 export type InitiativeRollRow = InitiativeRollEntry & {
   displayName: string;
 };
 
-export type InitiativeRollFormProps = {
-  rows: readonly InitiativeRollRow[];
+export interface InitiativeRollFormProps {
+  rows: ReadonlyArray<InitiativeRollRow>;
   isSaving: boolean;
-  onSubmit: (values: { id: string; initiative: number }[]) => void;
+  onSubmit: (values: Array<{ id: string; initiative: number }>) => void;
   onCancel: () => void;
-};
+}
 
 /**
  * The "Roll for initiative" form: one number field per combatant, in the order
@@ -45,8 +51,8 @@ export const InitiativeRollForm = ({
   };
 
   return (
-    <Form onSubmit={handleSubmit}>
-      <Rows>
+    <Stack as="form" onSubmit={handleSubmit}>
+      <Stack $gap="xs">
         {rows.map(row => (
           <Row key={row.id}>
             <Name htmlFor={`initiative-${row.id}`}>
@@ -72,7 +78,7 @@ export const InitiativeRollForm = ({
             </Field>
           </Row>
         ))}
-      </Rows>
+      </Stack>
 
       <Actions>
         <Button
@@ -92,57 +98,6 @@ export const InitiativeRollForm = ({
           Start combat
         </Button>
       </Actions>
-    </Form>
+    </Stack>
   );
 };
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Rows = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Row = styled.div`
-  display: grid;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  grid-template-columns: minmax(0, 1fr) 6rem;
-  padding: ${props => props.theme.space.xs} 0;
-`;
-
-const Name = styled.label`
-  display: flex;
-  align-items: baseline;
-  gap: ${props => props.theme.space.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-weight: 600;
-`;
-
-const Tag = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: ${props => props.theme.color.accent};
-`;
-
-const Field = styled.div`
-  display: flex;
-`;
-
-const Actions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  flex-wrap: wrap;
-`;
-
-const Spacer = styled.div`
-  flex: 1;
-`;

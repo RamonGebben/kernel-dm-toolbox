@@ -143,22 +143,22 @@ export const creatures = sqliteTable('creatures', {
    * supplies, so the statblock never has to re-derive prose from slugs.
    */
   damageImmunities: text('damage_immunities', { mode: 'json' })
-    .$type<string[]>()
+    .$type<Array<string>>()
     .notNull()
     .default([]),
   damageImmunitiesDisplay: text('damage_immunities_display'),
   damageResistances: text('damage_resistances', { mode: 'json' })
-    .$type<string[]>()
+    .$type<Array<string>>()
     .notNull()
     .default([]),
   damageResistancesDisplay: text('damage_resistances_display'),
   damageVulnerabilities: text('damage_vulnerabilities', { mode: 'json' })
-    .$type<string[]>()
+    .$type<Array<string>>()
     .notNull()
     .default([]),
   damageVulnerabilitiesDisplay: text('damage_vulnerabilities_display'),
   conditionImmunities: text('condition_immunities', { mode: 'json' })
-    .$type<string[]>()
+    .$type<Array<string>>()
     .notNull()
     .default([]),
   conditionImmunitiesDisplay: text('condition_immunities_display'),
@@ -175,7 +175,7 @@ export const creatures = sqliteTable('creatures', {
     .default(false),
 
   languages: text('languages', { mode: 'json' })
-    .$type<string[]>()
+    .$type<Array<string>>()
     .notNull()
     .default([]),
   languagesDesc: text('languages_desc'),
@@ -321,7 +321,7 @@ export const spells = sqliteTable('spells', {
     .default(false),
   damageRoll: text('damage_roll'),
   damageTypes: text('damage_types', { mode: 'json' })
-    .$type<string[]>()
+    .$type<Array<string>>()
     .notNull()
     .default([]),
 
@@ -331,7 +331,7 @@ export const spells = sqliteTable('spells', {
 
   /** Which classes get it, as upstream class slugs. */
   classes: text('classes', { mode: 'json' })
-    .$type<string[]>()
+    .$type<Array<string>>()
     .notNull()
     .default([]),
 });
@@ -801,7 +801,7 @@ export type NewEncounterPresetEntry =
  * ------------------------------------------------------------------------- */
 
 /** A single fog-of-war brush stroke, replayed in order to rebuild the mask. */
-export type MapFogStroke = {
+export interface MapFogStroke {
   id: string;
   x: number;
   y: number;
@@ -810,9 +810,9 @@ export type MapFogStroke = {
   softness: number;
   shape: 'circle' | 'square';
   mode: 'reveal' | 'cover';
-};
+}
 
-export type MapFogState = {
+export interface MapFogState {
   enabled: boolean;
   /** What the strokes are layered on top of — "reveal all"/"reset" are a
    * one-field flip plus `strokes: []`, not a synthesized full-canvas stroke. */
@@ -836,8 +836,8 @@ export type MapFogState = {
    * it must never outlive the strokes it was captured from.
    */
   baselineImage: string | null;
-  strokes: MapFogStroke[];
-};
+  strokes: Array<MapFogStroke>;
+}
 
 export const DEFAULT_MAP_FOG_STATE: MapFogState = {
   enabled: false,
@@ -926,7 +926,7 @@ export const CURRENT_MAP_SESSION_ID = 'current';
 /** The live-drag preview of a measurement shape — see `livePreviewShape`
  * below and `~/utils/mapMeasurement`. `mapId` guards against a stale preview
  * rendering against whatever map happens to be active after a switch. */
-export type MapMeasurementPreview = {
+export interface MapMeasurementPreview {
   mapId: string;
   shapeType: 'ruler' | 'circle' | 'cone' | 'line' | 'cube';
   originX: number;
@@ -935,12 +935,12 @@ export type MapMeasurementPreview = {
   orientation: number | null;
   color: string;
   label: string | null;
-};
+}
 
 /** Where the DM's cursor sits on the map while the measurement tool is
  * armed but no origin has been clicked yet — see `measurementCursor` below.
  * `mapId` guards the same way `MapMeasurementPreview.mapId` does. */
-export type MapMeasurementCursor = {
+export interface MapMeasurementCursor {
   mapId: string;
   x: number;
   y: number;
@@ -949,7 +949,7 @@ export type MapMeasurementCursor = {
    * highlight, since `measurementTool` itself is DM-local UI state that
    * never reaches the player canvas. */
   color: string;
-};
+}
 
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
 export type PlayerScreenOrientation = 'auto' | 'landscape' | 'portrait';

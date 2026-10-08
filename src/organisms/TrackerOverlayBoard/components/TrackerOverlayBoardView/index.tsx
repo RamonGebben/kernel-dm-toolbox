@@ -1,34 +1,41 @@
 'use client';
 
-import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import type { PlayerBoardCombatant } from '~/organisms/PlayerBoard/components/PlayerBoardView';
-import {
-  healthStatusColor,
-  healthStatusLabels,
-} from '~/utils/healthStatusPresentation';
+import { healthStatusLabels } from '~/utils/healthStatusPresentation';
+import { Wrapper } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Wrapper';
+import { Header } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Header';
+import { Round } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Round';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { PlainList } from '~/atoms/PlainList';
+import { Row } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Row';
+import { Conditions } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Conditions';
+import { ConditionBadge } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/ConditionBadge';
+import { Initiative } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Initiative';
+import { Name } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Name';
+import { Health } from '~/organisms/TrackerOverlayBoard/components/TrackerOverlayBoardView/components/Health';
 
-export type TrackerOverlayCondition = {
+export interface TrackerOverlayCondition {
   conditionSlug: string;
   name: string;
-};
+}
 
 /** `PlayerBoardCombatant` plus the one field standalone `PlayerBoardView`
  * doesn't render — defined here rather than added to `PlayerBoardCombatant`
  * itself, so that component stays untouched. */
 export type TrackerOverlayCombatant = PlayerBoardCombatant & {
-  conditions: readonly TrackerOverlayCondition[];
+  conditions: ReadonlyArray<TrackerOverlayCondition>;
 };
 
-export type TrackerOverlayBoardViewProps = {
+export interface TrackerOverlayBoardViewProps {
   isConnected: boolean;
   roundNumber: number;
-  combatants: readonly TrackerOverlayCombatant[];
+  combatants: ReadonlyArray<TrackerOverlayCombatant>;
   showInitiative: boolean;
   showName: boolean;
   showHealth: boolean;
   showConditions: boolean;
-};
+}
 
 /**
  * The tracker overlay's content — the compact twin of `PlayerBoardView`,
@@ -64,10 +71,10 @@ export const TrackerOverlayBoardView = ({
         <Round>
           {roundNumber > 0 ? `Round ${roundNumber}` : 'Rolling for initiative'}
         </Round>
-        {!isConnected && <Reconnecting>Reconnecting…</Reconnecting>}
+        {!isConnected && <MutedCaption>Reconnecting…</MutedCaption>}
       </Header>
 
-      <List>
+      <PlainList as="ol">
         {combatants.map(combatant => (
           <Row key={combatant.id} $isActive={combatant.isActive}>
             {showInitiative && <Initiative>{combatant.initiative}</Initiative>}
@@ -92,115 +99,7 @@ export const TrackerOverlayBoardView = ({
             )}
           </Row>
         ))}
-      </List>
+      </PlainList>
     </Wrapper>
   );
 };
-
-/**
- * No fixed/percentage height and no scrolling anywhere in this component —
- * this is projected onto a TV with no controls, so every combatant must
- * stay visible without anyone touching it. The overlay box that wraps this
- * (\`PlayerScreenView\`) sizes itself to this content instead of the other
- * way around.
- */
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  width: 100%;
-  padding: ${props => props.theme.space.sm};
-`;
-
-const Header = styled.header`
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  flex-shrink: 0;
-`;
-
-const Round = styled.h2`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.md};
-  letter-spacing: 0.04em;
-  color: ${props => props.theme.color.accent};
-`;
-
-const Reconnecting = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const List = styled.ol`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Row = styled.li<{ $isActive: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: ${props =>
-    props.$isActive
-      ? props.theme.color.surfaceRaised
-      : props.theme.color.surface};
-  border: 1px solid
-    ${props =>
-      props.$isActive ? props.theme.color.accent : props.theme.color.border};
-  border-left-width: ${props => (props.$isActive ? '4px' : '1px')};
-  border-radius: ${props => props.theme.radius.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-/** Never wraps to a second line and never grows past its share of the row —
- * `ConditionBadge` truncates instead, so an active combatant with several
- * conditions can't push the row's height around. */
-const Conditions = styled.div`
-  display: flex;
-  flex-wrap: nowrap;
-  gap: ${props => props.theme.space.xs};
-  min-width: 0;
-  max-width: 45%;
-  overflow: hidden;
-`;
-
-const ConditionBadge = styled.span`
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 ${props => props.theme.space.xs};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textMuted};
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const Initiative = styled.span`
-  flex-shrink: 0;
-  font-family: ${props => props.theme.font.mono};
-  font-weight: 700;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Name = styled.span<{ $isPlayerCharacter: boolean }>`
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: ${props => (props.$isPlayerCharacter ? 700 : 400)};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Health = styled.span<{ $status: PlayerBoardCombatant['healthStatus'] }>`
-  flex-shrink: 0;
-  color: ${props => healthStatusColor[props.$status](props.theme.color)};
-`;

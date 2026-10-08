@@ -1,27 +1,30 @@
 'use client';
 
-import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
-import { CheckboxRow, FieldRow } from '~/atoms/FormControls';
+import { CheckboxRow } from '~/atoms/CheckboxRow';
+import { FieldRow } from '~/atoms/FieldRow';
 import { Tabs, type TabOption } from '~/atoms/Tabs';
 import { OpenPlayerScreenLink } from '~/molecules/OpenPlayerScreenLink';
+import { Stack } from '~/atoms/Stack';
+import { Footer } from '~/organisms/SessionControlsPanel/components/SessionControlsView/components/Footer';
+import { MutedCaption } from '~/atoms/MutedCaption';
 
 export type PlayerScreenMode = 'map' | 'tracker' | 'both';
 export type PlayerScreenOrientation = 'auto' | 'landscape' | 'portrait';
 
-const MODE_OPTIONS: readonly TabOption<PlayerScreenMode>[] = [
+const MODE_OPTIONS: ReadonlyArray<TabOption<PlayerScreenMode>> = [
   { value: 'map', label: 'Map' },
   { value: 'tracker', label: 'Tracker' },
   { value: 'both', label: 'Both' },
 ];
 
-const ORIENTATION_OPTIONS: readonly TabOption<PlayerScreenOrientation>[] = [
+const ORIENTATION_OPTIONS: ReadonlyArray<TabOption<PlayerScreenOrientation>> = [
   { value: 'auto', label: 'Auto' },
   { value: 'landscape', label: 'Landscape' },
   { value: 'portrait', label: 'Portrait' },
 ];
 
-export type SessionControlsViewProps = {
+export interface SessionControlsViewProps {
   hasActiveMap: boolean;
   mode: PlayerScreenMode;
   onModeChange: (mode: PlayerScreenMode) => void;
@@ -39,7 +42,7 @@ export type SessionControlsViewProps = {
   onTrackerShowHealthChange: (show: boolean) => void;
   trackerShowConditions: boolean;
   onTrackerShowConditionsChange: (show: boolean) => void;
-};
+}
 
 /**
  * Controls for what the player screen shows and how it's oriented.
@@ -65,12 +68,12 @@ export const SessionControlsView = ({
   trackerShowConditions,
   onTrackerShowConditionsChange,
 }: SessionControlsViewProps) => {
-  const trackerToggles: readonly {
+  const trackerToggles: ReadonlyArray<{
     id: string;
     label: string;
     checked: boolean;
     onChange: (show: boolean) => void;
-  }[] = [
+  }> = [
     {
       id: 'tracker-show-initiative',
       label: 'Show initiative',
@@ -98,30 +101,30 @@ export const SessionControlsView = ({
   ];
 
   return (
-    <Wrapper>
-      <FieldGroup>
-        <Label>Player screen shows</Label>
+    <Stack $gap="m">
+      <Stack $gap="s">
+        <MutedCaption>Player screen shows</MutedCaption>
         <Tabs
           options={MODE_OPTIONS}
           value={mode}
           onChange={onModeChange}
           label="Player screen mode"
         />
-      </FieldGroup>
+      </Stack>
 
-      <FieldGroup>
-        <Label>Orientation</Label>
+      <Stack $gap="s">
+        <MutedCaption>Orientation</MutedCaption>
         <Tabs
           options={ORIENTATION_OPTIONS}
           value={orientation}
           onChange={onOrientationChange}
           label="Player screen orientation"
         />
-      </FieldGroup>
+      </Stack>
 
       {mode === 'both' && (
-        <FieldGroup>
-          <Label>Tracker overlay</Label>
+        <Stack $gap="s">
+          <MutedCaption>Tracker overlay</MutedCaption>
 
           <FieldRow>
             <label htmlFor="tracker-opacity">Opacity</label>
@@ -164,7 +167,7 @@ export const SessionControlsView = ({
               <label htmlFor={toggle.id}>{toggle.label}</label>
             </CheckboxRow>
           ))}
-        </FieldGroup>
+        </Stack>
       )}
 
       {!hasActiveMap && (
@@ -176,29 +179,6 @@ export const SessionControlsView = ({
       <Footer>
         <OpenPlayerScreenLink />
       </Footer>
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.lg};
-`;
-
-const Footer = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const FieldGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Label = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;

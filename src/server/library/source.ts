@@ -14,13 +14,13 @@ const FIXTURE_BASE_URL = 'https://raw.githubusercontent.com/open5e/open5e-api';
 
 export type LibraryLicense = 'cc-by-40' | 'ogl-10a';
 
-export type LibraryAttribution = {
+export interface LibraryAttribution {
   title: string;
   publisher: string;
   license: LibraryLicense;
   licenseUrl: string;
   sourceUrl: string;
-};
+}
 
 export type CreatureLibrarySource = LibraryAttribution & {
   /** The `data/v2/<publisher>/<document>` path segment on open5e-api. */
@@ -58,7 +58,7 @@ export const SRD_SOURCE: CreatureLibrarySource = {
  * this requires, built from these entries plus each document's own `author`
  * field at import time.
  */
-export const SUPPLEMENTARY_CREATURE_SOURCES: readonly CreatureLibrarySource[] =
+export const SUPPLEMENTARY_CREATURE_SOURCES: ReadonlyArray<CreatureLibrarySource> =
   [
     {
       path: 'en-publishing/a5e-mm',
@@ -123,14 +123,14 @@ export const SUPPLEMENTARY_CREATURE_SOURCES: readonly CreatureLibrarySource[] =
   ];
 
 /** Every document the creature import pulls from, SRD first. */
-export const CREATURE_LIBRARY_SOURCES: readonly CreatureLibrarySource[] = [
+export const CREATURE_LIBRARY_SOURCES: ReadonlyArray<CreatureLibrarySource> = [
   SRD_SOURCE,
   ...SUPPLEMENTARY_CREATURE_SOURCES,
 ];
 
 /** What `library.status` reports — every license this install's data is
  * actually under, not just the SRD's. */
-export const LIBRARY_ATTRIBUTIONS: readonly LibraryAttribution[] =
+export const LIBRARY_ATTRIBUTIONS: ReadonlyArray<LibraryAttribution> =
   CREATURE_LIBRARY_SOURCES.map(
     ({ path: _path, ...attribution }) => attribution,
   );
@@ -200,7 +200,7 @@ export const loadFixture = async <TName extends FixtureFileName>(
     fetchJson: FetchJson;
     optional?: boolean;
   },
-): Promise<z.infer<(typeof fixtureFiles)[TName]>[]> => {
+): Promise<Array<z.infer<(typeof fixtureFiles)[TName]>>> => {
   const url = fixtureUrl(fileName, gitRef, sourcePath);
 
   let payload: unknown;

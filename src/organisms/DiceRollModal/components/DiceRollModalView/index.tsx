@@ -1,37 +1,52 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { Modal } from '~/atoms/Modal';
 import { rollExpression, type DiceRollResult } from '~/utils/rollDice';
 import { applyDivisor, type Divisor } from '~/utils/applyDivisor';
+import { Section } from '~/organisms/DiceRollModal/components/DiceRollModalView/components/Section';
+import { InlineRow } from '~/atoms/InlineRow';
+import { Count } from '~/organisms/DiceRollModal/components/DiceRollModalView/components/Count';
+import { Stack } from '~/atoms/Stack';
+import { RollValues } from '~/organisms/DiceRollModal/components/DiceRollModalView/components/RollValues';
+import { Total } from '~/organisms/DiceRollModal/components/DiceRollModalView/components/Total';
+import { SectionTitle } from '~/organisms/DiceRollModal/components/DiceRollModalView/components/SectionTitle';
+import { MutedNote } from '~/atoms/MutedNote';
+import { PlainList } from '~/atoms/PlainList';
+import { SpreadRow } from '~/atoms/SpreadRow';
+import { TargetLabel } from '~/organisms/DiceRollModal/components/DiceRollModalView/components/TargetLabel';
+import { Cluster } from '~/atoms/Cluster';
+import { DivisorButton } from '~/organisms/DiceRollModal/components/DiceRollModalView/components/DivisorButton';
 
-export type DiceRollModalCombatant = {
+export interface DiceRollModalCombatant {
   id: string;
   displayName: string;
   currentHitPoints: number;
   maxHitPoints: number;
-};
+}
 
 export type DiceRollApplyIntent = 'damage' | 'heal';
 
-export type DiceRollModalViewProps = {
+export interface DiceRollModalViewProps {
   sides: number;
   modifier: number;
   initialCount: number;
   /** Only true for a roll triggered from a combatant's statblock. */
   canApplyToCombatants: boolean;
-  combatants: readonly DiceRollModalCombatant[];
+  combatants: ReadonlyArray<DiceRollModalCombatant>;
   isApplying: boolean;
   onClose: () => void;
   onApply: (
     intent: DiceRollApplyIntent,
-    targets: { id: string; amount: number }[],
+    targets: Array<{ id: string; amount: number }>,
   ) => void;
-};
+}
 
-type TargetRowState = { checked: boolean; divisor: Divisor };
+interface TargetRowState {
+  checked: boolean;
+  divisor: Divisor;
+}
 
 const defaultRowState: TargetRowState = { checked: false, divisor: 1 };
 
@@ -93,7 +108,7 @@ export const DiceRollModalView = ({
       onClose={onClose}
     >
       <Section>
-        <Stepper>
+        <InlineRow>
           <Button
             type="button"
             variant="ghost"
@@ -114,7 +129,7 @@ export const DiceRollModalView = ({
           >
             +
           </Button>
-        </Stepper>
+        </InlineRow>
 
         <Button type="button" onClick={roll}>
           Roll
@@ -148,29 +163,31 @@ const formatExpression = (count: number, sides: number, modifier: number) => {
   return `${base} ${modifier > 0 ? '+' : '-'} ${Math.abs(modifier)}`;
 };
 
-type RollResultProps = { result: DiceRollResult | null };
+interface RollResultProps {
+  result: DiceRollResult | null;
+}
 
 /** No roll yet vs. a result to show — a guard clause, not a ternary. */
 const RollResult = ({ result }: RollResultProps) => {
   if (!result) return null;
 
   return (
-    <Result>
+    <Stack $gap="xs">
       <RollValues>Rolls: {result.rolls.join(', ')}</RollValues>
       <Total>Total: {result.total}</Total>
-    </Result>
+    </Stack>
   );
 };
 
-type ApplySectionProps = {
-  combatants: readonly DiceRollModalCombatant[];
+interface ApplySectionProps {
+  combatants: ReadonlyArray<DiceRollModalCombatant>;
   targetState: Record<string, TargetRowState>;
   hasCheckedTarget: boolean;
   isApplying: boolean;
   onToggle: (id: string) => void;
   onDivisor: (id: string, divisor: Divisor) => void;
   onApply: (intent: DiceRollApplyIntent) => void;
-};
+}
 
 const divisorLabel: Record<Divisor, string> = { 1: 'Full', 2: '½', 4: '¼' };
 
@@ -187,14 +204,14 @@ const ApplySection = ({
     <SectionTitle>Apply to combatants</SectionTitle>
 
     {combatants.length === 0 ? (
-      <Muted>No combatants in the encounter yet.</Muted>
+      <MutedNote>No combatants in the encounter yet.</MutedNote>
     ) : (
-      <TargetList>
+      <PlainList>
         {combatants.map(combatant => {
           const row = targetState[combatant.id] ?? defaultRowState;
 
           return (
-            <TargetRow key={combatant.id}>
+            <SpreadRow as="li" key={combatant.id}>
               <TargetLabel>
                 <input
                   type="checkbox"
@@ -204,7 +221,7 @@ const ApplySection = ({
                 {combatant.displayName} ({combatant.currentHitPoints}/
                 {combatant.maxHitPoints})
               </TargetLabel>
-              <Divisors>
+              <Cluster $gap="xs">
                 {([1, 2, 4] as const).map(divisor => (
                   <DivisorButton
                     key={divisor}
@@ -216,14 +233,14 @@ const ApplySection = ({
                     {divisorLabel[divisor]}
                   </DivisorButton>
                 ))}
-              </Divisors>
-            </TargetRow>
+              </Cluster>
+            </SpreadRow>
           );
         })}
-      </TargetList>
+      </PlainList>
     )}
 
-    <ApplyActions>
+    <Cluster>
       <Button
         type="button"
         variant="secondary"
@@ -242,118 +259,6 @@ const ApplySection = ({
       >
         Apply as Heal
       </Button>
-    </ApplyActions>
+    </Cluster>
   </Section>
 );
-
-const Section = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-
-  & + & {
-    margin-top: ${props => props.theme.space.md};
-    padding-top: ${props => props.theme.space.md};
-    border-top: 1px solid ${props => props.theme.color.border};
-  }
-`;
-
-const Stepper = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Count = styled.span`
-  min-width: 2ch;
-  text-align: center;
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Result = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const RollValues = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Total = styled.span`
-  font-size: ${props => props.theme.fontSize.lg};
-  font-weight: 600;
-  color: ${props => props.theme.color.accent};
-`;
-
-const SectionTitle = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.md};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const TargetList = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const TargetRow = styled.li`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const TargetLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Divisors = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const DivisorButton = styled.button<{ $isActive: boolean }>`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props =>
-    props.$isActive ? props.theme.color.accent : 'transparent'};
-  color: ${props =>
-    props.$isActive
-      ? props.theme.color.textInverted
-      : props.theme.color.textMuted};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
-  cursor: pointer;
-
-  &:hover {
-    color: ${props =>
-      props.$isActive
-        ? props.theme.color.textInverted
-        : props.theme.color.textPrimary};
-  }
-`;
-
-const ApplyActions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;

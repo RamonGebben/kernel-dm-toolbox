@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
 import {
   computeVisibleMapRect,
   type MapPoint,
@@ -27,11 +26,14 @@ import {
   type MeasurementShapeInput,
   type MeasurementShapeType,
 } from '~/utils/mapMeasurement';
+import { Wrapper } from '~/organisms/MapCanvas/components/MapCanvasView/components/Wrapper';
+import { Canvas } from '~/organisms/MapCanvas/components/MapCanvasView/components/Canvas';
+import { EmptyOverlay } from '~/organisms/MapCanvas/components/MapCanvasView/components/EmptyOverlay';
 
 export type MapCanvasFogStrokeShape = 'circle' | 'square';
 export type MapCanvasFogStrokeMode = 'reveal' | 'cover';
 
-export type MapCanvasFogStroke = {
+export interface MapCanvasFogStroke {
   id: string;
   x: number;
   y: number;
@@ -39,34 +41,34 @@ export type MapCanvasFogStroke = {
   softness: number;
   shape: MapCanvasFogStrokeShape;
   mode: MapCanvasFogStrokeMode;
-};
+}
 
-export type MapCanvasFogState = {
+export interface MapCanvasFogState {
   enabled: boolean;
   baseState: 'covered' | 'revealed';
   /** A rasterized snapshot everything up to some earlier point was baked
    * into — see `MapFogState.baselineImage` on the schema for why. Null
    * before the first compaction. */
   baselineImage: string | null;
-  strokes: MapCanvasFogStroke[];
-};
+  strokes: Array<MapCanvasFogStroke>;
+}
 
-export type MapCanvasFogTool = {
+export interface MapCanvasFogTool {
   enabled: boolean;
   mode: MapCanvasFogStrokeMode;
   shape: MapCanvasFogStrokeShape;
   size: number;
   softness: number;
-};
+}
 
-export type MapCanvasGridSettings = {
+export interface MapCanvasGridSettings {
   visible: boolean;
   color: string;
   opacity: number;
   cellSize: number;
   originX: number;
   originY: number;
-};
+}
 
 export type MapCanvasMedia = {
   fileUrl: string;
@@ -77,7 +79,10 @@ export type MapCanvasMedia = {
   nativeHeight?: number | null;
 } | null;
 
-export type CalibrationPoint = { x: number; y: number };
+export interface CalibrationPoint {
+  x: number;
+  y: number;
+}
 
 /** A committed ruler/spell-area shape, ready to draw. */
 export type MapCanvasMeasurementShape = MeasurementShapeInput & {
@@ -101,7 +106,7 @@ export type MapCanvasMeasurementShape = MeasurementShapeInput & {
 /** The armed placement tool — while enabled, a canvas click either sets a
  * shape's origin or (if one is pending) confirms it. `color` drives the
  * live-drag preview's stroke before the shape has an id of its own. */
-export type MapCanvasMeasurementTool = {
+export interface MapCanvasMeasurementTool {
   enabled: boolean;
   shapeType: MeasurementShapeType;
   color: string;
@@ -111,9 +116,9 @@ export type MapCanvasMeasurementTool = {
   presetExtentFeet: number | null;
   /** Shown on the live-drag preview's label alongside its distance. */
   label: string | null;
-};
+}
 
-export type MapCanvasViewProps = {
+export interface MapCanvasViewProps {
   map: MapCanvasMedia;
   viewport: Viewport;
   /** DM screen = true; a read-only preview (later: the player screen) = false. */
@@ -124,7 +129,7 @@ export type MapCanvasViewProps = {
   /** DM and player screens render the same fog at different opacities. */
   fogOpacity?: number;
   fogTool?: MapCanvasFogTool;
-  onFogStrokeBatch?: (strokes: MapCanvasFogStroke[]) => void;
+  onFogStrokeBatch?: (strokes: Array<MapCanvasFogStroke>) => void;
   /** Fired with a freshly-rasterized data URL once `fog.strokes` crosses
    * `FOG_COMPACTION_STROKE_THRESHOLD` — undefined on a non-interactive
    * (player) canvas, which has nothing to write it with and skips the
@@ -161,7 +166,7 @@ export type MapCanvasViewProps = {
   onTrackerRectChange?: (rect: LensRect) => void;
   /** Every shape already placed on this map — drawn on both the DM and
    * player screens, always, since none of them are secret (issue #1). */
-  measurementShapes?: MapCanvasMeasurementShape[];
+  measurementShapes?: Array<MapCanvasMeasurementShape>;
   /** Multiplier on a shape's label font size, so it can be bumped up for a
    * TV viewed from across the room — 1 (the base 12px) when unset. Session-
    * wide: the DM and player canvases always draw labels at the same size. */
@@ -217,7 +222,7 @@ export type MapCanvasViewProps = {
     id: string,
     origin: { x: number; y: number },
   ) => void;
-};
+}
 
 const DEFAULT_BACKGROUND = '#0f1014';
 const DEFAULT_FOG_OPACITY = 0.8;
@@ -1227,30 +1232,3 @@ export const MapCanvasView = ({
     </Wrapper>
   );
 };
-
-const Wrapper = styled.div`
-  position: relative;
-  width: 100%;
-  height: 100%;
-`;
-
-const Canvas = styled.canvas`
-  display: block;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
-`;
-
-const EmptyOverlay = styled.p`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: ${props => props.theme.space.md};
-  text-align: center;
-  color: ${props => props.theme.color.textMuted};
-  font-size: ${props => props.theme.fontSize.sm};
-  pointer-events: none;
-`;

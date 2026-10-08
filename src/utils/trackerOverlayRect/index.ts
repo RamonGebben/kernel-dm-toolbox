@@ -9,10 +9,10 @@ import type { LensRect } from '~/utils/mapLens';
  * and a map-space one.
  */
 
-export type TrackerFootprint = {
+export interface TrackerFootprint {
   widthFraction: number;
   heightFraction: number;
-};
+}
 
 const MAX_FOOTPRINT_FRACTION = 0.9;
 const BASE_WIDTH_FRACTION = 0.4;
@@ -28,12 +28,12 @@ export const trackerFootprint = (scale: number): TrackerFootprint => ({
   ),
 });
 
-export type TrackerBoxFraction = {
+export interface TrackerBoxFraction {
   left: number;
   top: number;
   width: number;
   height: number;
-};
+}
 
 /** Where the overlay sits, as 0..1 fractions of its container. `anchorX`/
  * `anchorY` of 0 flushes it against the container's near edge, 1 against the

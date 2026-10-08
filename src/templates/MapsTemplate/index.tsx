@@ -1,15 +1,16 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import styled from 'styled-components';
+import { Page } from '~/atoms/Page';
+import { CanvasArea } from '~/templates/MapsTemplate/components/CanvasArea';
 
-type MapsTemplateProps = {
+interface MapsTemplateProps {
   /** The vertical tool rail, injected by the page. */
   navigationSlot: ReactNode;
   canvasSlot: ReactNode;
   /** The floating icon rail + drawer — `MapControlPanel`. */
   controlsSlot: ReactNode;
-};
+}
 
 /**
  * The Maps DM screen: the battle map fills the entire canvas area edge to
@@ -31,20 +32,3 @@ export const MapsTemplate = ({
     </CanvasArea>
   </Page>
 );
-
-const Page = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-
-  ${props => props.theme.media.lg} {
-    flex-direction: row;
-  }
-`;
-
-const CanvasArea = styled.div`
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-`;

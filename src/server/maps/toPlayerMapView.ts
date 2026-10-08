@@ -12,7 +12,7 @@ import type {
   PlayerScreenOrientation,
 } from '~/server/db/schema';
 
-export type PlayerMapViewMeasurementShape = {
+export interface PlayerMapViewMeasurementShape {
   id: string;
   shapeType: MapMeasurementShape['shapeType'];
   originX: number;
@@ -34,9 +34,9 @@ export type PlayerMapViewMeasurementShape = {
    * board (an ongoing-duration spell) rather than play once — see
    * `shouldLoopSpellEffect`. Always false without `effectUrl`. */
   effectLoops: boolean;
-};
+}
 
-export type PlayerMapViewMap = {
+export interface PlayerMapViewMap {
   fileUrl: string;
   kind: 'image' | 'video';
   nativeWidth: number | null;
@@ -54,10 +54,10 @@ export type PlayerMapViewMap = {
     enabled: boolean;
     baseState: 'covered' | 'revealed';
     baselineImage: string | null;
-    strokes: MapFogStroke[];
+    strokes: Array<MapFogStroke>;
   };
   fogOpacity: number;
-  measurementShapes: PlayerMapViewMeasurementShape[];
+  measurementShapes: Array<PlayerMapViewMeasurementShape>;
   /** Multiplier on a shape's label font size — see `mapSessions.
    * measurementLabelScale`. Session-wide, so the DM and player canvases
    * always agree on it (there is no separate player-only override). */
@@ -66,9 +66,9 @@ export type PlayerMapViewMap = {
    * measurementCursorScale`. Same session-wide reasoning as
    * `measurementLabelScale`. */
   measurementCursorScale: number;
-};
+}
 
-export type PlayerMapViewTrackerOverlay = {
+export interface PlayerMapViewTrackerOverlay {
   anchorX: number;
   anchorY: number;
   scale: number;
@@ -77,9 +77,9 @@ export type PlayerMapViewTrackerOverlay = {
   showName: boolean;
   showHealth: boolean;
   showConditions: boolean;
-};
+}
 
-export type PlayerMapView = {
+export interface PlayerMapView {
   mode: PlayerScreenMode;
   orientation: PlayerScreenOrientation;
   /** Null when nothing is live yet, or the active map has been removed. */
@@ -96,12 +96,12 @@ export type PlayerMapView = {
    * preview yet — null once a shape preview exists (it takes over) or
    * nothing is being aimed at all. Same stale-map guard as above. */
   measurementCursor: MapMeasurementCursor | null;
-};
+}
 
 const toPlayerMapViewMap = (
   map: MapAsset,
   session: MapSession,
-  measurementShapes: readonly MapMeasurementShape[],
+  measurementShapes: ReadonlyArray<MapMeasurementShape>,
 ): PlayerMapViewMap => {
   const fog = normalizeMapFogState(map.fog);
 
@@ -160,7 +160,7 @@ const toPlayerMapViewMap = (
 export const toPlayerMapView = (args: {
   session: MapSession;
   map: MapAsset | null;
-  measurementShapes: readonly MapMeasurementShape[];
+  measurementShapes: ReadonlyArray<MapMeasurementShape>;
 }): PlayerMapView => {
   const { session, map, measurementShapes } = args;
 

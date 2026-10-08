@@ -17,7 +17,7 @@ export type ProjectRequest =
   | { kind: 'walls'; squares: number };
 
 /** The row a project becomes, minus the bastion and sync columns. */
-export type ProjectPlan = {
+export interface ProjectPlan {
   kind: ProjectRequest['kind'];
   basicType: BasicFacilityType | null;
   space: FacilitySpace | null;
@@ -25,7 +25,7 @@ export type ProjectPlan = {
   wallSquares: number | null;
   costGp: number;
   daysRemaining: number;
-};
+}
 
 export type ProjectPlanResult =
   | { ok: true; plan: ProjectPlan }

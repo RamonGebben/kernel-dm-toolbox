@@ -1,23 +1,24 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
+import { Form } from '~/molecules/ConditionPicker/components/Form';
+import { Select } from '~/molecules/ConditionPicker/components/Select';
 
-export type ConditionOption = {
+export interface ConditionOption {
   slug: string;
   name: string;
-};
+}
 
-export type ConditionPickerProps = {
-  options: readonly ConditionOption[];
+export interface ConditionPickerProps {
+  options: ReadonlyArray<ConditionOption>;
   isPending: boolean;
   onApply: (input: {
     conditionSlug: string;
     roundsRemaining: number | null;
   }) => void;
-};
+}
 
 /**
  * Applies a condition, optionally for a number of rounds.
@@ -77,20 +78,3 @@ export const ConditionPicker = ({
     </Form>
   );
 };
-
-const Form = styled.form`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.5rem auto;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Select = styled.select`
-  width: 100%;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
-`;

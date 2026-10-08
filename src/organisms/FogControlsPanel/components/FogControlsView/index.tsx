@@ -1,20 +1,23 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
-import { CheckboxRow, FieldRow, Select } from '~/atoms/FormControls';
-import type { FogBrushMode, FogBrushShape } from '~/stores/mapTool';
+import { CheckboxRow } from '~/atoms/CheckboxRow';
+import { FieldRow } from '~/atoms/FieldRow';
+import { Select } from '~/atoms/Select';
+import type { FogBrushMode, FogBrushShape } from '~/store/mapTool';
+import { Stack } from '~/atoms/Stack';
+import { Cluster } from '~/atoms/Cluster';
 
-export type FogControlsBrush = {
+export interface FogControlsBrush {
   enabled: boolean;
   mode: FogBrushMode;
   shape: FogBrushShape;
   size: number;
   softness: number;
-};
+}
 
-export type FogControlsViewProps = {
+export interface FogControlsViewProps {
   hasSelectedMap: boolean;
   isEnabled: boolean;
   dmOpacity: number;
@@ -26,7 +29,7 @@ export type FogControlsViewProps = {
   onDmOpacityChange: (opacity: number) => void;
   onPlayerOpacityChange: (opacity: number) => void;
   onBrushChange: (patch: Partial<FogControlsBrush>) => void;
-};
+}
 
 /**
  * Fog of war for the previewed map. Presentational — every state is
@@ -55,7 +58,7 @@ export const FogControlsView = ({
   }
 
   return (
-    <Wrapper>
+    <Stack>
       <CheckboxRow>
         <input
           id="fog-enabled"
@@ -161,27 +164,16 @@ export const FogControlsView = ({
             />
           </FieldRow>
 
-          <ButtonRow>
+          <Cluster>
             <Button variant="ghost" size="sm" onClick={onRevealAll}>
               Reveal all
             </Button>
             <Button variant="ghost" size="sm" onClick={onReset}>
               Reset
             </Button>
-          </ButtonRow>
+          </Cluster>
         </>
       )}
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const ButtonRow = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;

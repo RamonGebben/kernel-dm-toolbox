@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { EncounterView } from '~/organisms/EncounterPanel/components/EncounterView';
 import { useEncounter } from '~/organisms/EncounterPanel/hooks/useEncounter';
 import { useTrackerHotkeys } from '~/organisms/EncounterPanel/hooks/useTrackerHotkeys';
-import { useSelectionStore } from '~/stores/selection';
+import { useSelectionStore } from '~/store/selection';
 
 /** Connected boundary for the centre column. */
 export const EncounterPanel = () => {

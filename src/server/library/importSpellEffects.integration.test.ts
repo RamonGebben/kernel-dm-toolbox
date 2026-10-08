@@ -137,7 +137,7 @@ const fakeVideoBytes = new TextEncoder().encode('fake-webm-bytes').buffer;
 
 let db: Database;
 let storageDir: string;
-let fetchedUrls: string[];
+let fetchedUrls: Array<string>;
 
 const stubFetchBinary: FetchBinary = async url => {
   fetchedUrls.push(url);

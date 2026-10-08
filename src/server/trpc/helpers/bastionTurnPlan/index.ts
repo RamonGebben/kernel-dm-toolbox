@@ -23,7 +23,7 @@ import type { TurnDraft } from '~/server/trpc/schemas/bastionTurns';
  * writes what they say — so every rule here is testable without a database.
  */
 
-type FacilityRow = {
+interface FacilityRow {
   id: string;
   bastionId: string;
   facilityKey: string;
@@ -35,17 +35,17 @@ type FacilityRow = {
   jobValueGp: number;
   jobQuantity: number;
   outOfActionTurns: number;
-};
+}
 
-type StorageRow = {
+interface StorageRow {
   id: string;
   bastionId: string;
   name: string;
   valueGp: number | null;
   claimedByCharacterId: string | null;
-};
+}
 
-type BastionRow = {
+interface BastionRow {
   id: string;
   name: string;
   ownerCharacterId: string | null;
@@ -53,21 +53,21 @@ type BastionRow = {
   isFullyEnclosed: boolean;
   isArmoryStocked: boolean;
   hasGuestMonster: boolean;
-};
+}
 
-type ProjectRow = {
+interface ProjectRow {
   id: string;
   bastionId: string;
   description: string;
   daysRemaining: number;
-};
+}
 
-type Character = {
+interface Character {
   id: string;
   name: string;
   level: number;
   isActive: boolean;
-};
+}
 
 /**
  * An order option as this bastion sees it. Where the cost follows from the
@@ -113,11 +113,11 @@ export const toTurnContext = ({
 }: {
   turnNumber: number;
   treasuryGold: number;
-  bastions: readonly BastionRow[];
-  facilities: readonly FacilityRow[];
-  projects: readonly ProjectRow[];
-  storage: readonly StorageRow[];
-  characters: readonly Character[];
+  bastions: ReadonlyArray<BastionRow>;
+  facilities: ReadonlyArray<FacilityRow>;
+  projects: ReadonlyArray<ProjectRow>;
+  storage: ReadonlyArray<StorageRow>;
+  characters: ReadonlyArray<Character>;
 }) => {
   const nameOf = (id: string | null) =>
     characters.find(character => character.id === id)?.name ?? 'Nobody';
@@ -317,15 +317,15 @@ export const startTurnDraft = (context: TurnContext): TurnDraft => ({
   events: [],
 });
 
-export type TurnCommitPlan = {
+export interface TurnCommitPlan {
   treasuryDelta: number;
-  bastions: {
+  bastions: Array<{
     id: string;
     defenderCount: number;
     isArmoryStocked: boolean;
     hasGuestMonster: boolean;
-  }[];
-  facilities: {
+  }>;
+  facilities: Array<{
     id: string;
     jobOptionKey: string | null;
     jobNote: string | null;
@@ -333,24 +333,24 @@ export type TurnCommitPlan = {
     jobValueGp: number;
     jobQuantity: number;
     outOfActionTurns: number;
-  }[];
-  projectsToComplete: string[];
-  projectsToAdvance: { id: string; daysRemaining: number }[];
-  storageItems: {
+  }>;
+  projectsToComplete: Array<string>;
+  projectsToAdvance: Array<{ id: string; daysRemaining: number }>;
+  storageItems: Array<{
     bastionId: string;
     name: string;
     quantity: number;
     note: string | null;
     valueGp: number | null;
-  }[];
+  }>;
   /** Stored lots a Storehouse was told to sell: gone once the turn commits. */
-  storageItemsToRemove: string[];
+  storageItemsToRemove: Array<string>;
   /** One line per thing that happened, for the turn's history. */
-  lines: string[];
-};
+  lines: Array<string>;
+}
 
 export type TurnCommitResult =
-  { ok: true; plan: TurnCommitPlan } | { ok: false; problems: string[] };
+  { ok: true; plan: TurnCommitPlan } | { ok: false; problems: Array<string> };
 
 type FacilityState = { outOfActionTurns: number } & Omit<
   TurnCommitPlan['facilities'][number],
@@ -369,7 +369,7 @@ const STALE_DRAFT_ADVICE = 'Discard this turn and start a new one.';
 export const findStaleDraftProblems = (
   draft: TurnDraft,
   context: TurnContext,
-): string[] => {
+): Array<string> => {
   const liveIds = new Set(context.bastions.map(({ id }) => id));
   const draftedIds = new Set(draft.actors.map(({ bastionId }) => bastionId));
 
@@ -421,8 +421,8 @@ export const planTurnCommit = (
   const stale = findStaleDraftProblems(draft, context);
   if (stale.length) return { ok: false, problems: stale };
 
-  const problems: string[] = [];
-  const lines: string[] = [];
+  const problems: Array<string> = [];
+  const lines: Array<string> = [];
 
   // 1. Seven days pass for every facility.
   const facilityState = new Map<string, FacilityState>(
@@ -494,7 +494,7 @@ export const planTurnCommit = (
 
   // 3. New orders, from whoever is home and not maintaining.
   const ordered = new Set<string>();
-  const storageItemsToRemove: string[] = [];
+  const storageItemsToRemove: Array<string> = [];
   for (const actor of draft.actors) {
     const bastion = context.bastions.find(({ id }) => id === actor.bastionId);
     const member = bastion?.actors.find(({ id }) => id === actor.characterId);

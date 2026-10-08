@@ -1,13 +1,18 @@
 'use client';
 
-import styled from 'styled-components';
+import { Name } from '~/organisms/StatblockPanel/components/CharacterCard/components/Name';
+import { Kind } from '~/organisms/StatblockPanel/components/CharacterCard/components/Kind';
+import { StatblockRule } from '~/atoms/StatblockRule';
+import { StatblockLine } from '~/atoms/StatblockLine';
+import { StatblockKey } from '~/atoms/StatblockKey';
+import { Note } from '~/organisms/StatblockPanel/components/CharacterCard/components/Note';
 
-export type CharacterCardProps = {
+export interface CharacterCardProps {
   displayName: string;
   currentHitPoints: number;
   maxHitPoints: number;
   armorClass: number;
-};
+}
 
 /**
  * What the panel shows for a party member.
@@ -25,48 +30,13 @@ export const CharacterCard = ({
   <article>
     <Name>{displayName}</Name>
     <Kind>Player Character</Kind>
-    <Rule />
-    <Line>
-      <Key>Armor Class</Key> {armorClass}
-    </Line>
-    <Line>
-      <Key>Hit Points</Key> {currentHitPoints}/{maxHitPoints}
-    </Line>
+    <StatblockRule />
+    <StatblockLine>
+      <StatblockKey>Armor Class</StatblockKey> {armorClass}
+    </StatblockLine>
+    <StatblockLine>
+      <StatblockKey>Hit Points</StatblockKey> {currentHitPoints}/{maxHitPoints}
+    </StatblockLine>
     <Note>The player has the character sheet.</Note>
   </article>
 );
-
-const Name = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.xl};
-  color: ${props => props.theme.color.accent};
-`;
-
-const Kind = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: 600;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Rule = styled.hr`
-  margin: ${props => props.theme.space.sm} 0;
-  border: none;
-  border-top: 1px solid ${props => props.theme.color.accentMuted};
-`;
-
-const Line = styled.p`
-  margin: 0 0 ${props => props.theme.space.xs};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Key = styled.strong`
-  color: ${props => props.theme.color.accent};
-`;
-
-const Note = styled.p`
-  margin-top: ${props => props.theme.space.lg};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;

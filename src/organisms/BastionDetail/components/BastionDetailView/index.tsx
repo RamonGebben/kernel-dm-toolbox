@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { Modal } from '~/atoms/Modal';
@@ -24,15 +23,26 @@ import {
   BastionSettingsForm,
   type BastionSettingsValues,
 } from '~/organisms/BastionDetail/components/BastionDetailView/components/BastionSettingsForm';
+import { Stack } from '~/atoms/Stack';
+import { Header } from '~/organisms/BastionDetail/components/BastionDetailView/components/Header';
+import { Title } from '~/organisms/BastionDetail/components/BastionDetailView/components/Title';
+import { MutedParagraph } from '~/atoms/MutedParagraph';
+import { Allowances } from '~/organisms/BastionDetail/components/BastionDetailView/components/Allowances';
+import { Cluster } from '~/atoms/Cluster';
+import { Notes } from '~/organisms/BastionDetail/components/BastionDetailView/components/Notes';
+import { ErrorBanner } from '~/organisms/BastionDetail/components/BastionDetailView/components/ErrorBanner';
+import { Cards } from '~/organisms/BastionDetail/components/BastionDetailView/components/Cards';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type BastionDetailViewProps = {
+export interface BastionDetailViewProps {
   state: BastionDetailState;
   treasuryGold: number;
-  characters: readonly { id: string; name: string }[];
+  characters: ReadonlyArray<{ id: string; name: string }>;
   isSaving: boolean;
   error: string | null;
   actions: BastionDetailActions;
-};
+}
 
 /** Presentational: one bastion in full, every state reachable from a story. */
 export const BastionDetailView = ({
@@ -40,7 +50,7 @@ export const BastionDetailView = ({
   ...rest
 }: BastionDetailViewProps) => {
   if (state.kind === 'pending')
-    return <Skeleton role="status" aria-label="Loading the bastion" />;
+    return <Skeleton $height="12rem" aria-label="Loading the bastion" />;
 
   if (state.kind === 'none') {
     return (
@@ -111,13 +121,13 @@ const LoadedBastion = ({
       .then(close, () => undefined);
 
   return (
-    <Wrapper>
+    <Stack $gap="m">
       <Header>
         <div>
           <Title>{detail.name}</Title>
-          <Meta>
+          <MutedParagraph>
             {describeOwnership(detail)} · treasury {formatGold(treasuryGold)}
-          </Meta>
+          </MutedParagraph>
           {detail.kind === 'party' ? (
             <Allowances aria-label="Facilities per member">
               {detail.members.map(member => (
@@ -128,7 +138,7 @@ const LoadedBastion = ({
             </Allowances>
           ) : null}
         </div>
-        <HeaderActions>
+        <Cluster $gap="xs">
           <Button
             variant="secondary"
             size="sm"
@@ -142,7 +152,7 @@ const LoadedBastion = ({
             confirmLabel={`Abandon ${detail.name}`}
             onConfirm={actions.abandon}
           />
-        </HeaderActions>
+        </Cluster>
       </Header>
 
       {detail.notes ? <Notes>{detail.notes}</Notes> : null}
@@ -152,7 +162,7 @@ const LoadedBastion = ({
       />
       {error ? <ErrorBanner role="alert">{error}</ErrorBanner> : null}
 
-      <Section aria-label="Special facilities">
+      <Stack as="section" $gap="s" aria-label="Special facilities">
         <SectionHeading
           action={
             <Button size="sm" onClick={() => setOpenDialog('picker')}>
@@ -185,12 +195,12 @@ const LoadedBastion = ({
             ))}
           </Cards>
         ) : (
-          <Muted>
+          <MutedNote>
             None yet. A character picks two at level 5, and more at 9, 13 and
             17.
-          </Muted>
+          </MutedNote>
         )}
-      </Section>
+      </Stack>
 
       <BasicFacilitiesSection
         facilities={detail.basicFacilities}
@@ -280,86 +290,6 @@ const LoadedBastion = ({
           }
         />
       </Modal>
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.lg};
-`;
-
-const Header = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.xl};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Meta = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Allowances = styled.ul`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${props => props.theme.space.xs} ${props => props.theme.space.md};
-  margin: ${props => props.theme.space.xs} 0 0;
-  padding: 0;
-  list-style: none;
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const HeaderActions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Notes = styled.p`
-  margin: 0;
-  white-space: pre-line;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const ErrorBanner = styled.p`
-  margin: 0;
-  padding: ${props => props.theme.space.sm} ${props => props.theme.space.md};
-  border: 1px solid ${props => props.theme.color.danger};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.danger};
-`;
-
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Cards = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Skeleton = styled.div`
-  height: 12rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

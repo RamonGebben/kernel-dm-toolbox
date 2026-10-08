@@ -173,7 +173,7 @@ const orphanCastingOption = {
   },
 };
 
-const payloads: Record<string, unknown[]> = {
+const payloads: Record<string, Array<unknown>> = {
   Creature: [aboleth],
   CreatureAction: [tentacleAction, orphanAction],
   CreatureActionAttack: [tentacleAttack],

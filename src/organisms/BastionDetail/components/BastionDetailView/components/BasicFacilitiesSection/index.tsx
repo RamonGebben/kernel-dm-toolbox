@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { FieldRow, Select } from '~/atoms/FormControls';
+import { FieldRow } from '~/atoms/FieldRow';
+import { Select } from '~/atoms/Select';
 import { SectionHeading } from '~/atoms/SectionHeading';
 import { ConfirmButton } from '~/molecules/ConfirmButton';
 import {
@@ -16,8 +16,14 @@ import type { BasicFacilityType, FacilitySpace } from '~/content/bastion/types';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
 import { formatGold } from '~/utils/applyGoldChange';
 import { spaceLabel } from '~/utils/bastionRules';
+import { Stack } from '~/atoms/Stack';
+import { PlainList } from '~/atoms/PlainList';
+import { Row } from '~/organisms/BastionDetail/components/BastionDetailView/components/Row';
+import { Actions } from '~/organisms/BastionDetail/components/BastionDetailView/components/Actions';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { BuildForm } from '~/organisms/BastionDetail/components/BastionDetailView/components/BasicFacilitiesSection/components/BuildForm';
 
-export type BasicFacilitiesSectionProps = {
+export interface BasicFacilitiesSectionProps {
   facilities: BastionDetail['basicFacilities'];
   treasuryGold: number;
   /** Paid from the treasury and built over days. */
@@ -26,7 +32,7 @@ export type BasicFacilitiesSectionProps = {
   onAddExisting: (type: BasicFacilityType, space: FacilitySpace) => void;
   onEnlarge: (facilityId: string) => void;
   onRemove: (facilityId: string) => void;
-};
+}
 
 const isSpace = (value: string): value is FacilitySpace =>
   facilitySpaces.some(({ space }) => space === value);
@@ -45,14 +51,15 @@ export const BasicFacilitiesSection = ({
   const build = basicFacilityBuild[space];
 
   return (
-    <Section aria-label="Basic facilities">
+    <Stack as="section" $gap="s" aria-label="Basic facilities">
       <SectionHeading>Basic facilities</SectionHeading>
 
-      <List>
+      <PlainList>
         {facilities.map(facility => (
           <Row key={facility.id}>
             <span>
-              {facility.label} <Muted>· {spaceLabel(facility.space)}</Muted>
+              {facility.label}{' '}
+              <MutedCaption>· {spaceLabel(facility.space)}</MutedCaption>
             </span>
             <Actions>
               <EnlargeButton
@@ -69,7 +76,7 @@ export const BasicFacilitiesSection = ({
             </Actions>
           </Row>
         ))}
-      </List>
+      </PlainList>
 
       <BuildForm>
         <FieldRow>
@@ -120,22 +127,22 @@ export const BasicFacilitiesSection = ({
           Add as already built
         </Button>
       </BuildForm>
-    </Section>
+    </Stack>
   );
 };
 
-type EnlargeButtonProps = {
+interface EnlargeButtonProps {
   facility: BastionDetail['basicFacilities'][number];
   treasuryGold: number;
   onEnlarge: () => void;
-};
+}
 
 const EnlargeButton = ({
   facility,
   treasuryGold,
   onEnlarge,
 }: EnlargeButtonProps) => {
-  if (facility.isBeingEnlarged) return <Muted>Enlarging…</Muted>;
+  if (facility.isBeingEnlarged) return <MutedCaption>Enlarging…</MutedCaption>;
   if (!facility.enlarge) return null;
 
   return (
@@ -151,48 +158,3 @@ const EnlargeButton = ({
     </Button>
   );
 };
-
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Row = styled.li`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Muted = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const BuildForm = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: ${props => props.theme.space.sm};
-`;

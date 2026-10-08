@@ -1,27 +1,33 @@
 'use client';
 
-import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import type { HealthStatus } from '~/utils/applyDamage';
-import {
-  healthStatusColor,
-  healthStatusLabels,
-} from '~/utils/healthStatusPresentation';
+import { healthStatusLabels } from '~/utils/healthStatusPresentation';
+import { Wrapper } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Wrapper';
+import { Centered } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Centered';
+import { Header } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Header';
+import { Round } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Round';
+import { Reconnecting } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Reconnecting';
+import { List } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/List';
+import { Row } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Row';
+import { Initiative } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Initiative';
+import { Name } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Name';
+import { Health } from '~/organisms/PlayerBoard/components/PlayerBoardView/components/Health';
 
-export type PlayerBoardCombatant = {
+export interface PlayerBoardCombatant {
   id: string;
   displayName: string;
   initiative: number;
   isActive: boolean;
   isPlayerCharacter: boolean;
   healthStatus: HealthStatus;
-};
+}
 
-export type PlayerBoardViewProps = {
+export interface PlayerBoardViewProps {
   isConnected: boolean;
   roundNumber: number;
-  combatants: readonly PlayerBoardCombatant[];
-};
+  combatants: ReadonlyArray<PlayerBoardCombatant>;
+}
 
 /**
  * The second screen, read from across a table.
@@ -71,84 +77,3 @@ export const PlayerBoardView = ({
     </Wrapper>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.lg};
-  max-width: 60rem;
-  margin: 0 auto;
-  padding: ${props => props.theme.space.xl} ${props => props.theme.space.md};
-`;
-
-const Centered = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 60dvh;
-`;
-
-const Header = styled.header`
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Round = styled.h1`
-  margin: 0;
-  font-size: 2rem;
-  letter-spacing: 0.04em;
-  color: ${props => props.theme.color.accent};
-`;
-
-const Reconnecting = styled.span`
-  font-size: ${props => props.theme.fontSize.md};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const List = styled.ol`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Row = styled.li<{ $isActive: boolean }>`
-  display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr) auto;
-  align-items: center;
-  gap: ${props => props.theme.space.md};
-  padding: ${props => props.theme.space.md};
-  background: ${props =>
-    props.$isActive
-      ? props.theme.color.surfaceRaised
-      : props.theme.color.surface};
-  border: 1px solid
-    ${props =>
-      props.$isActive ? props.theme.color.accent : props.theme.color.border};
-  border-left-width: ${props => (props.$isActive ? '6px' : '1px')};
-  border-radius: ${props => props.theme.radius.md};
-  font-size: 1.5rem;
-`;
-
-const Initiative = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  font-weight: 700;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Name = styled.span<{ $isPlayerCharacter: boolean }>`
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: ${props => (props.$isPlayerCharacter ? 700 : 400)};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Health = styled.span<{ $status: HealthStatus }>`
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => healthStatusColor[props.$status](props.theme.color)};
-`;

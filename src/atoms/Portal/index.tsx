@@ -3,9 +3,9 @@
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 
-export type PortalProps = {
+export interface PortalProps {
   children: ReactNode;
-};
+}
 
 /**
  * Renders `children` at the end of `document.body`, escaping any ancestor's

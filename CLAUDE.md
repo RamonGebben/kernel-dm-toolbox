@@ -48,8 +48,8 @@ pnpm dev              # dev server
 pnpm build            # production build (standalone output)
 pnpm start            # run the standalone server, exactly as Docker does
 pnpm lint             # eslint
-pnpm format           # prettier --write
-pnpm format:check     # prettier --check
+pnpm format           # prettier --check
+pnpm format:write     # prettier --write
 pnpm typecheck        # next typegen && tsc --noEmit
 pnpm test             # node unit project only — fast, browser-free
 pnpm test:watch       # the same, in watch mode
@@ -76,7 +76,9 @@ src/
   molecules/                          │ presentational, no data fetching
   organisms/                          │ (see the one exception below)
   templates/           ───────────────┘ full page bodies, props in / JSX out
-  components/          app-level providers & managers ONLY. Never feature UI.
+  providers/           app-level providers & managers ONLY. Never feature UI.
+                       AppProviders, ThemeProvider, TRPCProvider,
+                       StyledComponentsRegistry.
   content/             static config/copy (nav configs, marketing copy)
   hooks/               cross-component hooks (component-scoped ones live in
                        that component's own hooks/ folder)
@@ -88,17 +90,18 @@ src/
       routers/_app.ts  appRouter; one file per domain router beside it
       schemas/         zod input/data schemas per domain
       helpers/         pure server helpers, unit-tested
-  stores/              zustand stores for ephemeral client UI state only
+  store/               zustand stores for ephemeral client UI state only
                        (never server data — that's TanStack Query's job)
-  theme/               colors.ts, index.ts, GlobalStyle.tsx, styled.d.ts,
-                       breakpoints.ts, shouldForwardProp.ts
-  trpc/                client-side wiring: react.tsx, provider.tsx,
+  theme/               tokens.ts (the values), index.ts (the DesignSystem
+                       instance), styled.d.ts, shouldForwardProp.ts
+  trpc/                client-side wiring: react.tsx,
                        query-client.ts
   utils/               pure helpers, one folder each
   env.ts
   flags.ts
   instrumentation.ts   runs once at server boot (applies migrations)
-e2e/                   Playwright specs, one per user task
+e2e/                   Playwright specs, one per user task, in a folder per
+                       domain (e2e/encounter/run-a-fight.spec.ts)
 .storybook/
 ```
 
@@ -143,7 +146,7 @@ ComponentName/
   index.tsx            the component (the import root)
   index.stories.tsx    required — drive every input through a knob/arg
   components/          sub-components used ONLY by this component (recursive,
-    SubComponent/…     soft cap ~3 levels)
+    SubComponent/…     soft cap ~3 levels) — its styled pieces included
   hooks/
     useThing/
       index.ts         the hook (a folder, never a loose useThing.ts)
@@ -175,34 +178,52 @@ through a knob. Their view child carries the stories. See
 ## Styling & theming
 
 - **Single dark theme.** No light mode, no `prefers-color-scheme` switching.
-- **Never hard-code a colour.** Always `props.theme.color.*`, `theme.shadow.*`,
-  `theme.gradient.*`. Raw values live once in `src/theme/colors.ts` and resolve
+  The theme is a `@pindakaasman/design-system` instance; its one palette sits
+  under `modes.light` (the design system's name for "the only mode") and there
+  is no `modes.dark`, so the OS preference is ignored (DECISIONS #36).
+- **Never hard-code a colour.** Always a typed accessor: `theme.color()`,
+  `theme.boxShadow()`, `theme.gradient()`, and likewise `spacing()`,
+  `fontSize()`, `fontFamily()`, `fontWeight()`, `lineHeight()`,
+  `borderRadius()`, `borderWidth()`, `zIndex()`, `bp()`. The table of which
+  colour sits in which slot is in `src/theme/tokens.ts`. Raw values live once
+  there and resolve
   through CSS custom properties, so non-CSS contexts (`viewport.themeColor`, a
   future `manifest.ts`) import the same map instead of duplicating hex.
 - styled-components needs a `'use client'` boundary **plus** the SSR registry in
-  `src/app/registry.tsx`. It cannot be used from a Server Component.
+  `src/providers/StyledComponentsRegistry/`. It cannot be used from a Server
+  Component.
 - `src/theme/styled.d.ts` types the theme on `props.theme`, so
-  `theme.color.accnt` is a compile error.
+  `theme.color('primry')` is a compile error.
+- **Every styled definition is its own component folder**, with a story:
+  a generic primitive in `src/atoms/` (`Stack`, `Cluster`, `SpreadRow`,
+  `MutedNote`, `Skeleton`, `Page`, `Workspace`, …), a piece specific to its
+  owner in that owner's `components/`. A component's `index.tsx` holds what it
+  renders, never a `styled.*` const. Reach for an existing atom before adding
+  another `Wrapper`.
+- The keyboard focus ring is `focusRing(theme)` (`~/utils/focusRing`), built
+  from colour tokens rather than stored as a shadow.
 - Transient styling props are prefixed `$` (`$variant`, `$isFullWidth`) and
   filtered by `shouldForwardProp`, so they never reach the DOM.
 
 ### Layout conventions
 
 - **`Page` carries no padding or gap.** A template's outermost wrapper only
-  sizes to `100dvh` and flips `flex-direction` at the `lg` breakpoint. Padding
+  sizes to `100dvh` and flips `flex-direction` at the `tabletLandscape` breakpoint (the `Page`
+  atom). Padding
   and gap live on the `Workspace` child instead, so the navigation rail runs
   flush against the viewport edge rather than floating inside a padded frame.
   See `SpellsTemplate` and `TrackerTemplate`.
 - **The navigation rail is flush chrome, not a floating card.** `Rail` has no
   border-radius and no full border box — only a `border-right` divider — so it
   reads as part of the viewport edge. Its padding is asymmetric,
-  `theme.space.md` vertical / `theme.space.sm` horizontal, not one uniform
+  `theme.spacing('base')` vertical / `theme.spacing('s')` horizontal, not one
+  uniform
   value.
 - **`Panel` fills its container's main axis by default.** `Frame` sets
   `flex-basis: 100%` so a panel placed in a flex row (with no `flex` of its own
   on the wrapping element) spans the full width offered to it instead of
   sizing to content. This has no effect inside a `grid` layout (e.g.
-  `TrackerTemplate`'s `Columns`), where sizing comes from
+  the `Columns` atom every template uses), where sizing comes from
   `grid-template-columns` instead.
 - **`Tabs` is a full-width segmented control, not a left-aligned cluster.**
   `List` is `width: 100%`; each `Tab` is `flex: 1 1 0; min-width: 0;
@@ -212,7 +233,7 @@ text-align: center;` so tabs stretch to fill their container and split the
   When only one panel needs trailing content below its scroll area (e.g. the
   "open player screen" link), render it as that `Panel`'s last child, not a
   page-wide footer strip. Size the scrollable sibling to
-  `calc(100% - theme.space.lg)` instead of `100%` so it stops short of the
+  `calc(100% - theme.spacing('m'))` instead of `100%` so it stops short of the
   footer rather than overlapping it.
 
 ### Filters
@@ -318,6 +339,9 @@ each page — a page that reads nothing itself still inherits it. Check the `nex
 - **Types come from the schema.** `src/server/db/schema.ts` is the source of
   truth and row types are inferred from it (`$inferSelect` / `$inferInsert`).
   No hand-written row interfaces.
+- **`interface` for an object shape, `type` for everything else** (unions,
+  tuples, mapped and utility types), and `Array<T>` rather than `T[]` — the
+  second is lint-enforced.
 - **Code over dashboard clicking.** Schema changes are: edit `schema.ts`, run
   `pnpm db:generate`, commit the generated SQL. Never apply DDL by hand to a
   live database.
@@ -355,8 +379,12 @@ each page — a page that reads nothing itself still inherits it. Check the `nex
   authored by the repository owner, full stop.
 - Durable architectural decisions go in `DECISIONS.md` (the _why_) and the
   relevant section here (the _how_) — in git, not just agent memory.
-- Before opening a PR: `pnpm lint && pnpm typecheck && pnpm test &&
-pnpm test:storybook && pnpm build`.
+- **A pre-commit hook gates every commit** (husky + lint-staged): Prettier and
+  ESLint on the staged files, then `typecheck` and `test` on the whole
+  project, with unstaged and untracked files hidden while it runs. Never
+  bypass it.
+- Before opening a PR: `pnpm format && pnpm lint && pnpm typecheck &&
+pnpm test && pnpm test:storybook && pnpm build`.
 
 ## Navigation
 
@@ -980,3 +1008,37 @@ session (active map, DM viewport persistence, the draggable lens, the
 mode toggle), the mode-aware player screen, and the ruler/spell-area
 measurement tool with animated spell-effect playback. Not started: the
 Artwork/handout gallery the source app also had.
+
+## Conventions (via mise)
+
+<!-- mise:plugins:start -->
+
+This project uses mise's coding conventions, installed as Claude Code
+plugins. Invoke a skill as `/<plugin>:<skill>`, or let Claude reach for it
+automatically.
+
+- **typescript**
+  - `conventions` — Type declaration style, enums, any/unknown and Array<T> - stated TypeScript preferences, split between what ESLint enforces and what needs judgment
+  - `setup` — Install and wire up @pindakaasman/tsconfig, @pindakaasman/eslint-config and @pindakaasman/prettier-config in the current project, and migrate existing code onto the TypeScript conventions
+- **architecture**
+  - `data-flow` — Reads and writes both through tRPC, loading/error state threaded explicitly through props, and Context reserved for values that never change
+  - `design-system` — The published @pindakaasman/design-system package - a typed, breakpoint-aware accessor over theme tokens with light/dark color modes - and how it's scaffolded and provided as the styled-components theme - see /Users/ramon/.claude/plugins/marketplaces/mise/packages/design-system/README.md
+  - `folder-structure` — Where things live - atomic design layout, component/hook/util folder shapes, and app-level providers
+  - `functional-style` — General code-style preferences - arrow functions, array methods over loops, composition, early returns
+  - `module-boundaries` — What's public vs. private - component/package import boundaries and the one-way atomic tier dependency direction
+  - `setup` — Scaffold and migrate the current project onto the atomic folder structure and the design-system theme, and audit existing code against the functional-style, state, module-boundary and data-flow conventions
+  - `state-management` — Jotai vs Zustand, where client state lives relative to [[folder-structure]], and keeping server-cache data out of it
+  - `styling` — styled-components conventions - the SSR registry and the Server/Client Component boundary. See [[design-system]] for how theme tokens are structured and accessed.
+- **react**
+  - `component-patterns` — Loading/empty/loaded branching, and when a render-body helper should be a real subcomponent instead
+  - `setup` — Audit existing components against component-patterns and migrate violations - no install, no scaffold
+- **testing**
+  - `conventions` — Which tool tests what - Vitest for pure logic, Storybook for component behavior, Playwright for e2e user tasks
+  - `setup` — Install Vitest always, Storybook and Playwright only when the project actually has a UI or pages to exercise, and migrate misplaced tests
+- **verification**
+  - `conventions` — What to run to verify a change and when - related tests while developing, the pre-commit gate before every commit, e2e/Storybook when a change touches them, and how to handle a failing check
+  - `setup` — Install husky + lint-staged as the pre-commit gate (format, lint, typecheck, full test suite) and add the standard verification scripts
+
+Re-run `/init:setup` after installing or updating a mise plugin to refresh
+this section.
+<!-- mise:plugins:end -->

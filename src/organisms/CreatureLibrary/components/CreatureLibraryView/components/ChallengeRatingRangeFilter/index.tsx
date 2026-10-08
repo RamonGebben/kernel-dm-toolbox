@@ -1,16 +1,21 @@
 'use client';
 
-import styled from 'styled-components';
+import { InlineRow } from '~/atoms/InlineRow';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { BoundSelect } from '~/organisms/CreatureLibrary/components/CreatureLibraryView/components/ChallengeRatingRangeFilter/components/BoundSelect';
 
-export type ChallengeRatingRange = { min: number | null; max: number | null };
+export interface ChallengeRatingRange {
+  min: number | null;
+  max: number | null;
+}
 
-export type ChallengeRatingRangeFilterProps = {
-  options: readonly { value: number; label: string }[];
+export interface ChallengeRatingRangeFilterProps {
+  options: ReadonlyArray<{ value: number; label: string }>;
   range: ChallengeRatingRange;
   onMinChange: (min: number | null) => void;
   onMaxChange: (max: number | null) => void;
   disabled?: boolean;
-};
+}
 
 /** A `<select>` value is always a string; `''` is the "Any" option. */
 const toBound = (value: string): number | null =>
@@ -29,7 +34,7 @@ export const ChallengeRatingRangeFilter = ({
   onMaxChange,
   disabled = false,
 }: ChallengeRatingRangeFilterProps) => (
-  <Group role="group" aria-label="Challenge rating">
+  <InlineRow role="group" aria-label="Challenge rating">
     <BoundSelect
       aria-label="Minimum challenge rating"
       value={range.min ?? ''}
@@ -43,7 +48,7 @@ export const ChallengeRatingRangeFilter = ({
         </option>
       ))}
     </BoundSelect>
-    <Separator aria-hidden="true">to</Separator>
+    <MutedCaption aria-hidden="true">to</MutedCaption>
     <BoundSelect
       aria-label="Maximum challenge rating"
       value={range.max ?? ''}
@@ -57,41 +62,5 @@ export const ChallengeRatingRangeFilter = ({
         </option>
       ))}
     </BoundSelect>
-  </Group>
+  </InlineRow>
 );
-
-const Group = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Separator = styled.span`
-  color: ${props => props.theme.color.textMuted};
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const BoundSelect = styled.select`
-  flex: 1;
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    border-color: ${props => props.theme.color.accent};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  option {
-    background: ${props => props.theme.color.canvas};
-  }
-`;

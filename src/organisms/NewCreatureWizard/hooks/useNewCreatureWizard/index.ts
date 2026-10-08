@@ -17,9 +17,9 @@ export type BaseSelection =
 
 export type WizardStep = 'pick-base' | 'form';
 
-type UseNewCreatureWizardArgs = {
+interface UseNewCreatureWizardArgs {
   onCreated: (id: string) => void;
-};
+}
 
 export const useNewCreatureWizard = ({
   onCreated,

@@ -27,7 +27,7 @@ export type PartyEditorTarget<TCharacter> =
  */
 export const toPartyEditorTarget = <TCharacter extends { id: string }>(
   param: string | null,
-  characters: readonly TCharacter[] | undefined,
+  characters: ReadonlyArray<TCharacter> | undefined,
 ): PartyEditorTarget<TCharacter> => {
   if (!param) return { kind: 'closed' };
   if (param === NEW_CHARACTER) return { kind: 'new' };

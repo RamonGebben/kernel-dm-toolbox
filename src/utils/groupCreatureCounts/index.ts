@@ -1,16 +1,16 @@
 /** The only fields grouping cares about. Player characters have neither. */
-export type Groupable = {
+export interface Groupable {
   creatureSlug: string | null;
   customCreatureId: string | null;
-};
+}
 
-export type CreatureCount = {
+export interface CreatureCount {
   creatureSlug: string | null;
   customCreatureId: string | null;
   count: number;
   /** First-seen position, so a saved encounter lists monsters as added. */
   sortOrder: number;
-};
+}
 
 /** Distinguishes a library slug from a custom id sharing the same string —
  * astronomically unlikely, but the two are different rows either way. */
@@ -31,28 +31,23 @@ const toGroupKey = (combatant: Groupable): string | null =>
  * recognise in a list of presets.
  */
 export const groupCreatureCounts = (
-  combatants: readonly Groupable[],
-): CreatureCount[] => {
-  const counts = new Map<string, CreatureCount>();
-
-  for (const combatant of combatants) {
+  combatants: ReadonlyArray<Groupable>,
+): Array<CreatureCount> => {
+  const counts = combatants.reduce((grouped, combatant) => {
     const key = toGroupKey(combatant);
-    if (key === null) continue;
+    if (key === null) return grouped;
 
-    const existing = counts.get(key);
+    const existing = grouped.get(key);
+    if (existing)
+      return grouped.set(key, { ...existing, count: existing.count + 1 });
 
-    if (existing) {
-      counts.set(key, { ...existing, count: existing.count + 1 });
-      continue;
-    }
-
-    counts.set(key, {
+    return grouped.set(key, {
       creatureSlug: combatant.creatureSlug,
       customCreatureId: combatant.customCreatureId,
       count: 1,
-      sortOrder: counts.size,
+      sortOrder: grouped.size,
     });
-  }
+  }, new Map<string, CreatureCount>());
 
   return [...counts.values()];
 };

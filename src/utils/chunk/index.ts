@@ -6,12 +6,12 @@
  * statement variable limit.
  */
 export const chunk = <TItem>(
-  items: readonly TItem[],
+  items: ReadonlyArray<TItem>,
   size: number,
-): TItem[][] => {
+): Array<Array<TItem>> => {
   if (size < 1) return items.length ? [[...items]] : [];
 
-  return items.reduce<TItem[][]>((chunks, item, index) => {
+  return items.reduce<Array<Array<TItem>>>((chunks, item, index) => {
     if (index % size === 0) return [...chunks, [item]];
 
     const completed = chunks.slice(0, -1);

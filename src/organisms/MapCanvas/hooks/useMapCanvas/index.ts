@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
-import { useMapToolStore } from '~/stores/mapTool';
+import { useMapToolStore } from '~/store/mapTool';
 import { useActiveMap } from '~/hooks/useActiveMap';
 import { useDebouncedCallback } from '~/hooks/useDebouncedCallback';
 import type { Viewport } from '~/utils/mapViewport';
@@ -200,7 +200,7 @@ export const useMapCanvas = () => {
   );
 
   const onFogStrokeBatch = useCallback(
-    (strokes: MapCanvasFogStroke[]) => {
+    (strokes: Array<MapCanvasFogStroke>) => {
       if (mapId) applyFogStrokes.mutate({ id: mapId, strokes });
     },
     [mapId, applyFogStrokes],
@@ -333,7 +333,7 @@ export const useMapCanvas = () => {
     [lensRect, setTrackerOverlay],
   );
 
-  const measurementShapes = useMemo<MapCanvasMeasurementShape[]>(
+  const measurementShapes = useMemo<Array<MapCanvasMeasurementShape>>(
     () =>
       (measurementShapesQuery.data ?? []).map(shape => ({
         id: shape.id,

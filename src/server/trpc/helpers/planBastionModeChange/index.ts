@@ -6,7 +6,7 @@
  * re-points them.
  */
 
-type BastionSummary = {
+interface BastionSummary {
   id: string;
   name: string;
   notes: string | null;
@@ -15,7 +15,7 @@ type BastionSummary = {
   isFullyEnclosed: boolean;
   isArmoryStocked: boolean;
   hasGuestMonster: boolean;
-};
+}
 
 /**
  * The single party bastion that several per-character ones become. Defenders
@@ -24,7 +24,7 @@ type BastionSummary = {
  * friendly guest monster come along: they still guard the merged bastion.
  */
 export const planBastionMerge = (
-  bastions: readonly BastionSummary[],
+  bastions: ReadonlyArray<BastionSummary>,
   name: string,
 ) => ({
   name,
@@ -41,7 +41,7 @@ export const planBastionMerge = (
   hasGuestMonster: bastions.some(bastion => bastion.hasGuestMonster),
 });
 
-type SplitInput = {
+interface SplitInput {
   /**
    * Who keeps what belongs to nobody in particular: the defender pool, the
    * walls, the storage, rooms no one brought, and building work not tied to
@@ -55,23 +55,23 @@ type SplitInput = {
   liveCharacterIds: ReadonlySet<string>;
   /** The shared bastion's stocked Armory follows the Armory itself. */
   isArmoryStocked: boolean;
-  specialFacilities: readonly {
+  specialFacilities: ReadonlyArray<{
     id: string;
     facilityKey: string;
     holderCharacterId: string | null;
-  }[];
-  basicFacilities: readonly {
+  }>;
+  basicFacilities: ReadonlyArray<{
     id: string;
     contributedByCharacterId: string | null;
-  }[];
+  }>;
   /** `facilityId` set for an enlargement; null for a new room or walls. */
-  projects: readonly { id: string; facilityId: string | null }[];
-  storageItems: readonly { id: string }[];
-};
+  projects: ReadonlyArray<{ id: string; facilityId: string | null }>;
+  storageItems: ReadonlyArray<{ id: string }>;
+}
 
-export type BastionSplit = {
+export interface BastionSplit {
   /** Every character who ends up with a bastion, keeper first. */
-  ownerIds: string[];
+  ownerIds: Array<string>;
   /** Row id → the character whose bastion it moves to. */
   specialFacilities: Map<string, string>;
   basicFacilities: Map<string, string>;
@@ -79,7 +79,7 @@ export type BastionSplit = {
   storageItems: Map<string, string>;
   /** Whose new bastion has the stocked Armory; null when none is stocked. */
   stockedArmoryOwnerId: string | null;
-};
+}
 
 /** Where each part of a party bastion goes when it is split back up. */
 export const planBastionSplit = ({
