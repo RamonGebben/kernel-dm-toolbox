@@ -197,7 +197,7 @@ export const EditingHitPoints: Story = {
   play: async ({ args }) => {
     // `Modal` is portalled to `document.body` — see `RollingForInitiative`.
     const dialog = within(
-      screen.getByRole('dialog', { name: 'Hit points — Meat' }),
+      screen.getByRole('dialog', { name: 'Hit points: Meat' }),
     );
 
     await expect(dialog.getByText('35/52')).toBeVisible();

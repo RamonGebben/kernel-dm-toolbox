@@ -226,6 +226,70 @@ describe('encounter.addCharacter', () => {
   });
 });
 
+describe('encounter.addActiveCharacters', () => {
+  it('brings in every active member at their initiative modifier', async () => {
+    await caller.characters.create({
+      name: 'Sigrid',
+      armorClass: 20,
+      maxHitPoints: 45,
+      initiativeModifier: 2,
+    });
+    await caller.characters.create({
+      name: 'Hammie',
+      armorClass: 19,
+      maxHitPoints: 37,
+      initiativeModifier: -1,
+    });
+
+    const created = await caller.encounter.addActiveCharacters();
+
+    expect(created.map(row => row.displayName)).toEqual(['Hammie', 'Sigrid']);
+    expect(
+      (await caller.encounter.get()).combatants.map(row => [
+        row.displayName,
+        row.initiative,
+      ]),
+    ).toEqual([
+      ['Sigrid', 2],
+      ['Hammie', -1],
+    ]);
+  });
+
+  it('skips members already in the fight', async () => {
+    const sigrid = await addCharacter('Sigrid');
+    await addCharacter('Hammie');
+    await caller.encounter.addCharacter({
+      playerCharacterId: sigrid.id,
+      initiative: 18,
+    });
+
+    const created = await caller.encounter.addActiveCharacters();
+
+    expect(created.map(row => row.displayName)).toEqual(['Hammie']);
+    expect((await caller.encounter.get()).combatants).toHaveLength(2);
+  });
+
+  it('leaves benched and removed members out', async () => {
+    await addCharacter('Sigrid');
+    const benched = await addCharacter('Benched');
+    const removed = await addCharacter('Removed');
+    await caller.characters.setActive({ id: benched.id, isActive: false });
+    await caller.characters.remove({ id: removed.id });
+
+    const created = await caller.encounter.addActiveCharacters();
+
+    expect(created.map(row => row.displayName)).toEqual(['Sigrid']);
+  });
+
+  it('does nothing when everyone is already in', async () => {
+    await addCharacter('Sigrid');
+    await caller.encounter.addActiveCharacters();
+
+    expect(await caller.encounter.addActiveCharacters()).toEqual([]);
+    expect((await caller.encounter.get()).combatants).toHaveLength(1);
+  });
+});
+
 describe('initiative ordering', () => {
   it('returns combatants highest initiative first', async () => {
     const sigrid = await addCharacter('Sigrid');

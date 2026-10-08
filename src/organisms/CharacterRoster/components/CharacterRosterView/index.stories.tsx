@@ -3,23 +3,28 @@ import { expect, fn, userEvent, within } from 'storybook/test';
 import { CharacterRosterView } from '~/organisms/CharacterRoster/components/CharacterRosterView';
 
 const sigrid = {
-  id: '11111111-1111-4111-8111-111111111111',
+  id: 'sigrid',
   name: 'Sigrid',
   playerName: 'Anna',
   level: 5,
+  className: 'Paladin',
+  subclass: null,
+  species: 'Goliath',
   armorClass: 20,
   maxHitPoints: 45,
   initiativeModifier: 2,
 };
 
 const hammie = {
-  id: '22222222-2222-4222-8222-222222222222',
+  ...sigrid,
+  id: 'hammie',
   name: 'Hammie',
-  playerName: null,
-  level: 5,
-  armorClass: 19,
-  maxHitPoints: 37,
-  initiativeModifier: 1,
+  playerName: 'Bo',
+  className: 'Rogue',
+  species: 'Halfling',
+  armorClass: 15,
+  maxHitPoints: 33,
+  initiativeModifier: 4,
 };
 
 const meta = {
@@ -27,16 +32,12 @@ const meta = {
   component: CharacterRosterView,
   args: {
     isPending: false,
-    isSaving: false,
     characters: [hammie, sigrid],
-    editing: null,
     combatantCharacterIds: [],
+    canAddAll: true,
+    isAddingAll: false,
     onAddToEncounter: fn(),
-    onStartCreate: fn(),
-    onStartEdit: fn(),
-    onCancelEdit: fn(),
-    onSubmit: fn(),
-    onRemove: fn(),
+    onAddAllActive: fn(),
   },
 } satisfies Meta<typeof CharacterRosterView>;
 
@@ -45,41 +46,47 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Loaded: Story = {
-  play: async ({ args, canvasElement }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.click(
-      canvas.getByRole('button', { name: 'Remove Sigrid' }),
-    );
-
-    await expect(args.onRemove).toHaveBeenCalledWith(sigrid.id);
+    await expect(canvas.getAllByRole('listitem')).toHaveLength(2);
+    // Pick-only: nothing here creates or removes a character.
+    await expect(
+      canvas.queryByRole('button', { name: 'Add character' }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole('link', { name: 'Manage the party →' }),
+    ).toHaveAttribute('href', '/party');
   },
 };
 
 export const Pending: Story = {
-  args: { isPending: true, characters: [] },
+  args: { isPending: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByLabelText('Loading characters')).toBeVisible();
+    await expect(
+      canvas.getByRole('status', { name: 'Loading characters' }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole('button', { name: 'Add all active' }),
+    ).toBeDisabled();
   },
 };
 
 export const Empty: Story = {
-  args: { characters: [] },
-  play: async ({ args, canvasElement }) => {
+  args: { characters: [], canAddAll: false },
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByText('No characters yet')).toBeVisible();
-
-    await userEvent.click(
-      canvas.getByRole('button', { name: 'Add character' }),
-    );
-    await expect(args.onStartCreate).toHaveBeenCalledOnce();
+    await expect(canvas.getByText('No active party members')).toBeVisible();
+    await expect(
+      canvas.getByRole('link', { name: 'Go to the Party page' }),
+    ).toHaveAttribute('href', '/party');
   },
 };
 
-export const AddingToEncounter: Story = {
+export const AddingOne: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
 
@@ -91,9 +98,21 @@ export const AddingToEncounter: Story = {
   },
 };
 
-/** Someone already in the fight cannot be added again. */
+export const AddingAllActive: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      canvas.getByRole('button', { name: 'Add all active' }),
+    );
+
+    await expect(args.onAddAllActive).toHaveBeenCalledOnce();
+  },
+};
+
+/** Someone is sick tonight: the rest went in one by one, Hammie stays out. */
 export const PartlyInEncounter: Story = {
-  args: { combatantCharacterIds: [sigrid.id] },
+  args: { combatantCharacterIds: ['sigrid'] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
@@ -106,24 +125,24 @@ export const PartlyInEncounter: Story = {
   },
 };
 
-export const AddingCharacter: Story = {
-  args: { editing: 'new' },
+export const EveryoneInTheFight: Story = {
+  args: { combatantCharacterIds: ['sigrid', 'hammie'], canAddAll: false },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByLabelText('Name')).toHaveValue('');
+    await expect(
+      canvas.getByRole('button', { name: 'Add all active' }),
+    ).toBeDisabled();
   },
 };
 
-/** The form is seeded with the character being edited, not left blank. */
-export const EditingCharacter: Story = {
-  args: { editing: sigrid },
+export const AddingAllInFlight: Story = {
+  args: { isAddingAll: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(canvas.getByLabelText('Name')).toHaveValue('Sigrid');
     await expect(
-      canvas.getByRole('button', { name: 'Save changes' }),
-    ).toBeVisible();
+      canvas.getByRole('button', { name: 'Adding…' }),
+    ).toBeDisabled();
   },
 };

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createCharacter, uniqueName } from './support/party';
 import { srdYoungBlackDragon } from './support/library';
 
 /**
@@ -8,9 +9,6 @@ import { srdYoungBlackDragon } from './support/library';
  * These specs share one database and run in parallel, so each works inside its
  * own uniquely named character and clears the board first.
  */
-const uniqueName = (prefix: string) =>
-  `${prefix}-${Date.now()}-${Math.random()}`;
-
 test.describe.configure({ mode: 'serial' });
 
 test.describe('build an encounter', () => {
@@ -92,15 +90,17 @@ test.describe('build an encounter', () => {
     await expect(page.getByText('127 (15d10 + 45)')).toBeVisible();
   });
 
-  test('clears the monsters and keeps the party', async ({ page }) => {
+  test('clears the monsters and keeps the party', async ({
+    page,
+    request,
+    baseURL,
+  }) => {
     const name = uniqueName('Sigrid');
+    await createCharacter(request, baseURL!, { name });
     await page.goto('/');
 
     // A character on the roster, added to the fight.
     await page.getByRole('tab', { name: 'Characters' }).click();
-    await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name', { exact: true }).fill(name);
-    await page.getByRole('button', { name: 'Add character' }).click();
     await page
       .getByRole('button', { name: `Add ${name} to the encounter` })
       .click();
@@ -130,13 +130,15 @@ test.describe('build an encounter', () => {
     ).toBeVisible();
   });
 
-  test('will not add the same character twice', async ({ page }) => {
+  test('will not add the same character twice', async ({
+    page,
+    request,
+    baseURL,
+  }) => {
     const name = uniqueName('Hammie');
+    await createCharacter(request, baseURL!, { name });
     await page.goto('/');
     await page.getByRole('tab', { name: 'Characters' }).click();
-    await page.getByRole('button', { name: 'Add character' }).click();
-    await page.getByLabel('Name', { exact: true }).fill(name);
-    await page.getByRole('button', { name: 'Add character' }).click();
 
     const addButton = page.getByRole('button', {
       name: `Add ${name} to the encounter`,

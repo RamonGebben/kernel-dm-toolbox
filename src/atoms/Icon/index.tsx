@@ -24,7 +24,9 @@ export type IconName =
   | 'unlock'
   | 'more'
   | 'chevronDown'
-  | 'ruler';
+  | 'ruler'
+  | 'users'
+  | 'castle';
 
 export type IconProps = {
   name: IconName;
@@ -110,6 +112,27 @@ const paths: Record<IconName, ReactNode> = {
       <path d="m11.5 9.5 2-2" />
       <path d="m8.5 6.5 2-2" />
       <path d="m17.5 15.5 2-2" />
+    </>
+  ),
+  users: (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </>
+  ),
+  castle: (
+    <>
+      <path d="M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z" />
+      <path d="M18 11V4H6v7" />
+      <path d="M15 22v-4a3 3 0 0 0-3-3a3 3 0 0 0-3 3v4" />
+      <path d="M22 11V9" />
+      <path d="M2 11V9" />
+      <path d="M6 4V2" />
+      <path d="M18 4V2" />
+      <path d="M10 4V2" />
+      <path d="M14 4V2" />
     </>
   ),
 };

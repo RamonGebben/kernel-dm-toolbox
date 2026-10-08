@@ -41,7 +41,7 @@ export const StatblockView = ({
     return (
       <EmptyState
         title="Creature unavailable"
-        description="This creature no longer exists — it may have been deleted."
+        description="This creature no longer exists. It may have been deleted."
       />
     );
   }

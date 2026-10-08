@@ -5,7 +5,10 @@ import {
   integer,
   real,
   check,
+  index,
+  uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
+import type { BasicFacilityType, FacilitySpace } from '~/content/bastion/types';
 
 /**
  * Every table in this app spreads `syncMeta`.
@@ -424,10 +427,68 @@ export const playerCharacters = sqliteTable('player_characters', {
   /** Added to a d20 when the DM types in what the player rolled. */
   initiativeModifier: integer('initiative_modifier').notNull().default(0),
   level: integer('level').notNull().default(1),
+  /**
+   * One of the twelve classes in `~/content/characterOptions`, or null. A
+   * multiclass character records their main class here and the rest in
+   * `notes` — later bastion facility prerequisites key off this.
+   */
+  className: text('class_name'),
+  /** Free text: the SRD has one subclass per class, the table has more. */
+  subclass: text('subclass'),
+  /** Free text, suggested from the SRD list, since PHB species are not in it. */
+  species: text('species'),
+  /**
+   * Benched rather than deleted: someone who left the group or died stays on
+   * the record but is hidden from the tracker's pick list (DECISIONS #32).
+   * Not the same as "absent this session", which is never stored.
+   */
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  passivePerception: integer('passive_perception'),
+  passiveInsight: integer('passive_insight'),
+  passiveInvestigation: integer('passive_investigation'),
+  notes: text('notes'),
 });
 
 export type PlayerCharacter = typeof playerCharacters.$inferSelect;
 export type NewPlayerCharacter = typeof playerCharacters.$inferInsert;
+
+/**
+ * The party itself — one per campaign, so one row with a fixed id, the same
+ * shape as `encounters` (DECISIONS #32). Members are every live row in
+ * `player_characters`; this holds what belongs to the group rather than to
+ * any one of them.
+ */
+export const CURRENT_PARTY_ID = 'current';
+
+export const parties = sqliteTable(
+  'parties',
+  {
+    ...syncMeta,
+    /**
+     * The shared treasury, in whole gold pieces. Never negative. The only gold
+     * the app tracks — characters have no purse of their own (DECISIONS #32).
+     */
+    treasuryGold: integer('treasury_gold').notNull().default(0),
+    /**
+     * One bastion per character (the 2024 default), or one the whole party
+     * shares (DECISIONS #34). Switching merges or splits existing bastions.
+     */
+    bastionMode: text('bastion_mode')
+      .$type<BastionMode>()
+      .notNull()
+      .default('per-character'),
+  },
+  table => [
+    check(
+      'parties_bastion_mode_is_valid',
+      sql`${table.bastionMode} in ('per-character', 'party')`,
+    ),
+  ],
+);
+
+export type BastionMode = 'per-character' | 'party';
+
+export type Party = typeof parties.$inferSelect;
 
 /**
  * A DM-authored ("homebrew") creature, alongside the read-only Open5e
@@ -1094,3 +1155,266 @@ export const mapMeasurementShapes = sqliteTable(
 
 export type MapMeasurementShape = typeof mapMeasurementShapes.$inferSelect;
 export type NewMapMeasurementShape = typeof mapMeasurementShapes.$inferInsert;
+
+/* ---------------------------------------------------------------------------
+ * Bastions (2024 DMG, chapter 8)
+ *
+ * Session state like everything else here: `syncMeta`, soft deletes. The
+ * facility catalog itself is static content in `~/content/bastion` — a row
+ * stores only the catalog key and what is particular to this bastion.
+ * ------------------------------------------------------------------------- */
+
+/** SQL list of the three facility sizes, for check constraints. */
+const facilitySpaceList = sql`('cramped', 'roomy', 'vast')`;
+
+/**
+ * A bastion. In per-character mode it belongs to `ownerCharacterId`, one
+ * live bastion per owner — the partial unique index ignores tombstoned rows,
+ * so an abandoned bastion does not block founding a new one. In party mode
+ * there is a single live bastion with no owner: the party holds it, and each
+ * special facility records which member holds that facility (DECISIONS #34).
+ */
+export const bastions = sqliteTable(
+  'bastions',
+  {
+    ...syncMeta,
+    /** Null for the party's shared bastion. */
+    ownerCharacterId: text('owner_character_id').references(
+      () => playerCharacters.id,
+    ),
+    name: text('name').notNull(),
+    notes: text('notes'),
+    /**
+     * Bastion Defenders on the roster — one pool even in a party bastion,
+     * since any member may absorb another's losses. Barracks house them; see
+     * `defenderCapacity`.
+     */
+    defenderCount: integer('defender_count').notNull().default(0),
+    /** Defensive wall built so far, in 5-foot squares. */
+    wallSquares: integer('wall_squares').notNull().default(0),
+    /** A fully enclosed bastion rolls two fewer dice for Attack losses. */
+    isFullyEnclosed: integer('is_fully_enclosed', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    /** A stocked Armory: Attack losses roll d8s instead of d6s, once. */
+    isArmoryStocked: integer('is_armory_stocked', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    /** A friendly monster guest: the next Attack costs no defenders. */
+    hasGuestMonster: integer('has_guest_monster', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+  },
+  table => [
+    uniqueIndex('bastions_one_live_per_owner')
+      .on(table.ownerCharacterId)
+      .where(sql`${table.deletedAt} is null`),
+    check('bastions_defenders_not_negative', sql`${table.defenderCount} >= 0`),
+    check('bastions_walls_not_negative', sql`${table.wallSquares} >= 0`),
+  ],
+);
+
+export type Bastion = typeof bastions.$inferSelect;
+
+/**
+ * A special facility in a bastion, by catalog key (`specialFacilityByKey`).
+ * `space` starts at the catalog's size and becomes `vast` once enlarged.
+ */
+export const bastionSpecialFacilities = sqliteTable(
+  'bastion_special_facilities',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    facilityKey: text('facility_key').notNull(),
+    /**
+     * The character who holds it: counts against their allowance, and only
+     * they give it orders. In a per-character bastion, always the owner.
+     */
+    holderCharacterId: text('holder_character_id').references(
+      () => playerCharacters.id,
+    ),
+    space: text('space').$type<FacilitySpace>().notNull(),
+    /** The chosen variant — a Garden's type, a Guildhall's guild — if any. */
+    variant: text('variant'),
+    /** The order it is working on, by catalog option key; null when idle. */
+    jobOptionKey: text('job_option_key'),
+    /** What it was told to do, as the DM wrote it at the bastion turn. */
+    jobNote: text('job_note'),
+    /** Days left on the job. Each bastion turn takes 7 off. */
+    jobDaysRemaining: integer('job_days_remaining').notNull().default(0),
+    /**
+     * Gold riding on the job, for the orders whose result is known up front:
+     * what a Storehouse paid for the goods it is buying, or what the goods it
+     * is selling will bring in. 0 for everything else.
+     */
+    jobValueGp: integer('job_value_gp').notNull().default(0),
+    /**
+     * A head count riding on the job: the Bastion Defenders a Barrack was
+     * told to recruit, who join when the order finishes. 0 otherwise.
+     */
+    jobQuantity: integer('job_quantity').notNull().default(0),
+    /**
+     * Bastion turns it can take no orders — hirelings arrested, lost, or the
+     * facility hit in an attack with no defenders.
+     */
+    outOfActionTurns: integer('out_of_action_turns').notNull().default(0),
+  },
+  table => [
+    index('bastion_special_facilities_bastion').on(table.bastionId),
+    check(
+      'bastion_special_facilities_space_is_valid',
+      sql`${table.space} in ${facilitySpaceList}`,
+    ),
+  ],
+);
+
+export type BastionSpecialFacility =
+  typeof bastionSpecialFacilities.$inferSelect;
+
+/** A flavour room: no mechanics, only a type and a size. */
+export const bastionBasicFacilities = sqliteTable(
+  'bastion_basic_facilities',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    type: text('type').$type<BasicFacilityType>().notNull(),
+    space: text('space').$type<FacilitySpace>().notNull(),
+    /**
+     * Set on the two free rooms a character brings when their bastion is
+     * founded — or when they join a party bastion. Lets the page ask about a
+     * member who reached level 5 later, and decides where a room goes when a
+     * party bastion is split back up.
+     */
+    contributedByCharacterId: text('contributed_by_character_id').references(
+      () => playerCharacters.id,
+    ),
+  },
+  table => [
+    index('bastion_basic_facilities_bastion').on(table.bastionId),
+    check(
+      'bastion_basic_facilities_type_is_valid',
+      sql`${table.type} in ('bedroom', 'dining-room', 'parlor', 'courtyard', 'kitchen', 'storage')`,
+    ),
+    check(
+      'bastion_basic_facilities_space_is_valid',
+      sql`${table.space} in ${facilitySpaceList}`,
+    ),
+  ],
+);
+
+export type BastionBasicFacility = typeof bastionBasicFacilities.$inferSelect;
+
+export type BastionProjectKind =
+  'add-basic' | 'enlarge-basic' | 'enlarge-special' | 'walls';
+
+/**
+ * Construction under way: paid for up front from the party treasury, done
+ * after `daysRemaining` days. Bastion turns count it down (7 days each); the
+ * DM can also finish it on the spot. On completion its effect is applied —
+ * a new basic facility, a bigger one, more wall — and `completedAt` is set.
+ * A cancelled project is tombstoned.
+ */
+export const bastionProjects = sqliteTable(
+  'bastion_projects',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    kind: text('kind').$type<BastionProjectKind>().notNull(),
+    /** add-basic: which room. */
+    basicType: text('basic_type').$type<BasicFacilityType>(),
+    /** add-basic: its size; enlarge-*: the size it grows to. */
+    space: text('space').$type<FacilitySpace>(),
+    /** enlarge-*: the facility being enlarged (basic or special row id). */
+    facilityId: text('facility_id'),
+    /** walls: how many 5-foot squares. */
+    wallSquares: integer('wall_squares'),
+    costGp: integer('cost_gp').notNull(),
+    daysRemaining: integer('days_remaining').notNull(),
+    completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
+  },
+  table => [
+    index('bastion_projects_bastion').on(table.bastionId),
+    check(
+      'bastion_projects_kind_is_valid',
+      sql`${table.kind} in ('add-basic', 'enlarge-basic', 'enlarge-special', 'walls')`,
+    ),
+    check(
+      'bastion_projects_days_not_negative',
+      sql`${table.daysRemaining} >= 0`,
+    ),
+  ],
+);
+
+export type BastionProject = typeof bastionProjects.$inferSelect;
+
+/**
+ * What a bastion has produced and nobody has collected yet — a crafted
+ * focus, harvested potions, event treasure. Claiming records who took it.
+ */
+export const bastionStorageItems = sqliteTable(
+  'bastion_storage_items',
+  {
+    ...syncMeta,
+    bastionId: text('bastion_id')
+      .notNull()
+      .references(() => bastions.id),
+    name: text('name').notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    note: text('note'),
+    /**
+     * What the lot is worth, for trade goods a Storehouse bought and can sell
+     * on. Null for everything that is simply an item.
+     */
+    valueGp: integer('value_gp'),
+    claimedByCharacterId: text('claimed_by_character_id').references(
+      () => playerCharacters.id,
+    ),
+    claimedAt: integer('claimed_at', { mode: 'timestamp_ms' }),
+  },
+  table => [
+    index('bastion_storage_items_bastion').on(table.bastionId),
+    check(
+      'bastion_storage_items_quantity_positive',
+      sql`${table.quantity} >= 1`,
+    ),
+  ],
+);
+
+export type BastionStorageItem = typeof bastionStorageItems.$inferSelect;
+
+/**
+ * A bastion turn: seven days for every bastion in the campaign. One draft at
+ * a time holds the guided wizard's progress, so a refresh or a closed tab
+ * picks up at the same step; committing applies it all and keeps the result
+ * as history. The JSON shapes live in `~/server/trpc/schemas/bastionTurns`.
+ */
+export const bastionTurns = sqliteTable(
+  'bastion_turns',
+  {
+    ...syncMeta,
+    /** 1, 2, 3… across the whole campaign. */
+    number: integer('number').notNull(),
+    status: text('status').$type<'draft' | 'committed'>().notNull(),
+    draft: text('draft', { mode: 'json' }).$type<unknown>().notNull(),
+    /** Set on commit: what the turn changed, for the history. */
+    summary: text('summary', { mode: 'json' }).$type<unknown>(),
+    committedAt: integer('committed_at', { mode: 'timestamp_ms' }),
+  },
+  table => [
+    check(
+      'bastion_turns_status_is_valid',
+      sql`${table.status} in ('draft', 'committed')`,
+    ),
+    uniqueIndex('bastion_turns_one_draft')
+      .on(table.status)
+      .where(sql`${table.status} = 'draft' and ${table.deletedAt} is null`),
+  ],
+);
+
+export type BastionTurn = typeof bastionTurns.$inferSelect;
