@@ -3,7 +3,7 @@ import { expect, fn, userEvent, within } from 'storybook/test';
 import { BasePicker } from '~/organisms/NewCreatureWizard/components/BasePicker';
 import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 
-const creatures: CreatureSummary[] = [
+const creatures: Array<CreatureSummary> = [
   {
     source: 'library',
     slug: 'srd-2024_goblin',

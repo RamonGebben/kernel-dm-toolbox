@@ -17,12 +17,12 @@ import {
   spaceLabel,
 } from '~/utils/bastionRules';
 
-type Owner = {
+interface Owner {
   id: string;
   name: string;
   level: number;
   className: string | null;
-};
+}
 
 /** Someone who holds (or may hold) facilities in this bastion. */
 type Member = Owner & { isActive: boolean };
@@ -48,11 +48,10 @@ export const describeProject = (
 
 /** Every facility's display name by id, for `describeProject`. */
 export const toFacilityNames = (
-  specialFacilities: readonly Pick<
-    BastionSpecialFacility,
-    'id' | 'facilityKey'
-  >[],
-  basicFacilities: readonly Pick<BastionBasicFacility, 'id' | 'type'>[],
+  specialFacilities: ReadonlyArray<
+    Pick<BastionSpecialFacility, 'id' | 'facilityKey'>
+  >,
+  basicFacilities: ReadonlyArray<Pick<BastionBasicFacility, 'id' | 'type'>>,
 ): Map<string, string> =>
   new Map([
     ...specialFacilities.map(
@@ -133,28 +132,34 @@ export const toBastionDetail = ({
   /** Null for the party's shared bastion. */
   owner: Owner | null;
   /** Per-character: just the owner. Party: the party, plus any other holder. */
-  members: readonly Member[];
-  specialFacilities: readonly SpecialFacilityRow[];
-  basicFacilities: readonly Pick<
-    BastionBasicFacility,
-    'id' | 'type' | 'space' | 'contributedByCharacterId'
-  >[];
-  openProjects: readonly Pick<
-    BastionProject,
-    | 'id'
-    | 'kind'
-    | 'basicType'
-    | 'space'
-    | 'facilityId'
-    | 'wallSquares'
-    | 'costGp'
-    | 'daysRemaining'
-  >[];
-  storageItems: readonly (Pick<
-    BastionStorageItem,
-    'id' | 'name' | 'quantity' | 'note' | 'claimedByCharacterId' | 'claimedAt'
-  > &
-    Partial<Pick<BastionStorageItem, 'valueGp'>>)[];
+  members: ReadonlyArray<Member>;
+  specialFacilities: ReadonlyArray<SpecialFacilityRow>;
+  basicFacilities: ReadonlyArray<
+    Pick<
+      BastionBasicFacility,
+      'id' | 'type' | 'space' | 'contributedByCharacterId'
+    >
+  >;
+  openProjects: ReadonlyArray<
+    Pick<
+      BastionProject,
+      | 'id'
+      | 'kind'
+      | 'basicType'
+      | 'space'
+      | 'facilityId'
+      | 'wallSquares'
+      | 'costGp'
+      | 'daysRemaining'
+    >
+  >;
+  storageItems: ReadonlyArray<
+    Pick<
+      BastionStorageItem,
+      'id' | 'name' | 'quantity' | 'note' | 'claimedByCharacterId' | 'claimedAt'
+    > &
+      Partial<Pick<BastionStorageItem, 'valueGp'>>
+  >;
   /** Every character's name by id, for "claimed by" and "held by". */
   characterNames: ReadonlyMap<string, string>;
 }) => {

@@ -1,19 +1,20 @@
 'use client';
 
-import styled from 'styled-components';
+import { List } from '~/atoms/CheckboxList/components/List';
+import { Option } from '~/atoms/CheckboxList/components/Option';
 
-export type CheckboxListOption = {
+export interface CheckboxListOption {
   value: string;
   label: string;
-};
+}
 
-export type CheckboxListProps = {
+export interface CheckboxListProps {
   label: string;
-  options: readonly CheckboxListOption[];
-  selectedValues: readonly string[];
-  onChange: (values: string[]) => void;
+  options: ReadonlyArray<CheckboxListOption>;
+  selectedValues: ReadonlyArray<string>;
+  onChange: (values: Array<string>) => void;
   disabled?: boolean;
-};
+}
 
 /**
  * A labelled group of checkboxes over a set of string values — the body of
@@ -51,24 +52,3 @@ export const CheckboxList = ({
     </List>
   );
 };
-
-const List = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  max-height: 16rem;
-  overflow-y: auto;
-`;
-
-const Option = styled.label`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-size: ${props => props.theme.fontSize.sm};
-  cursor: pointer;
-
-  &:hover {
-    color: ${props => props.theme.color.accent};
-  }
-`;

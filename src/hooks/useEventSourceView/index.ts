@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-export type EventSourceViewState<T> = {
+export interface EventSourceViewState<T> {
   isConnected: boolean;
   view: T | null;
-};
+}
 
 /**
  * Generic SSE wiring shared by `usePlayerStream` and `useMapPlayerStream`:

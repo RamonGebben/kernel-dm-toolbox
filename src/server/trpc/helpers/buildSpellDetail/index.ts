@@ -10,7 +10,7 @@ import { stripDocumentPrefix } from '~/utils/stripDocumentPrefix';
  * tested in the browser-free unit project.
  */
 
-export type SpellCastingOptionDetail = {
+export interface SpellCastingOptionDetail {
   id: string;
   label: string;
   desc: string | null;
@@ -20,9 +20,9 @@ export type SpellCastingOptionDetail = {
   targetCount: number | null;
   shapeSize: number | null;
   concentration: boolean | null;
-};
+}
 
-export type SpellDetail = {
+export interface SpellDetail {
   slug: string;
   name: string;
   /** "1st-level Evocation (ritual)", "Evocation Cantrip" */
@@ -41,12 +41,12 @@ export type SpellDetail = {
   savingThrowLabel: string | null;
   attackRoll: boolean;
   damageRoll: string | null;
-  damageTypes: string[];
-  classes: string[];
+  damageTypes: Array<string>;
+  classes: Array<string>;
   desc: string;
   higherLevel: string | null;
-  castingOptions: SpellCastingOptionDetail[];
-};
+  castingOptions: Array<SpellCastingOptionDetail>;
+}
 
 export const buildSubtitle = (spell: Spell): string => {
   const school = slugToTitle(stripDocumentPrefix(spell.school));
@@ -121,7 +121,7 @@ export const buildSavingThrowLabel = (spell: Spell): string | null =>
     ? `${slugToTitle(spell.savingThrowAbility)} save`
     : null;
 
-export const buildClassLabels = (spell: Spell): string[] =>
+export const buildClassLabels = (spell: Spell): Array<string> =>
   spell.classes.map(slug => slugToTitle(stripDocumentPrefix(slug))).sort();
 
 /** `slot_level_3` → `3rd-level Slot`; anything unrecognised falls back to a title case. */
@@ -133,8 +133,8 @@ export const buildCastingOptionLabel = (type: string): string => {
 };
 
 export const buildCastingOptions = (
-  castingOptions: readonly SpellCastingOption[],
-): SpellCastingOptionDetail[] =>
+  castingOptions: ReadonlyArray<SpellCastingOption>,
+): Array<SpellCastingOptionDetail> =>
   castingOptions.map(option => ({
     id: option.id,
     label: buildCastingOptionLabel(option.type),
@@ -152,7 +152,7 @@ export const buildSpellDetail = ({
   castingOptions,
 }: {
   spell: Spell;
-  castingOptions: readonly SpellCastingOption[];
+  castingOptions: ReadonlyArray<SpellCastingOption>;
 }): SpellDetail => ({
   slug: spell.slug,
   name: spell.name,

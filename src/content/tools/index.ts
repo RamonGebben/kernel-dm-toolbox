@@ -10,7 +10,7 @@ import type { IconName } from '~/atoms/Icon';
  */
 export type ToolId = 'initiative' | 'party' | 'bastions' | 'maps' | 'spells';
 
-export type Tool = {
+export interface Tool {
   id: ToolId;
   label: string;
   /** Used as the tooltip and the accessible name. */
@@ -21,9 +21,9 @@ export type Tool = {
    * what keeps `typedRoutes` honest — there is no href to get wrong.
    */
   href?: '/' | '/party' | '/bastions' | '/spells' | '/maps';
-};
+}
 
-export const tools: readonly Tool[] = [
+export const tools: ReadonlyArray<Tool> = [
   {
     id: 'initiative',
     label: 'Initiative',

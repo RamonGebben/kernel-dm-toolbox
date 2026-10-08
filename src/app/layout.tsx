@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
-import { AppProviders } from '~/components/AppProviders';
-import { themeColor } from '~/theme/colors';
+import { AppProviders } from '~/providers/AppProviders';
+import { themeColor } from '~/theme/tokens';
 import { env } from '~/env';
 
 const bodyFont = Inter({
@@ -44,9 +44,9 @@ export const viewport: Viewport = {
   colorScheme: 'dark',
 };
 
-type RootLayoutProps = {
+interface RootLayoutProps {
   children: React.ReactNode;
-};
+}
 
 const RootLayout = ({ children }: RootLayoutProps) => (
   <html lang="en" className={`${bodyFont.variable} ${monoFont.variable}`}>

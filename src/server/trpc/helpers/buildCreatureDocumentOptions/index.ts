@@ -1,9 +1,9 @@
 import { CREATURE_LIBRARY_SOURCES } from '~/server/library/source';
 
-export type CreatureDocumentOption = {
+export interface CreatureDocumentOption {
   value: string;
   label: string;
-};
+}
 
 const documentTitles = new Map(
   CREATURE_LIBRARY_SOURCES.map(source => [
@@ -27,8 +27,8 @@ const documentTitles = new Map(
  * it.
  */
 export const buildCreatureDocumentOptions = (
-  documents: readonly string[],
-): CreatureDocumentOption[] => {
+  documents: ReadonlyArray<string>,
+): Array<CreatureDocumentOption> => {
   const values = new Set(
     documents.map(document => document.trim()).filter(Boolean),
   );

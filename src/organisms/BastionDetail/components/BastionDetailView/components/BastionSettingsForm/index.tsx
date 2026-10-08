@@ -1,25 +1,29 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { CheckboxRow, FieldRow } from '~/atoms/FormControls';
+import { CheckboxRow } from '~/atoms/CheckboxRow';
+import { FieldRow } from '~/atoms/FieldRow';
 import { TextInput } from '~/atoms/TextInput';
+import { Stack } from '~/atoms/Stack';
+import { Grid } from '~/organisms/BastionDetail/components/BastionDetailView/components/BastionSettingsForm/components/Grid';
+import { TextArea } from '~/atoms/TextArea';
+import { Cluster } from '~/atoms/Cluster';
 
-export type BastionSettingsValues = {
+export interface BastionSettingsValues {
   name: string;
   notes: string;
   defenderCount: number;
   wallSquares: number;
   isFullyEnclosed: boolean;
-};
+}
 
-export type BastionSettingsFormProps = {
+export interface BastionSettingsFormProps {
   initialValues: BastionSettingsValues;
   isSaving: boolean;
   onSubmit: (values: BastionSettingsValues) => void;
   onCancel: () => void;
-};
+}
 
 /**
  * The bastion's own record, corrected by hand: its name and notes, and the
@@ -39,7 +43,7 @@ export const BastionSettingsForm = ({
   };
 
   return (
-    <Form onSubmit={submit}>
+    <Stack as="form" $gap="s" onSubmit={submit}>
       <FieldRow>
         <label htmlFor="bastion-settings-name">Name</label>
         <TextInput
@@ -110,43 +114,14 @@ export const BastionSettingsForm = ({
           }
         />
       </FieldRow>
-      <Actions>
+      <Cluster>
         <Button type="submit" size="sm" disabled={isSaving}>
           {isSaving ? 'Saving…' : 'Save'}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-      </Actions>
-    </Form>
+      </Cluster>
+    </Stack>
   );
 };
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: ${props => props.theme.space.sm};
-`;
-
-const TextArea = styled.textarea`
-  width: 100%;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
-  resize: vertical;
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;

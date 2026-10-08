@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { EmptyState } from '~/atoms/EmptyState';
 import { MapCanvasView } from '~/organisms/MapCanvas/components/MapCanvasView';
 import type { Viewport } from '~/utils/mapViewport';
@@ -8,13 +7,15 @@ import type {
   PlayerMapView,
   PlayerMapViewMap,
 } from '~/server/maps/toPlayerMapView';
+import { Wrapper } from '~/organisms/PlayerScreen/components/PlayerScreenView/components/PlayerMapBoardView/components/Wrapper';
+import { Centered } from '~/organisms/PlayerScreen/components/PlayerScreenView/components/PlayerMapBoardView/components/Centered';
 
-export type PlayerMapBoardViewProps = {
+export interface PlayerMapBoardViewProps {
   map: PlayerMapViewMap | null;
   viewport: Viewport;
   livePreviewShape?: PlayerMapView['livePreviewShape'];
   measurementCursor?: PlayerMapView['measurementCursor'];
-};
+}
 
 /**
  * The player screen's read-only view of the live map — the same canvas the
@@ -75,15 +76,3 @@ export const PlayerMapBoardView = ({
     </Wrapper>
   );
 };
-
-const Wrapper = styled.div`
-  width: 100%;
-  height: 100%;
-`;
-
-const Centered = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-`;

@@ -19,11 +19,11 @@ const escapeForRegExp = (value: string): string =>
 /** The numbers already taken for this base name; a bare name counts as 1. */
 export const usedNumbersFor = (
   baseName: string,
-  existingNames: readonly string[],
-): number[] => {
+  existingNames: ReadonlyArray<string>,
+): Array<number> => {
   const pattern = new RegExp(`^${escapeForRegExp(baseName)}(?: (\\d+))?$`);
 
-  return existingNames.reduce<number[]>((used, name) => {
+  return existingNames.reduce<Array<number>>((used, name) => {
     const match = pattern.exec(name);
     if (!match) return used;
 
@@ -38,8 +38,8 @@ export const buildCombatantNames = ({
 }: {
   baseName: string;
   count: number;
-  existingNames?: readonly string[];
-}): string[] => {
+  existingNames?: ReadonlyArray<string>;
+}): Array<string> => {
   if (count < 1) return [];
 
   const used = usedNumbersFor(baseName, existingNames);

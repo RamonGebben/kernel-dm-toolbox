@@ -123,10 +123,10 @@ export const updateEvent = (
  * and go with it, rather than staying behind to be rolled and applied.
  */
 export const replaceEvent = (
-  events: readonly TurnEvent[],
+  events: ReadonlyArray<TurnEvent>,
   index: number,
   next: TurnEvent,
-): TurnEvent[] => {
+): Array<TurnEvent> => {
   const keepsFollowUps =
     next.key === 'extraordinary-opportunity' && next.inputs.accept === 1;
   const firstOther = events.findIndex(

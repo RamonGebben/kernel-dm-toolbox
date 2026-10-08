@@ -13,34 +13,37 @@ import {
 import type { CheckboxListOption } from '~/atoms/CheckboxList';
 import type { SpellSummary } from '~/organisms/SpellLibrary/components/SpellLibraryView';
 
-type RawSpellSummary = {
+interface RawSpellSummary {
   slug: string;
   name: string;
   level: number;
   school: string;
-};
+}
 
-type RawSpellClassOption = { slug: string; label: string };
+interface RawSpellClassOption {
+  slug: string;
+  label: string;
+}
 
-export type SpellLibraryState = {
+export interface SpellLibraryState {
   isPending: boolean;
   isLibraryImported: boolean;
-  spells: SpellSummary[];
+  spells: Array<SpellSummary>;
   search: string;
   setSearch: (search: string) => void;
-  levelOptions: CheckboxListOption[];
-  selectedLevels: string[];
-  setSelectedLevels: (levels: string[]) => void;
-  classOptions: CheckboxListOption[];
-  selectedClassSlugs: string[];
-  setSelectedClassSlugs: (classSlugs: string[]) => void;
-};
+  levelOptions: Array<CheckboxListOption>;
+  selectedLevels: Array<string>;
+  setSelectedLevels: (levels: Array<string>) => void;
+  classOptions: Array<CheckboxListOption>;
+  selectedClassSlugs: Array<string>;
+  setSelectedClassSlugs: (classSlugs: Array<string>) => void;
+}
 
 /**
  * Every spell level a filter can offer, `0` a cantrip — fixed by the ruleset,
  * so unlike the class list it needs no round trip to build.
  */
-export const SPELL_LEVEL_OPTIONS: CheckboxListOption[] = Array.from(
+export const SPELL_LEVEL_OPTIONS: Array<CheckboxListOption> = Array.from(
   { length: 10 },
   (_, level) => ({ value: String(level), label: formatSpellLevel(level) }),
 );
@@ -49,13 +52,13 @@ export const SPELL_LEVEL_OPTIONS: CheckboxListOption[] = Array.from(
 const schoolLabel = (school: string): string =>
   slugToTitle(stripDocumentPrefix(school));
 
-type ToSpellLibraryStateArgs = {
+interface ToSpellLibraryStateArgs {
   isStatusPending: boolean;
   isListPending: boolean;
   status: LibraryImportStatus;
-  spells: RawSpellSummary[] | undefined;
-  classOptions: RawSpellClassOption[] | undefined;
-};
+  spells: Array<RawSpellSummary> | undefined;
+  classOptions: Array<RawSpellClassOption> | undefined;
+}
 
 /**
  * The hook's decision logic as a pure function, so the browser-free unit
@@ -93,8 +96,10 @@ export const toSpellLibraryState = ({
 export const useSpellLibrary = () => {
   const trpc = useTRPC();
   const [search, setSearch] = useState('');
-  const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
-  const [selectedClassSlugs, setSelectedClassSlugs] = useState<string[]>([]);
+  const [selectedLevels, setSelectedLevels] = useState<Array<string>>([]);
+  const [selectedClassSlugs, setSelectedClassSlugs] = useState<Array<string>>(
+    [],
+  );
 
   const status = useQuery(trpc.library.status.queryOptions());
   const classes = useQuery(trpc.library.listSpellClasses.queryOptions());

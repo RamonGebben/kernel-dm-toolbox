@@ -1,16 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Tabs, type TabOption } from '~/atoms/Tabs';
 import { CreatureLibrary } from '~/organisms/CreatureLibrary';
 import { CharacterRoster } from '~/organisms/CharacterRoster';
 import { SavedEncounters } from '~/organisms/SavedEncounters';
+import { FillStack } from '~/atoms/FillStack';
+import { Content } from '~/organisms/LibraryPanel/components/Content';
 
 type LibraryTab = 'creatures' | 'characters' | 'encounters';
 
 /** Spells is a later milestone; the tab strip grows with it. */
-const TAB_OPTIONS: readonly TabOption<LibraryTab>[] = [
+const TAB_OPTIONS: ReadonlyArray<TabOption<LibraryTab>> = [
   { value: 'creatures', label: 'Creatures' },
   { value: 'characters', label: 'Characters' },
   { value: 'encounters', label: 'Encounters' },
@@ -26,7 +27,7 @@ export const LibraryPanel = () => {
   const [tab, setTab] = useState<LibraryTab>('creatures');
 
   return (
-    <Wrapper>
+    <FillStack>
       <Tabs
         options={TAB_OPTIONS}
         value={tab}
@@ -36,7 +37,7 @@ export const LibraryPanel = () => {
       <Content>
         <TabContent tab={tab} />
       </Content>
-    </Wrapper>
+    </FillStack>
   );
 };
 
@@ -50,16 +51,3 @@ const TabContent = ({ tab }: { tab: LibraryTab }) => {
 
   return <SavedEncounters />;
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  height: 100%;
-  min-height: 0;
-`;
-
-const Content = styled.div`
-  flex: 1;
-  min-height: 0;
-`;

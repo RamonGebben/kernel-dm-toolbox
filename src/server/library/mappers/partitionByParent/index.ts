@@ -1,11 +1,13 @@
-type WithParent = { readonly [key: string]: unknown };
+interface WithParent {
+  readonly [key: string]: unknown;
+}
 
-type PartitionResult<TRow> = {
+interface PartitionResult<TRow> {
   /** Rows whose parent exists and can be safely inserted. */
-  kept: TRow[];
+  kept: Array<TRow>;
   /** Rows referencing a parent that was not imported. */
-  orphaned: TRow[];
-};
+  orphaned: Array<TRow>;
+}
 
 /**
  * Splits child rows by whether their parent was actually imported.
@@ -19,7 +21,7 @@ export const partitionByParent = <
   TRow extends WithParent,
   TKey extends keyof TRow,
 >(
-  rows: readonly TRow[],
+  rows: ReadonlyArray<TRow>,
   parentKey: TKey,
   knownParents: ReadonlySet<string>,
 ): PartitionResult<TRow> =>

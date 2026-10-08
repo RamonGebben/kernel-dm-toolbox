@@ -1,11 +1,14 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
-import { CheckboxRow, FieldRow } from '~/atoms/FormControls';
+import { CheckboxRow } from '~/atoms/CheckboxRow';
+import { FieldRow } from '~/atoms/FieldRow';
+import { Stack } from '~/atoms/Stack';
+import { Status } from '~/organisms/GridControlsPanel/components/GridControlsView/components/Status';
+import { Instructions } from '~/organisms/GridControlsPanel/components/GridControlsView/components/Instructions';
 
-export type GridControlsViewProps = {
+export interface GridControlsViewProps {
   hasSelectedMap: boolean;
   cellSize: number | null;
   calibrationActive: boolean;
@@ -20,7 +23,7 @@ export type GridControlsViewProps = {
   onGridColorChange: (color: string) => void;
   onGridOpacityChange: (opacity: number) => void;
   onGridBackgroundColorChange: (color: string) => void;
-};
+}
 
 /**
  * Grid calibration and display for the live map. Presentational — every
@@ -57,7 +60,7 @@ export const GridControlsView = ({
   }
 
   return (
-    <Wrapper>
+    <Stack>
       <Status>
         {cellSize === null
           ? 'Not calibrated'
@@ -138,31 +141,6 @@ export const GridControlsView = ({
           onChange={event => onGridBackgroundColorChange(event.target.value)}
         />
       </FieldRow>
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Status = styled.p`
-  margin: 0;
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Instructions = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-
-  p {
-    margin: 0;
-    font-size: ${props => props.theme.fontSize.sm};
-    color: ${props => props.theme.color.textPrimary};
-  }
-`;

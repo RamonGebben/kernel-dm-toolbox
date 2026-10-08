@@ -1,22 +1,27 @@
 'use client';
 
-import styled from 'styled-components';
 import { formatGold } from '~/utils/applyGoldChange';
+import { Wrapper } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/ReviewStep/components/Wrapper';
+import { Heading } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/ReviewStep/components/Heading';
+import { List } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/ReviewStep/components/List';
+import { Totals } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/ReviewStep/components/Totals';
+import { Problems } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/ReviewStep/components/Problems';
+import { MutedParagraph } from '~/atoms/MutedParagraph';
 
 export type TurnPreview =
   | {
       ok: true;
-      lines: string[];
+      lines: Array<string>;
       treasuryDelta: number;
-      storedItems: string[];
+      storedItems: Array<string>;
     }
-  | { ok: false; problems: string[] };
+  | { ok: false; problems: Array<string> };
 
-export type ReviewStepProps = {
+export interface ReviewStepProps {
   preview: TurnPreview | null;
   isPreviewing: boolean;
   treasuryGold: number;
-};
+}
 
 /**
  * Step 5: everything the turn will do, worked out by the server exactly as
@@ -28,7 +33,7 @@ export const ReviewStep = ({
   treasuryGold,
 }: ReviewStepProps) => {
   if (isPreviewing || !preview)
-    return <Muted role="status">Working out the turn…</Muted>;
+    return <MutedParagraph role="status">Working out the turn…</MutedParagraph>;
 
   if (!preview.ok) {
     return (
@@ -39,7 +44,9 @@ export const ReviewStep = ({
             <li key={problem}>{problem}</li>
           ))}
         </ul>
-        <Muted>Go back to the step that needs it, then return here.</Muted>
+        <MutedParagraph>
+          Go back to the step that needs it, then return here.
+        </MutedParagraph>
       </Problems>
     );
   }
@@ -56,7 +63,9 @@ export const ReviewStep = ({
           ))}
         </List>
       ) : (
-        <Muted>A quiet week: nothing ordered, nothing happened.</Muted>
+        <MutedParagraph>
+          A quiet week: nothing ordered, nothing happened.
+        </MutedParagraph>
       )}
       <Totals>
         <span>
@@ -71,48 +80,3 @@ export const ReviewStep = ({
     </Wrapper>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Heading = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-`;
-
-const List = styled.ul`
-  margin: 0;
-  padding-left: ${props => props.theme.space.md};
-`;
-
-const Totals = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const Problems = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.md};
-  border: 1px solid ${props => props.theme.color.danger};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-
-  ul {
-    margin: 0;
-    padding-left: ${props => props.theme.space.md};
-  }
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textMuted};
-`;

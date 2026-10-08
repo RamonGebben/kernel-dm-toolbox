@@ -8,15 +8,16 @@ const PlaceholderSlot = styled.div`
   justify-content: center;
   height: 100%;
   min-height: 8rem;
-  color: ${props => props.theme.color.textMuted};
-  font-size: ${props => props.theme.fontSize.sm};
+  color: ${props => props.theme.color('formBackground', 'text')};
+  font-size: ${props => props.theme.fontSize('s')};
 `;
 
 const PlaceholderRail = styled.div`
   display: flex;
   flex-direction: column;
   width: 3.5rem;
-  border-right: 1px solid ${props => props.theme.color.border};
+  border-right: ${props => props.theme.borderWidth('s')} solid
+    ${props => props.theme.color('formBackground', 'emphasis')};
 `;
 
 /**

@@ -1,36 +1,40 @@
 'use client';
 
-import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
 import { CheckboxList, type CheckboxListOption } from '~/atoms/CheckboxList';
 import { FilterBar } from '~/molecules/FilterBar';
 import { SpellListItem } from '~/molecules/SpellListItem';
 import { summarizeSelection } from '~/utils/summarizeFilter';
+import { FillStack } from '~/atoms/FillStack';
+import { ScrollArea } from '~/atoms/ScrollArea';
+import { PlainList } from '~/atoms/PlainList';
+import { Skeleton } from '~/atoms/Skeleton';
+import { Command } from '~/atoms/Command';
 
-export type SpellSummary = {
+export interface SpellSummary {
   slug: string;
   name: string;
   levelLabel: string;
   school: string;
-};
+}
 
-export type SpellLibraryViewProps = {
+export interface SpellLibraryViewProps {
   isPending: boolean;
   /** False until the library has been imported on this instance. */
   isLibraryImported: boolean;
-  spells: readonly SpellSummary[];
+  spells: ReadonlyArray<SpellSummary>;
   search: string;
   selectedSlug: string | null;
   onSearchChange: (search: string) => void;
   onSelect: (slug: string) => void;
-  levelOptions: readonly CheckboxListOption[];
-  selectedLevels: readonly string[];
-  onLevelsChange: (levels: string[]) => void;
-  classOptions: readonly CheckboxListOption[];
-  selectedClassSlugs: readonly string[];
-  onClassSlugsChange: (classSlugs: string[]) => void;
-};
+  levelOptions: ReadonlyArray<CheckboxListOption>;
+  selectedLevels: ReadonlyArray<string>;
+  onLevelsChange: (levels: Array<string>) => void;
+  classOptions: ReadonlyArray<CheckboxListOption>;
+  selectedClassSlugs: ReadonlyArray<string>;
+  onClassSlugsChange: (classSlugs: Array<string>) => void;
+}
 
 /**
  * Presentational: every state is reachable from a story because nothing here
@@ -52,7 +56,7 @@ export const SpellLibraryView = ({
   selectedClassSlugs,
   onClassSlugsChange,
 }: SpellLibraryViewProps) => (
-  <Wrapper>
+  <FillStack>
     <TextInput
       value={search}
       onChange={event => onSearchChange(event.target.value)}
@@ -93,7 +97,7 @@ export const SpellLibraryView = ({
         },
       ]}
     />
-    <Results>
+    <ScrollArea>
       <ResultsBody
         isPending={isPending}
         isLibraryImported={isLibraryImported}
@@ -102,8 +106,8 @@ export const SpellLibraryView = ({
         selectedSlug={selectedSlug}
         onSelect={onSelect}
       />
-    </Results>
-  </Wrapper>
+    </ScrollArea>
+  </FillStack>
 );
 
 type ResultsBodyProps = Omit<
@@ -129,7 +133,8 @@ const ResultsBody = ({
   selectedSlug,
   onSelect,
 }: ResultsBodyProps) => {
-  if (isPending) return <Skeleton role="status" aria-label="Loading spells" />;
+  if (isPending)
+    return <Skeleton $height="12rem" aria-label="Loading spells" />;
 
   if (!isLibraryImported) {
     return (
@@ -151,7 +156,7 @@ const ResultsBody = ({
   }
 
   return (
-    <List>
+    <PlainList>
       {spells.map(spell => (
         <li key={spell.slug}>
           <SpellListItem
@@ -163,46 +168,6 @@ const ResultsBody = ({
           />
         </li>
       ))}
-    </List>
+    </PlainList>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  min-height: 0;
-  height: 100%;
-`;
-
-/** The scroll container, so the filter box above it stays put. */
-const Results = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Skeleton = styled.div`
-  height: 12rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;
-
-const Command = styled.code`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.accent};
-`;

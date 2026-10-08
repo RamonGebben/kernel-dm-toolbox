@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import type {
   TurnContext,
@@ -10,12 +9,19 @@ import type {
   TurnCompletion,
   TurnDraft,
 } from '~/server/trpc/schemas/bastionTurns';
+import { Stack } from '~/atoms/Stack';
+import { Heading } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Heading';
+import { Paragraph } from '~/atoms/Paragraph';
+import { MutedParagraph } from '~/atoms/MutedParagraph';
+import { StepCard } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/StepCard';
+import { Fields } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/SinceStep/components/Fields';
+import { Small } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Small';
 
-export type SinceStepProps = {
+export interface SinceStepProps {
   context: TurnContext;
   draft: TurnDraft;
   onChange: (draft: TurnDraft) => void;
-};
+}
 
 /**
  * What a finished job came to, so the DM is not left guessing what to type.
@@ -75,7 +81,7 @@ export const SinceStep = ({ context, draft, onChange }: SinceStepProps) => {
     });
 
   return (
-    <Wrapper>
+    <Stack>
       {context.bastions.map(bastion => {
         const finished = bastion.facilities.filter(f => f.finishesThisTurn);
         const recovering = bastion.facilities.filter(f => f.isOutOfAction);
@@ -86,25 +92,34 @@ export const SinceStep = ({ context, draft, onChange }: SinceStepProps) => {
           !bastion.projectsContinuing.length;
 
         return (
-          <Bastion key={bastion.id} aria-label={bastion.name}>
+          <Stack
+            as="section"
+            $gap="xs"
+            key={bastion.id}
+            aria-label={bastion.name}
+          >
             <Heading>{bastion.name}</Heading>
             {nothing ? (
-              <Muted>A quiet week: nothing was under way.</Muted>
+              <MutedParagraph>
+                A quiet week: nothing was under way.
+              </MutedParagraph>
             ) : null}
 
             {bastion.projectsFinishing.map(project => (
-              <Line key={project.id}>Finished: {project.description}.</Line>
+              <Paragraph key={project.id}>
+                Finished: {project.description}.
+              </Paragraph>
             ))}
             {bastion.projectsContinuing.map(project => (
-              <Line key={project.id}>
+              <Paragraph key={project.id}>
                 Still building: {project.description}, {project.daysLeftAfter}{' '}
                 days to go.
-              </Line>
+              </Paragraph>
             ))}
             {recovering.map(facility => (
-              <Line key={facility.id}>
+              <Paragraph key={facility.id}>
                 The {facility.name} is out of action this turn.
-              </Line>
+              </Paragraph>
             ))}
 
             {finished.map(facility => {
@@ -115,16 +130,16 @@ export const SinceStep = ({ context, draft, onChange }: SinceStepProps) => {
               const fields = fieldsFor(facility);
 
               return (
-                <Completion
+                <StepCard
                   key={facility.id}
                   aria-label={`${facility.name} finished`}
                 >
-                  <Line>
+                  <Paragraph>
                     <strong>{facility.name}</strong> finished{' '}
                     {facility.jobLabel ?? 'its job'}
                     {facility.jobNote ? ` (${facility.jobNote})` : ''}.
-                  </Line>
-                  <Muted>{describeResult(facility)}</Muted>
+                  </Paragraph>
+                  <MutedParagraph>{describeResult(facility)}</MutedParagraph>
                   {fields.size ? (
                     <Fields>
                       {fields.has('item') ? (
@@ -219,68 +234,12 @@ export const SinceStep = ({ context, draft, onChange }: SinceStepProps) => {
                       ) : null}
                     </Fields>
                   ) : null}
-                </Completion>
+                </StepCard>
               );
             })}
-          </Bastion>
+          </Stack>
         );
       })}
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Bastion = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Heading = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Line = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Completion = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  padding: ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Fields = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: ${props => props.theme.space.xs};
-  }
-`;
-
-const Small = styled(TextInput)`
-  width: 6rem;
-`;

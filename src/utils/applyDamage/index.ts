@@ -1,8 +1,8 @@
-export type HitPoints = {
+export interface HitPoints {
   currentHitPoints: number;
   temporaryHitPoints: number;
   maxHitPoints: number;
-};
+}
 
 /**
  * Damage and healing, by the book.

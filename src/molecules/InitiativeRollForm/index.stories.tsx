@@ -5,7 +5,7 @@ import {
   type InitiativeRollRow,
 } from '~/molecules/InitiativeRollForm';
 
-const rows: InitiativeRollRow[] = [
+const rows: Array<InitiativeRollRow> = [
   {
     id: 'goblin-1',
     displayName: 'Goblin Warrior 1',

@@ -1,9 +1,9 @@
-type CharacterIdentity = {
+interface CharacterIdentity {
   level: number;
   className: string | null;
   subclass: string | null;
   species: string | null;
-};
+}
 
 /**
  * The one-line "who is this" a roster row leads with — `Level 5 Goliath

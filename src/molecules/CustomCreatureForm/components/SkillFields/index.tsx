@@ -1,19 +1,17 @@
 'use client';
 
 import { TextInput } from '~/atoms/TextInput';
-import {
-  Field,
-  Grid,
-  Label,
-  SectionTitle,
-} from '~/molecules/CustomCreatureForm/styled';
+import { Stack } from '~/atoms/Stack';
+import { Grid } from '~/molecules/CustomCreatureForm/components/Grid';
+import { FieldLabel } from '~/atoms/FieldLabel';
+import { SectionTitle } from '~/molecules/CustomCreatureForm/components/SectionTitle';
 import { SKILL_FIELDS } from '~/molecules/CustomCreatureForm/fields';
 import type { CustomCreatureFormValues } from '~/molecules/CustomCreatureForm';
 
-type SkillFieldsProps = {
+interface SkillFieldsProps {
   values: CustomCreatureFormValues;
   onChange: (patch: Partial<CustomCreatureFormValues>) => void;
-};
+}
 
 /** All eighteen skills, blank meaning "not proficient" — same as the library. */
 export const SkillFields = ({ values, onChange }: SkillFieldsProps) => (
@@ -21,8 +19,10 @@ export const SkillFields = ({ values, onChange }: SkillFieldsProps) => (
     <SectionTitle>Skills</SectionTitle>
     <Grid $columns={3}>
       {SKILL_FIELDS.map(([key, , label]) => (
-        <Field key={key}>
-          <Label htmlFor={`custom-creature-skill-${key}`}>{label}</Label>
+        <Stack $gap="xs" key={key}>
+          <FieldLabel htmlFor={`custom-creature-skill-${key}`}>
+            {label}
+          </FieldLabel>
           <TextInput
             id={`custom-creature-skill-${key}`}
             type="number"
@@ -34,7 +34,7 @@ export const SkillFields = ({ values, onChange }: SkillFieldsProps) => (
               })
             }
           />
-        </Field>
+        </Stack>
       ))}
     </Grid>
   </>

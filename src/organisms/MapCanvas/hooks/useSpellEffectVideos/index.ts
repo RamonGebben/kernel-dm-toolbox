@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
-export type SpellEffectVideoEntry = {
+export interface SpellEffectVideoEntry {
   video: HTMLVideoElement;
   failed: boolean;
-};
+}
 
 /**
  * A small pool of `<video>` elements for animated spell-effect clips, keyed

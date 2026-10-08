@@ -1,17 +1,22 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { SectionHeading } from '~/atoms/SectionHeading';
 import { ConfirmButton } from '~/molecules/ConfirmButton';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
 import { formatGold } from '~/utils/applyGoldChange';
+import { Stack } from '~/atoms/Stack';
+import { PlainList } from '~/atoms/PlainList';
+import { Row } from '~/organisms/BastionDetail/components/BastionDetailView/components/ConstructionSection/components/Row';
+import { Paragraph } from '~/atoms/Paragraph';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Cluster } from '~/atoms/Cluster';
 
-export type ConstructionSectionProps = {
+export interface ConstructionSectionProps {
   projects: BastionDetail['projects'];
   onFinish: (projectId: string) => void;
   onCancel: (projectId: string) => void;
-};
+}
 
 /**
  * Work paid for and under way. Bastion turns will count the days down; the
@@ -22,22 +27,22 @@ export const ConstructionSection = ({
   onFinish,
   onCancel,
 }: ConstructionSectionProps) => (
-  <Section aria-label="Construction">
+  <Stack as="section" $gap="s" aria-label="Construction">
     <SectionHeading>Construction</SectionHeading>
 
     {projects.length ? (
-      <List>
+      <PlainList>
         {projects.map(project => (
           <Row key={project.id}>
             <div>
-              <Description>{project.description}</Description>
-              <Muted>
+              <Paragraph>{project.description}</Paragraph>
+              <MutedNote>
                 {project.daysRemaining} day
                 {project.daysRemaining === 1 ? '' : 's'} left · paid{' '}
                 {formatGold(project.costGp)}
-              </Muted>
+              </MutedNote>
             </div>
-            <Actions>
+            <Cluster $gap="xs">
               <Button
                 variant="secondary"
                 size="sm"
@@ -52,54 +57,12 @@ export const ConstructionSection = ({
                 confirmLabel={`Cancel and refund ${formatGold(project.costGp)}`}
                 onConfirm={() => onCancel(project.id)}
               />
-            </Actions>
+            </Cluster>
           </Row>
         ))}
-      </List>
+      </PlainList>
     ) : (
-      <Muted>Nothing under construction.</Muted>
+      <MutedNote>Nothing under construction.</MutedNote>
     )}
-  </Section>
+  </Stack>
 );
-
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Row = styled.li`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Description = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.xs};
-`;

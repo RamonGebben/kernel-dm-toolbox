@@ -101,29 +101,32 @@ import { slugToTitle } from '~/utils/slugToTitle';
  * browser-free unit project.
  */
 
-export type StatblockAbility = {
+export interface StatblockAbility {
   key: string;
   label: string;
   score: number;
   modifier: string;
-};
+}
 
-export type StatblockEntry = { label: string; value: string };
+export interface StatblockEntry {
+  label: string;
+  value: string;
+}
 
-export type StatblockAction = {
+export interface StatblockAction {
   slug: string;
   name: string;
   desc: string;
   legendaryActionCost: number | null;
-};
+}
 
-export type StatblockActionSection = {
+export interface StatblockActionSection {
   key: string;
   title: string;
-  actions: StatblockAction[];
-};
+  actions: Array<StatblockAction>;
+}
 
-export type Statblock = {
+export interface Statblock {
   slug: string;
   name: string;
   /** "Large Aberration, lawful evil" */
@@ -139,16 +142,16 @@ export type Statblock = {
   speed: string;
   senses: string;
   languages: string | null;
-  abilities: StatblockAbility[];
-  savingThrows: StatblockEntry[];
-  skills: StatblockEntry[];
+  abilities: Array<StatblockAbility>;
+  savingThrows: Array<StatblockEntry>;
+  skills: Array<StatblockEntry>;
   damageImmunities: string | null;
   damageResistances: string | null;
   damageVulnerabilities: string | null;
   conditionImmunities: string | null;
-  traits: { slug: string; name: string; desc: string }[];
-  actionSections: StatblockActionSection[];
-};
+  traits: Array<{ slug: string; name: string; desc: string }>;
+  actionSections: Array<StatblockActionSection>;
+}
 
 /** Section order matches how a printed statblock reads. */
 const ACTION_SECTIONS: ReadonlyArray<readonly [string, string]> = [
@@ -239,7 +242,7 @@ export const buildSenses = (creature: StatblockSourceCreature): string =>
 
 export const buildAbilities = (
   creature: StatblockSourceCreature,
-): StatblockAbility[] =>
+): Array<StatblockAbility> =>
   ABILITIES.map(([key, label, scoreField]) => {
     const score = creature[scoreField] ?? 10;
 
@@ -253,7 +256,7 @@ export const buildAbilities = (
 
 export const buildSavingThrows = (
   creature: StatblockSourceCreature,
-): StatblockEntry[] =>
+): Array<StatblockEntry> =>
   ABILITIES.filter(([, , , saveField]) => creature[saveField] != null).map(
     ([, label, , saveField]) => ({
       label,
@@ -263,7 +266,7 @@ export const buildSavingThrows = (
 
 export const buildSkills = (
   creature: StatblockSourceCreature,
-): StatblockEntry[] =>
+): Array<StatblockEntry> =>
   SKILL_FIELDS.filter(([field]) => creature[field] != null).map(
     ([field, label]) => ({
       label,
@@ -277,8 +280,8 @@ export const buildSkills = (
  * `sortOrder`.
  */
 export const buildActionSections = (
-  actions: readonly StatblockSourceAction[],
-): StatblockActionSection[] =>
+  actions: ReadonlyArray<StatblockSourceAction>,
+): Array<StatblockActionSection> =>
   ACTION_SECTIONS.map(([actionType, title]) => ({
     key: actionType,
     title,
@@ -293,13 +296,13 @@ export const buildActionSections = (
       })),
   })).filter(section => section.actions.length > 0);
 
-type BuildStatblockArgs = {
+interface BuildStatblockArgs {
   creature: StatblockSourceCreature;
-  traits: readonly StatblockSourceTrait[];
-  actions: readonly StatblockSourceAction[];
+  traits: ReadonlyArray<StatblockSourceTrait>;
+  actions: ReadonlyArray<StatblockSourceAction>;
   /** Reserved for rendering structured attack rolls; not yet displayed. */
-  attacks?: readonly CreatureActionAttack[];
-};
+  attacks?: ReadonlyArray<CreatureActionAttack>;
+}
 
 export const buildStatblock = ({
   creature,

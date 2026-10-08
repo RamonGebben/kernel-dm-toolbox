@@ -3,12 +3,10 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
-import {
-  Form,
-  Field,
-  Label,
-  Actions,
-} from '~/molecules/CustomCreatureForm/styled';
+import { Form } from '~/molecules/CustomCreatureForm/components/Form';
+import { Stack } from '~/atoms/Stack';
+import { FieldLabel } from '~/atoms/FieldLabel';
+import { Cluster } from '~/atoms/Cluster';
 import { IdentityFields } from '~/molecules/CustomCreatureForm/components/IdentityFields';
 import { AbilityScoreFields } from '~/molecules/CustomCreatureForm/components/AbilityScoreFields';
 import { SkillFields } from '~/molecules/CustomCreatureForm/components/SkillFields';
@@ -23,13 +21,13 @@ import {
 } from '~/molecules/CustomCreatureForm/fields';
 import type { CreateCustomCreatureInput } from '~/server/trpc/schemas/customCreatures';
 
-export type TraitFormValues = {
+export interface TraitFormValues {
   name: string;
   desc: string;
   type: string;
-};
+}
 
-export type AttackFormValues = {
+export interface AttackFormValues {
   name: string;
   attackType: string;
   toHitMod: string;
@@ -45,17 +43,17 @@ export type AttackFormValues = {
   extraDamageDieType: string;
   extraDamageBonus: string;
   extraDamageType: string;
-};
+}
 
-export type ActionFormValues = {
+export interface ActionFormValues {
   name: string;
   desc: string;
   actionType: 'ACTION' | 'BONUS_ACTION' | 'REACTION' | 'LEGENDARY_ACTION';
   legendaryActionCost: string;
   attack: AttackFormValues | null;
-};
+}
 
-export type CustomCreatureFormValues = {
+export interface CustomCreatureFormValues {
   name: string;
   size: string;
   type: string;
@@ -86,9 +84,9 @@ export type CustomCreatureFormValues = {
   damageVulnerabilitiesDisplay: string;
   conditionImmunitiesDisplay: string;
   languagesDesc: string;
-  traits: TraitFormValues[];
-  actions: ActionFormValues[];
-};
+  traits: Array<TraitFormValues>;
+  actions: Array<ActionFormValues>;
+}
 
 export const emptyCustomCreatureForm: CustomCreatureFormValues = {
   name: '',
@@ -257,13 +255,13 @@ export const toCreateCustomCreatureInput = (
   })),
 });
 
-type CustomCreatureFormProps = {
+interface CustomCreatureFormProps {
   initialValues?: CustomCreatureFormValues;
   isSaving: boolean;
   submitLabel: string;
   onSubmit: (values: CustomCreatureFormValues) => void;
   onCancel: () => void;
-};
+}
 
 /**
  * Uncontrolled from the caller's point of view, like `CharacterForm`: it owns
@@ -296,15 +294,15 @@ export const CustomCreatureForm = ({
       <SkillFields values={values} onChange={patch} />
       <MovementAndSensesFields values={values} onChange={patch} />
 
-      <Field>
-        <Label htmlFor="custom-creature-languages">Languages</Label>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-languages">Languages</FieldLabel>
         <TextInput
           id="custom-creature-languages"
           value={values.languagesDesc}
           placeholder="Common, Goblin"
           onChange={event => patch({ languagesDesc: event.target.value })}
         />
-      </Field>
+      </Stack>
 
       <TraitRows
         traits={values.traits}
@@ -315,14 +313,14 @@ export const CustomCreatureForm = ({
         onChange={actions => patch({ actions })}
       />
 
-      <Actions>
+      <Cluster>
         <Button type="submit" size="sm" disabled={isSaving}>
           {isSaving ? 'Saving…' : submitLabel}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-      </Actions>
+      </Cluster>
     </Form>
   );
 };

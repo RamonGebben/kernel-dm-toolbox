@@ -7,7 +7,7 @@ import { canFoundBastion } from '~/utils/bastionRules';
  */
 export const resolveSelectedBastionId = (
   selectedId: string | null,
-  bastions: readonly { id: string }[],
+  bastions: ReadonlyArray<{ id: string }>,
 ): string | null => {
   if (selectedId && bastions.some(({ id }) => id === selectedId))
     return selectedId;
@@ -15,27 +15,27 @@ export const resolveSelectedBastionId = (
   return bastions[0]?.id ?? null;
 };
 
-export type FoundableCharacter = {
+export interface FoundableCharacter {
   id: string;
   name: string;
   level: number;
   /** False below level 5 — listed, but not pickable, with the reason. */
   canFound: boolean;
-};
+}
 
 /**
  * Who could found a bastion: active members without a live one. Below-level
  * members are still listed so the DM sees why they are missing.
  */
 export const toFoundableCharacters = (
-  characters: readonly {
+  characters: ReadonlyArray<{
     id: string;
     name: string;
     level: number;
     isActive: boolean;
-  }[],
-  bastions: readonly { ownerId: string | null }[],
-): FoundableCharacter[] => {
+  }>,
+  bastions: ReadonlyArray<{ ownerId: string | null }>,
+): Array<FoundableCharacter> => {
   const owners = new Set(bastions.map(({ ownerId }) => ownerId));
 
   return characters
@@ -53,7 +53,7 @@ export const toFoundableCharacters = (
  * keeps a split party bastion's shared parts. Ties go to whoever comes first.
  */
 export const findTopHolder = (
-  holderIds: readonly (string | null)[],
+  holderIds: ReadonlyArray<string | null>,
 ): string | null =>
   holderIds
     .filter((id): id is string => id !== null)
@@ -67,9 +67,9 @@ export const findTopHolder = (
 
 /** Puts the suggested keeper first, so a dialog defaulting to the first pick gets them. */
 export const orderKeeperCandidates = <TMember extends { id: string }>(
-  members: readonly TMember[],
+  members: ReadonlyArray<TMember>,
   suggestedId: string | null,
-): TMember[] => [
+): Array<TMember> => [
   ...members.filter(({ id }) => id === suggestedId),
   ...members.filter(({ id }) => id !== suggestedId),
 ];

@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { Modal } from '~/atoms/Modal';
 import { Button } from '~/atoms/Button';
 import {
@@ -13,12 +12,14 @@ import type {
   BaseSelection,
   WizardStep,
 } from '~/organisms/NewCreatureWizard/hooks/useNewCreatureWizard';
+import { Stack } from '~/atoms/Stack';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type NewCreatureWizardViewProps = {
+export interface NewCreatureWizardViewProps {
   isOpen: boolean;
   step: WizardStep;
   search: string;
-  creatures: readonly CreatureSummary[];
+  creatures: ReadonlyArray<CreatureSummary>;
   isBasePickerPending: boolean;
   isBasePending: boolean;
   initialValues: CustomCreatureFormValues | null;
@@ -32,7 +33,7 @@ export type NewCreatureWizardViewProps = {
   onBackToPickBase: () => void;
   onSubmit: (values: CustomCreatureFormValues) => void;
   onClose: () => void;
-};
+}
 
 /**
  * Presentational: every state (picking a base, waiting on a copy source to
@@ -72,7 +73,7 @@ export const NewCreatureWizardView = ({
     )}
 
     {step === 'form' && (
-      <FormStep>
+      <Stack $gap="s">
         <Button
           type="button"
           variant="ghost"
@@ -83,7 +84,7 @@ export const NewCreatureWizardView = ({
         </Button>
 
         {isBasePending || !initialValues ? (
-          <Skeleton role="status" aria-label="Loading creature to copy" />
+          <Skeleton $height="12rem" aria-label="Loading creature to copy" />
         ) : (
           <CustomCreatureForm
             key={baseKey}
@@ -94,19 +95,7 @@ export const NewCreatureWizardView = ({
             onCancel={onClose}
           />
         )}
-      </FormStep>
+      </Stack>
     )}
   </Modal>
 );
-
-const FormStep = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Skeleton = styled.div`
-  height: 12rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

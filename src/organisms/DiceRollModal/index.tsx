@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
-import { useDiceRollStore } from '~/stores/diceRoll';
+import { useDiceRollStore } from '~/store/diceRoll';
 import {
   DiceRollModalView,
   type DiceRollApplyIntent,
@@ -41,7 +41,7 @@ export const DiceRollModal = () => {
 
   const handleApply = async (
     intent: DiceRollApplyIntent,
-    targets: { id: string; amount: number }[],
+    targets: Array<{ id: string; amount: number }>,
   ) => {
     const mutate = intent === 'damage' ? damage.mutateAsync : heal.mutateAsync;
     await Promise.all(targets.map(target => mutate(target)));

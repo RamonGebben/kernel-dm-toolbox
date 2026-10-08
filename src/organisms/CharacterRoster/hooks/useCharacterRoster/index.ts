@@ -11,24 +11,25 @@ import type { RosterCharacter } from '~/organisms/CharacterRoster/components/Cha
  * read as "nobody is in the fight", never crash a `.includes`.
  */
 export const toCombatantCharacterIds = (
-  encounter: { combatants: { playerCharacterId: string | null }[] } | undefined,
-): string[] =>
+  encounter:
+    { combatants: Array<{ playerCharacterId: string | null }> } | undefined,
+): Array<string> =>
   (encounter?.combatants ?? [])
     .map(combatant => combatant.playerCharacterId)
     .filter((id): id is string => id !== null);
 
 /** The pick list: active members only — the bench is managed on /party. */
 export const toPickableCharacters = <TCharacter extends { isActive: boolean }>(
-  characters: readonly TCharacter[],
-): TCharacter[] => characters.filter(character => character.isActive);
+  characters: ReadonlyArray<TCharacter>,
+): Array<TCharacter> => characters.filter(character => character.isActive);
 
 /**
  * Whether "Add all active" has anyone left to add — so the button can say
  * so instead of firing a request that adds nobody.
  */
 export const hasCharactersToAdd = (
-  characters: readonly { id: string }[],
-  combatantCharacterIds: readonly string[],
+  characters: ReadonlyArray<{ id: string }>,
+  combatantCharacterIds: ReadonlyArray<string>,
 ): boolean =>
   characters.some(character => !combatantCharacterIds.includes(character.id));
 

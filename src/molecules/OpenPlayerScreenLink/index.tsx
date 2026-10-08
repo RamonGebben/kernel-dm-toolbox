@@ -1,7 +1,7 @@
 'use client';
 
 import type { MouseEvent } from 'react';
-import styled from 'styled-components';
+import { StyledAnchor } from '~/molecules/OpenPlayerScreenLink/components/StyledAnchor';
 
 /** A named window, not `target="_blank"`'s always-a-fresh-tab behaviour —
  * `window.open` with the same name refocuses the window already open (one
@@ -33,9 +33,9 @@ const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
   openPlayerScreen();
 };
 
-export type OpenPlayerScreenLinkProps = {
+export interface OpenPlayerScreenLinkProps {
   className?: string;
-};
+}
 
 /**
  * A link to the player screen that refocuses an already-open window instead
@@ -55,8 +55,3 @@ export const OpenPlayerScreenLink = ({
     Open the player screen ↗
   </StyledAnchor>
 );
-
-const StyledAnchor = styled.a`
-  font-weight: 600;
-  color: ${props => props.theme.color.accent};
-`;

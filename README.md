@@ -297,10 +297,11 @@ src/atoms/        ─┐
 src/molecules/     │ presentational components, atomic design
 src/organisms/     │
 src/templates/    ─┘ full page bodies
+src/providers/    app-level providers: theme, tRPC, style registry
 src/server/trpc/  the API: routers, zod schemas, pure helpers
 src/server/db/    drizzle schema, client, migrations
 src/theme/        the single dark theme
-e2e/              Playwright specs, one per user task
+e2e/              Playwright specs, one per user task, grouped by domain
 ```
 
 ### The vertical slice

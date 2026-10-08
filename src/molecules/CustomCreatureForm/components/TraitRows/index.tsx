@@ -1,22 +1,21 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
-import {
-  Field,
-  Grid,
-  Label,
-  SectionTitle,
-} from '~/molecules/CustomCreatureForm/styled';
+import { Grid } from '~/molecules/CustomCreatureForm/components/Grid';
+import { FieldLabel } from '~/atoms/FieldLabel';
+import { SectionTitle } from '~/molecules/CustomCreatureForm/components/SectionTitle';
 import type { TraitFormValues } from '~/molecules/CustomCreatureForm';
+import { Stack } from '~/atoms/Stack';
+import { Row } from '~/molecules/CustomCreatureForm/components/Row';
+import { TextArea } from '~/molecules/CustomCreatureForm/components/TextArea';
 
 const emptyTrait: TraitFormValues = { name: '', desc: '', type: '' };
 
-type TraitRowsProps = {
-  traits: TraitFormValues[];
-  onChange: (traits: TraitFormValues[]) => void;
-};
+interface TraitRowsProps {
+  traits: Array<TraitFormValues>;
+  onChange: (traits: Array<TraitFormValues>) => void;
+}
 
 /** Repeatable trait rows — passive abilities like Amphibious or Pack Tactics. */
 export const TraitRows = ({ traits, onChange }: TraitRowsProps) => {
@@ -31,15 +30,15 @@ export const TraitRows = ({ traits, onChange }: TraitRowsProps) => {
     onChange(traits.filter((_trait, current) => current !== index));
 
   return (
-    <RowsWrapper>
+    <Stack $gap="s">
       <SectionTitle>Traits</SectionTitle>
       {traits.map((trait, index) => (
         <Row key={index}>
           <Grid $columns={2}>
-            <Field>
-              <Label htmlFor={`custom-creature-trait-name-${index}`}>
+            <Stack $gap="xs">
+              <FieldLabel htmlFor={`custom-creature-trait-name-${index}`}>
                 Name
-              </Label>
+              </FieldLabel>
               <TextInput
                 id={`custom-creature-trait-name-${index}`}
                 value={trait.name}
@@ -47,11 +46,11 @@ export const TraitRows = ({ traits, onChange }: TraitRowsProps) => {
                   updateTrait(index, { name: event.target.value })
                 }
               />
-            </Field>
-            <Field>
-              <Label htmlFor={`custom-creature-trait-type-${index}`}>
+            </Stack>
+            <Stack $gap="xs">
+              <FieldLabel htmlFor={`custom-creature-trait-type-${index}`}>
                 Type (optional)
-              </Label>
+              </FieldLabel>
               <TextInput
                 id={`custom-creature-trait-type-${index}`}
                 value={trait.type}
@@ -59,12 +58,12 @@ export const TraitRows = ({ traits, onChange }: TraitRowsProps) => {
                   updateTrait(index, { type: event.target.value })
                 }
               />
-            </Field>
+            </Stack>
           </Grid>
-          <Field>
-            <Label htmlFor={`custom-creature-trait-desc-${index}`}>
+          <Stack $gap="xs">
+            <FieldLabel htmlFor={`custom-creature-trait-desc-${index}`}>
               Description
-            </Label>
+            </FieldLabel>
             <TextArea
               id={`custom-creature-trait-desc-${index}`}
               value={trait.desc}
@@ -72,7 +71,7 @@ export const TraitRows = ({ traits, onChange }: TraitRowsProps) => {
                 updateTrait(index, { desc: event.target.value })
               }
             />
-          </Field>
+          </Stack>
           <Button
             type="button"
             variant="ghost"
@@ -91,34 +90,6 @@ export const TraitRows = ({ traits, onChange }: TraitRowsProps) => {
       >
         Add trait
       </Button>
-    </RowsWrapper>
+    </Stack>
   );
 };
-
-const RowsWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Row = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const TextArea = styled.textarea`
-  width: 100%;
-  min-height: 4rem;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
-  resize: vertical;
-`;

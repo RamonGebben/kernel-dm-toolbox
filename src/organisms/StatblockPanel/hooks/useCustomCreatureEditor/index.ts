@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
-import { useSelectionStore } from '~/stores/selection';
+import { useSelectionStore } from '~/store/selection';
 import {
   toCreateCustomCreatureInput,
   type CustomCreatureFormValues,

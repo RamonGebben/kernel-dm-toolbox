@@ -35,7 +35,11 @@ export const buildSpellEffectUrl = (spellSlug: string): string =>
 export const shouldLoopSpellEffect = (duration: string | null): boolean =>
   duration != null && duration.trim().toLowerCase() !== 'instantaneous';
 
-export type GridSpec = { cellSize: number; originX: number; originY: number };
+export interface GridSpec {
+  cellSize: number;
+  originX: number;
+  originY: number;
+}
 
 export const FEET_PER_GRID_CELL = 5;
 
@@ -57,7 +61,11 @@ export const TV_READABILITY_SCALE_PRESETS = [1, 1.5, 2, 2.5, 3] as const;
  * second size from. */
 export const LINE_WIDTH_FEET = 5;
 
-export type GridCellRect = { x: number; y: number; size: number };
+export interface GridCellRect {
+  x: number;
+  y: number;
+  size: number;
+}
 
 /**
  * The rectangle (top-left corner + side length, in map-space pixels) of
@@ -113,14 +121,14 @@ export const computeGridDistanceFeet = (
 export const feetToPixels = (feet: number, grid: GridSpec): number =>
   (feet / FEET_PER_GRID_CELL) * (grid.cellSize || 1);
 
-export type MeasurementShapeInput = {
+export interface MeasurementShapeInput {
   shapeType: MeasurementShapeType;
   originX: number;
   originY: number;
   extentFeet: number;
   /** Radians. Null for `circle`, which has no direction. */
   orientation: number | null;
-};
+}
 
 /**
  * What the DM is currently aiming, computed live from the fixed origin click
@@ -199,7 +207,7 @@ export const buildMeasurementLabelText = (shape: {
 
 export type ShapeFootprint =
   | { kind: 'circle'; cx: number; cy: number; radius: number }
-  | { kind: 'polygon'; points: MapPoint[] };
+  | { kind: 'polygon'; points: Array<MapPoint> };
 
 /**
  * The drawable footprint of a committed or in-progress shape, in map-space
@@ -416,18 +424,15 @@ const pointToSegmentDistance = (
 };
 
 /** Standard ray-casting point-in-polygon test. */
-const isPointInPolygon = (point: MapPoint, points: MapPoint[]): boolean => {
-  let inside = false;
-  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-    const a = points[i]!;
-    const b = points[j]!;
+const isPointInPolygon = (point: MapPoint, points: Array<MapPoint>): boolean =>
+  points.reduce((inside, a, index) => {
+    // Each edge runs from the previous point to this one, wrapping at the start.
+    const b = points[(index + points.length - 1) % points.length]!;
     const crosses =
       a.y > point.y !== b.y > point.y &&
       point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
-    if (crosses) inside = !inside;
-  }
-  return inside;
-};
+    return crosses ? !inside : inside;
+  }, false);
 
 /**
  * Whether a map-space point falls inside a shape — the click-to-select hit
@@ -467,7 +472,7 @@ export const isPointInShapeFootprint = (
  * A shape's colour, auto-assigned from a spell's damage type — acid is
  * green, fire is red, cold is icy blue, radiant is gold, and so on — so a
  * DM doesn't have to hand-pick a colour for every spell they place. A
- * fixed hex palette, not `theme.color.*`: this is domain data written to
+ * fixed hex palette, not `theme.color()`: this is domain data written to
  * `map_measurement_shapes.color` and read back out raw, the same way the
  * colour picker's own value is a hex string, not a theme token.
  */
@@ -494,14 +499,11 @@ const DAMAGE_TYPE_COLORS: Record<string, string> = {
  * The first listed damage type wins for a spell with more than one.
  */
 export const mapDamageTypesToColor = (
-  damageTypes: readonly string[],
-): string | null => {
-  for (const damageType of damageTypes) {
-    const color = DAMAGE_TYPE_COLORS[damageType.toLowerCase()];
-    if (color) return color;
-  }
-  return null;
-};
+  damageTypes: ReadonlyArray<string>,
+): string | null =>
+  damageTypes
+    .map(damageType => DAMAGE_TYPE_COLORS[damageType.toLowerCase()])
+    .find(Boolean) ?? null;
 
 /**
  * Best-effort mapping from Open5e's `shapeType` vocabulary onto this

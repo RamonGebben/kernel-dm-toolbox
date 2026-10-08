@@ -2,7 +2,7 @@
 
 import { SpellLibraryView } from '~/organisms/SpellLibrary/components/SpellLibraryView';
 import { useSpellLibrary } from '~/organisms/SpellLibrary/hooks/useSpellLibrary';
-import { useSpellSelectionStore } from '~/stores/spellSelection';
+import { useSpellSelectionStore } from '~/store/spellSelection';
 
 /**
  * Connected boundary: owns the queries and delegates every pixel to

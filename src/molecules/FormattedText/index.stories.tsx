@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, userEvent, within } from 'storybook/test';
 import { FormattedText } from '~/molecules/FormattedText';
-import { useDiceRollStore } from '~/stores/diceRoll';
+import { useDiceRollStore } from '~/store/diceRoll';
 
 const meta = {
   title: 'Molecules/FormattedText',

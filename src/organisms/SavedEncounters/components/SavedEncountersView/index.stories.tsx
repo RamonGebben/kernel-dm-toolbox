@@ -5,7 +5,7 @@ import {
   type SavedEncounterSummary,
 } from '~/organisms/SavedEncounters/components/SavedEncountersView';
 
-const presets: SavedEncounterSummary[] = [
+const presets: Array<SavedEncounterSummary> = [
   {
     id: 'bridge',
     name: 'Ambush at the bridge',

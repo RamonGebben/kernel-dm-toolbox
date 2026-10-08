@@ -53,7 +53,7 @@ const CHUNK_SIZES = {
 
 export type ImportProgress = (message: string) => void;
 
-export type ImportLibraryOptions = {
+export interface ImportLibraryOptions {
   db: Database;
   gitRef?: string;
   fetchJson?: FetchJson;
@@ -65,9 +65,9 @@ export type ImportLibraryOptions = {
   effectsStorageDir?: string;
   effectsGitRef?: string;
   fetchBinary?: FetchBinary;
-};
+}
 
-export type ImportLibraryResult = {
+export interface ImportLibraryResult {
   gitRef: string;
   creatureCount: number;
   actionCount: number;
@@ -83,7 +83,7 @@ export type ImportLibraryResult = {
   /** How many spells matched an animated effect — 0 when `effectsStorageDir`
    * was not given. */
   effectCount: number;
-};
+}
 
 /**
  * Imports the Open5e library.
@@ -166,16 +166,15 @@ export const importLibrary = async ({
       }),
     );
 
-    const creatureFixtures: CreatureFixture[] = perSource.flatMap(
+    const creatureFixtures: Array<CreatureFixture> = perSource.flatMap(
       s => s.creature,
     );
-    const actionFixtures: CreatureActionFixture[] = perSource.flatMap(
+    const actionFixtures: Array<CreatureActionFixture> = perSource.flatMap(
       s => s.action,
     );
-    const attackFixtures: CreatureActionAttackFixture[] = perSource.flatMap(
-      s => s.attack,
-    );
-    const traitFixtures: CreatureTraitFixture[] = perSource.flatMap(
+    const attackFixtures: Array<CreatureActionAttackFixture> =
+      perSource.flatMap(s => s.attack);
+    const traitFixtures: Array<CreatureTraitFixture> = perSource.flatMap(
       s => s.trait,
     );
 

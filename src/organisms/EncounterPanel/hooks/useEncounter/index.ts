@@ -9,7 +9,7 @@ type EncounterQueryData =
   | {
       roundNumber: number;
       activeCombatantId: string | null;
-      combatants: EncounterCombatantSummary[];
+      combatants: Array<EncounterCombatantSummary>;
       difficulty: {
         difficulty: 'trivial' | 'low' | 'moderate' | 'high' | 'deadly';
         totalExperience: number;
@@ -98,7 +98,7 @@ export const useEncounter = () => {
     isAdjusting: damage.isPending || heal.isPending || grantTemporary.isPending,
     isStarting: start.isPending,
     start: (
-      initiatives: { id: string; initiative: number }[],
+      initiatives: Array<{ id: string; initiative: number }>,
       onSettled?: () => void,
     ) => start.mutate({ initiatives }, { onSuccess: onSettled }),
     end: () => end.mutate(),

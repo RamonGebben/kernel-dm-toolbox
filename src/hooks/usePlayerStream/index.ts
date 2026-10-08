@@ -12,10 +12,10 @@ import { useEventSourceView } from '~/hooks/useEventSourceView';
  * could return something the stream would not.
  */
 
-export type PlayerStreamState = {
+export interface PlayerStreamState {
   isConnected: boolean;
   view: PlayerView | null;
-};
+}
 
 /**
  * Parses one frame.

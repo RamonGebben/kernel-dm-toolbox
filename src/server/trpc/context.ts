@@ -11,15 +11,15 @@ import { getDb, type Database } from '~/server/db';
  * rather than from `env` directly at each call site, so campaign identity has
  * a single seam — the one an auth or multi-campaign model would slot into.
  */
-export type Context = {
+export interface Context {
   headers: Headers;
   campaignName: string;
   db: Database;
-};
+}
 
-type CreateContextOptions = {
+interface CreateContextOptions {
   headers: Headers;
-};
+}
 
 export const createContext = async ({
   headers,

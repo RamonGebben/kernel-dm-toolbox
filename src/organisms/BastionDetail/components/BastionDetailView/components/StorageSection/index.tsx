@@ -1,22 +1,28 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { Select } from '~/atoms/FormControls';
+import { Select } from '~/atoms/Select';
 import { SectionHeading } from '~/atoms/SectionHeading';
 import { TextInput } from '~/atoms/TextInput';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
 import { formatGold } from '~/utils/applyGoldChange';
+import { Stack } from '~/atoms/Stack';
+import { PlainList } from '~/atoms/PlainList';
+import { Row } from '~/organisms/BastionDetail/components/BastionDetailView/components/Row';
+import { Actions } from '~/organisms/BastionDetail/components/BastionDetailView/components/Actions';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { Cluster } from '~/atoms/Cluster';
+import { QuantityInput } from '~/organisms/BastionDetail/components/BastionDetailView/components/StorageSection/components/QuantityInput';
 
-export type StorageSectionProps = {
+export interface StorageSectionProps {
   items: BastionDetail['storage'];
   /** Who can claim an item. */
-  characters: readonly { id: string; name: string }[];
+  characters: ReadonlyArray<{ id: string; name: string }>;
   onAdd: (item: { name: string; quantity: number; note?: string }) => void;
   onClaim: (itemId: string, characterId: string | null) => void;
   onRemove: (itemId: string) => void;
-};
+}
 
 /**
  * What the bastion has made or found and nobody has collected. Bastion turns
@@ -42,20 +48,23 @@ export const StorageSection = ({
   };
 
   return (
-    <Section aria-label="Storage">
+    <Stack as="section" $gap="s" aria-label="Storage">
       <SectionHeading>Storage</SectionHeading>
 
       {items.length ? (
-        <List>
+        <PlainList>
           {items.map(item => (
             <Row key={item.id}>
               <span>
                 {item.name}
                 {item.quantity > 1 ? ` ×${item.quantity}` : ''}
                 {item.valueGp ? (
-                  <Muted> · worth {formatGold(item.valueGp)}</Muted>
+                  <MutedCaption>
+                    {' '}
+                    · worth {formatGold(item.valueGp)}
+                  </MutedCaption>
                 ) : null}
-                {item.note ? <Muted> · {item.note}</Muted> : null}
+                {item.note ? <MutedCaption> · {item.note}</MutedCaption> : null}
               </span>
               <Actions>
                 <Select
@@ -83,12 +92,12 @@ export const StorageSection = ({
               </Actions>
             </Row>
           ))}
-        </List>
+        </PlainList>
       ) : (
-        <Muted>Nothing in storage.</Muted>
+        <MutedCaption>Nothing in storage.</MutedCaption>
       )}
 
-      <AddForm onSubmit={add}>
+      <Cluster as="form" onSubmit={add}>
         <TextInput
           aria-label="Item"
           placeholder="Item"
@@ -105,54 +114,7 @@ export const StorageSection = ({
         <Button type="submit" size="sm" disabled={!name.trim()}>
           Store
         </Button>
-      </AddForm>
-    </Section>
+      </Cluster>
+    </Stack>
   );
 };
-
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Row = styled.li`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Muted = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const AddForm = styled.form`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const QuantityInput = styled(TextInput)`
-  width: 5rem;
-`;

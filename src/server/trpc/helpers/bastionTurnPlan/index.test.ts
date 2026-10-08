@@ -29,7 +29,7 @@ const facility = (overrides: object) => ({
 });
 
 const contextWith = (
-  facilities: object[] = [facility({})],
+  facilities: Array<object> = [facility({})],
   overrides: Partial<Parameters<typeof toTurnContext>[0]> = {},
 ) =>
   toTurnContext({
@@ -718,7 +718,7 @@ const ordersFrom = (
 
 describe('the Armory in a turn', () => {
   const armory = facility({ id: ARMORY, facilityKey: 'armory' });
-  const stockOption = (facilities: object[]) =>
+  const stockOption = (facilities: Array<object>) =>
     contextWith(facilities).bastions[0]!.facilities[0]!.orderOptions[0]!;
 
   it('prices stocking it from the defenders on the roster', () => {
@@ -808,7 +808,7 @@ describe('orders per character', () => {
 describe('the Storehouse in a turn', () => {
   const storehouse = (overrides: object = {}) =>
     facility({ id: STOREHOUSE, facilityKey: 'storehouse', ...overrides });
-  const withGoods = (facilities: object[]) =>
+  const withGoods = (facilities: Array<object>) =>
     contextWith(facilities, {
       storage: [
         {

@@ -1,9 +1,9 @@
 export type LibraryImportStatus = { isImported: boolean } | undefined;
 
-export type LibraryImportState = {
+export interface LibraryImportState {
   isPending: boolean;
   isLibraryImported: boolean;
-};
+}
 
 /**
  * The "is this library usable yet" derivation shared by every Open5e-backed

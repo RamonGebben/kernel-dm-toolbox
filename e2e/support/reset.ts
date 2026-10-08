@@ -18,7 +18,7 @@ export const clearEncounter = async (
 
   const response = await request.get(`${baseURL}/api/trpc/encounter.get`);
   const body = (await response.json()) as {
-    result: { data: { json: { combatants: { id: string }[] } } };
+    result: { data: { json: { combatants: Array<{ id: string }> } } };
   };
 
   for (const combatant of body.result.data.json.combatants) {
@@ -40,7 +40,7 @@ export const clearSavedEncounters = async (
 ): Promise<void> => {
   const response = await request.get(`${baseURL}/api/trpc/presets.list`);
   const body = (await response.json()) as {
-    result: { data: { json: { id: string }[] } };
+    result: { data: { json: Array<{ id: string }> } };
   };
 
   for (const preset of body.result.data.json) {
@@ -64,7 +64,7 @@ export const resetBastions = async (
 ): Promise<void> => {
   const response = await request.get(`${baseURL}/api/trpc/bastions.list`);
   const body = (await response.json()) as {
-    result: { data: { json: { id: string }[] } };
+    result: { data: { json: Array<{ id: string }> } };
   };
 
   // A turn left half-finished by an earlier run would be resumed instead of

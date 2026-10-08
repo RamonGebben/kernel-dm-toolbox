@@ -3,7 +3,7 @@
  * renders: folders with their contained maps, and the maps left unfiled.
  */
 
-export type MapGalleryItem = {
+export interface MapGalleryItem {
   id: string;
   name: string;
   kind: string;
@@ -12,23 +12,27 @@ export type MapGalleryItem = {
   nativeWidth: number | null;
   nativeHeight: number | null;
   hasGridCalibration: boolean;
-};
+}
 
-export type MapGalleryFolder = {
+export interface MapGalleryFolder {
   id: string;
   name: string;
   sortOrder: number;
-  maps: MapGalleryItem[];
-};
+  maps: Array<MapGalleryItem>;
+}
 
-export type MapGallery = {
-  folders: MapGalleryFolder[];
-  unfiledMaps: MapGalleryItem[];
-};
+export interface MapGallery {
+  folders: Array<MapGalleryFolder>;
+  unfiledMaps: Array<MapGalleryItem>;
+}
 
-type FolderRow = { id: string; name: string; sortOrder: number };
+interface FolderRow {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
 
-type MapRow = {
+interface MapRow {
   id: string;
   name: string;
   kind: string;
@@ -36,7 +40,7 @@ type MapRow = {
   nativeWidth: number | null;
   nativeHeight: number | null;
   gridCellSize: number | null;
-};
+}
 
 const toGalleryItem = (map: MapRow): MapGalleryItem => ({
   id: map.id,
@@ -53,8 +57,8 @@ export const buildMapGallery = ({
   folders,
   maps,
 }: {
-  folders: FolderRow[];
-  maps: MapRow[];
+  folders: Array<FolderRow>;
+  maps: Array<MapRow>;
 }): MapGallery => {
   const sortedFolders = [...folders].sort((a, b) => a.sortOrder - b.sortOrder);
 
