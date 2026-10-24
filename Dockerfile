@@ -3,7 +3,7 @@
 # One image, one campaign. The SQLite file lives on a mounted volume so the
 # container itself stays disposable.
 
-FROM node:24-alpine AS base
+FROM node:24.22.1-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
