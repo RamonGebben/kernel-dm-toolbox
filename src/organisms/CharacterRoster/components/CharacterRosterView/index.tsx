@@ -1,12 +1,16 @@
 'use client';
 
-import Link from 'next/link';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { CharacterRow } from '~/molecules/CharacterRow';
+import { FillStack } from '~/atoms/FillStack';
+import { SpreadRow } from '~/atoms/SpreadRow';
+import { ManageLink } from '~/organisms/CharacterRoster/components/CharacterRosterView/components/ManageLink';
+import { ScrollArea } from '~/atoms/ScrollArea';
+import { PlainList } from '~/atoms/PlainList';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type RosterCharacter = {
+export interface RosterCharacter {
   id: string;
   name: string;
   playerName: string | null;
@@ -17,20 +21,20 @@ export type RosterCharacter = {
   armorClass: number;
   maxHitPoints: number;
   initiativeModifier: number;
-};
+}
 
-export type CharacterRosterViewProps = {
+export interface CharacterRosterViewProps {
   isPending: boolean;
   /** Active party members — the bench is not offered here. */
-  characters: readonly RosterCharacter[];
+  characters: ReadonlyArray<RosterCharacter>;
   /** Ids already in the encounter, so they cannot be added a second time. */
-  combatantCharacterIds: readonly string[];
+  combatantCharacterIds: ReadonlyArray<string>;
   /** False once every active member is already in the fight. */
   canAddAll: boolean;
   isAddingAll: boolean;
   onAddToEncounter: (character: RosterCharacter) => void;
   onAddAllActive: () => void;
-};
+}
 
 /**
  * Picking who is at the table tonight. Presentational: props in, JSX out,
@@ -46,8 +50,8 @@ export const CharacterRosterView = ({
   onAddToEncounter,
   onAddAllActive,
 }: CharacterRosterViewProps) => (
-  <Wrapper>
-    <Toolbar>
+  <FillStack>
+    <SpreadRow>
       <Button
         size="sm"
         disabled={isPending || !canAddAll || isAddingAll}
@@ -56,17 +60,17 @@ export const CharacterRosterView = ({
         {isAddingAll ? 'Adding…' : 'Add all active'}
       </Button>
       <ManageLink href="/party">Manage the party →</ManageLink>
-    </Toolbar>
+    </SpreadRow>
 
-    <Results>
+    <ScrollArea>
       <RosterBody
         isPending={isPending}
         characters={characters}
         combatantCharacterIds={combatantCharacterIds}
         onAddToEncounter={onAddToEncounter}
       />
-    </Results>
-  </Wrapper>
+    </ScrollArea>
+  </FillStack>
 );
 
 type RosterBodyProps = Pick<
@@ -82,7 +86,7 @@ const RosterBody = ({
   onAddToEncounter,
 }: RosterBodyProps) => {
   if (isPending)
-    return <Skeleton role="status" aria-label="Loading characters" />;
+    return <Skeleton $height="8rem" aria-label="Loading characters" />;
 
   if (!characters.length) {
     return (
@@ -95,7 +99,7 @@ const RosterBody = ({
   }
 
   return (
-    <List>
+    <PlainList>
       {characters.map(character => (
         <li key={character.id}>
           <CharacterRow
@@ -105,48 +109,6 @@ const RosterBody = ({
           />
         </li>
       ))}
-    </List>
+    </PlainList>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  height: 100%;
-  min-height: 0;
-`;
-
-const Toolbar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const ManageLink = styled(Link)`
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: 600;
-  color: ${props => props.theme.color.accent};
-`;
-
-const Results = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Skeleton = styled.div`
-  height: 8rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

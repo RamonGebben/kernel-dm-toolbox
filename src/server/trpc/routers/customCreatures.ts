@@ -55,8 +55,8 @@ const loadLiveCustomCreature = async (db: Database, id: string) => {
 const replaceChildRows = async (
   db: Database,
   customCreatureId: string,
-  traits: readonly CustomCreatureTraitInput[],
-  actions: readonly CustomCreatureActionInput[],
+  traits: ReadonlyArray<CustomCreatureTraitInput>,
+  actions: ReadonlyArray<CustomCreatureActionInput>,
 ) => {
   const now = new Date();
 

@@ -42,7 +42,7 @@ export type FacilityPrerequisite =
   | 'fighting-style-or-unarmored-defense';
 
 /** One thing a facility can be ordered to do. */
-export type FacilityOrderOption = {
+export interface FacilityOrderOption {
   /** Stable key, unique within its facility. */
   key: string;
   label: string;
@@ -68,12 +68,12 @@ export type FacilityOrderOption = {
    * Barrack's recruits joining the roster.
    */
   effect?: FacilityOrderEffect;
-};
+}
 
 export type FacilityOrderEffect =
   'stock-armory' | 'buy-goods' | 'sell-goods' | 'recruit-defenders';
 
-export type SpecialFacilityDefinition = {
+export interface SpecialFacilityDefinition {
   /** Stable key, stored on `bastion_special_facilities.facility_key`. */
   key: string;
   name: string;
@@ -84,14 +84,14 @@ export type SpecialFacilityDefinition = {
   hirelings: number;
   /** The single order type this facility takes. */
   order: Exclude<BastionOrder, 'maintain'>;
-  orderOptions: readonly FacilityOrderOption[];
+  orderOptions: ReadonlyArray<FacilityOrderOption>;
   /** Always-on effects, one line each. */
-  benefits: readonly string[];
+  benefits: ReadonlyArray<string>;
   /**
    * Some facilities need a choice that shapes what they do — a Garden's
    * type, a Training Area's trainer, a Guildhall's guild.
    */
-  variant?: { label: string; options: readonly string[] };
+  variant?: { label: string; options: ReadonlyArray<string> };
   /** Barrack, Garden, Stable and Training Area may be taken more than once. */
   allowMultiple?: boolean;
   /** Enlarging to Vast. Always 2,000 GP; the rules give no build time. */
@@ -102,7 +102,7 @@ export type SpecialFacilityDefinition = {
     /** Added to `hirelings` once enlarged. */
     extraHirelings: number;
   };
-};
+}
 
 /** The six flavour rooms. They have no mechanical effect. */
 export type BasicFacilityType =

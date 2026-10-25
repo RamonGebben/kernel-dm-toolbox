@@ -21,7 +21,7 @@ type RawTrait = Pick<TraitFormValues, 'name' | 'desc'> & {
   type: string | null;
 };
 
-type RawAttack = {
+interface RawAttack {
   name: string;
   attackType: string | null;
   toHitMod: number | null;
@@ -37,21 +37,21 @@ type RawAttack = {
   extraDamageDieType: string | null;
   extraDamageBonus: number | null;
   extraDamageType: string | null;
-};
+}
 
-type RawAction = {
+interface RawAction {
   name: string;
   desc: string;
   actionType: string;
   legendaryActionCost: number | null;
   attack: RawAttack | null;
-};
+}
 
-type ToCustomCreatureFormValuesArgs = {
+interface ToCustomCreatureFormValuesArgs {
   creature: RawCreature;
-  traits: readonly RawTrait[];
-  actions: readonly RawAction[];
-};
+  traits: ReadonlyArray<RawTrait>;
+  actions: ReadonlyArray<RawAction>;
+}
 
 const numberToField = (value: number | null): string =>
   value == null ? '' : String(value);

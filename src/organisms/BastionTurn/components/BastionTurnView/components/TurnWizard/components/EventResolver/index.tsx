@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { Select } from '~/atoms/FormControls';
+import { Select } from '~/atoms/Select';
 import { TextInput } from '~/atoms/TextInput';
 import { DieInput } from '~/molecules/DieInput';
 import { guestKinds } from '~/content/bastion/events';
@@ -17,12 +16,20 @@ import {
   treasureForRoll,
 } from '~/utils/bastionTurn';
 import { rollDie } from '~/utils/rollDice';
+import { Stack } from '~/atoms/Stack';
+import { Row } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/EventResolver/components/Row';
+import { Paragraph } from '~/atoms/Paragraph';
+import { Note } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/EventResolver/components/Note';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Result } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/EventResolver/components/Result';
+import { Dice } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/EventResolver/components/Dice';
+import { Small } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Small';
 
 export type EventChange = Partial<
   Pick<TurnEvent, 'inputs' | 'outOfActionFacilityId' | 'storageItem' | 'note'>
 >;
 
-export type EventResolverProps = {
+export interface EventResolverProps {
   event: TurnEvent;
   /** Who is rolling — "Ask Wren's player". */
   playerName: string;
@@ -32,7 +39,7 @@ export type EventResolverProps = {
   onRollAgain: () => void;
   /** Whether a follow-up event already exists for this one. */
   hasFollowUp: boolean;
-};
+}
 
 /**
  * One Bastion Event's own steps, asking for exactly the dice and choices
@@ -41,28 +48,67 @@ export type EventResolverProps = {
  */
 export const EventResolver = (props: EventResolverProps) => {
   const { event } = props;
-  const outcome = <Outcome event={event} />;
 
   if (event.key === 'attack')
-    return <AttackSteps {...props}>{outcome}</AttackSteps>;
+    return (
+      <AttackSteps {...props}>
+        <Outcome event={event} />
+      </AttackSteps>
+    );
   if (event.key === 'criminal-hireling')
-    return <CriminalHirelingSteps {...props}>{outcome}</CriminalHirelingSteps>;
+    return (
+      <CriminalHirelingSteps {...props}>
+        <Outcome event={event} />
+      </CriminalHirelingSteps>
+    );
   if (event.key === 'extraordinary-opportunity')
-    return <OpportunitySteps {...props}>{outcome}</OpportunitySteps>;
+    return (
+      <OpportunitySteps {...props}>
+        <Outcome event={event} />
+      </OpportunitySteps>
+    );
   if (event.key === 'friendly-visitors' || event.key === 'refugees')
-    return <PaymentSteps {...props}>{outcome}</PaymentSteps>;
+    return (
+      <PaymentSteps {...props}>
+        <Outcome event={event} />
+      </PaymentSteps>
+    );
   if (event.key === 'guest')
-    return <GuestSteps {...props}>{outcome}</GuestSteps>;
+    return (
+      <GuestSteps {...props}>
+        <Outcome event={event} />
+      </GuestSteps>
+    );
   if (event.key === 'lost-hirelings')
-    return <LostHirelingsSteps {...props}>{outcome}</LostHirelingsSteps>;
+    return (
+      <LostHirelingsSteps {...props}>
+        <Outcome event={event} />
+      </LostHirelingsSteps>
+    );
   if (event.key === 'magical-discovery')
-    return <DiscoverySteps {...props}>{outcome}</DiscoverySteps>;
+    return (
+      <DiscoverySteps {...props}>
+        <Outcome event={event} />
+      </DiscoverySteps>
+    );
   if (event.key === 'request-for-aid')
-    return <RequestForAidSteps {...props}>{outcome}</RequestForAidSteps>;
+    return (
+      <RequestForAidSteps {...props}>
+        <Outcome event={event} />
+      </RequestForAidSteps>
+    );
   if (event.key === 'treasure')
-    return <TreasureSteps {...props}>{outcome}</TreasureSteps>;
+    return (
+      <TreasureSteps {...props}>
+        <Outcome event={event} />
+      </TreasureSteps>
+    );
 
-  return <QuietWeekSteps {...props}>{outcome}</QuietWeekSteps>;
+  return (
+    <QuietWeekSteps {...props}>
+      <Outcome event={event} />
+    </QuietWeekSteps>
+  );
 };
 
 type StepsProps = EventResolverProps & { children: React.ReactNode };
@@ -129,16 +175,16 @@ const FacilityPicker = ({
 const AttackSteps = ({ children, ...props }: StepsProps) => {
   const { event, bastion, onChange } = props;
   const dice = attackDice(bastion);
-  const [rolled, setRolled] = useState<number[] | null>(null);
+  const [rolled, setRolled] = useState<Array<number> | null>(null);
 
   return (
-    <Steps>
+    <Stack $gap="s">
       {bastion.hasGuestMonster ? (
         <Note>
           A friendly monster is staying: no defenders are lost this time.
         </Note>
       ) : null}
-      <Text>
+      <Paragraph>
         Roll{' '}
         <Dice>
           {dice.count}d{dice.sides}
@@ -147,7 +193,7 @@ const AttackSteps = ({ children, ...props }: StepsProps) => {
         {bastion.isFullyEnclosed ? ' (two fewer behind full walls)' : ''}
         {bastion.isArmoryStocked ? ' (d8s: the Armory is stocked)' : ''}. Each 1
         kills a defender; there are {bastion.defenderCount}.
-      </Text>
+      </Paragraph>
       <Row>
         <label>
           Dice showing 1
@@ -179,10 +225,10 @@ const AttackSteps = ({ children, ...props }: StepsProps) => {
       </Row>
       {bastion.defenderCount === 0 ? (
         <>
-          <Text>
+          <Paragraph>
             With no defenders, the raiders shut a special facility down for the
             next turn.
-          </Text>
+          </Paragraph>
           <FacilityPicker
             label="Facility the attack shuts down"
             bastion={bastion}
@@ -194,7 +240,7 @@ const AttackSteps = ({ children, ...props }: StepsProps) => {
         </>
       ) : null}
       {children}
-    </Steps>
+    </Stack>
   );
 };
 
@@ -203,7 +249,7 @@ const CriminalHirelingSteps = ({ children, ...props }: StepsProps) => {
   const paid = event.inputs.pay === 1;
 
   return (
-    <Steps>
+    <Stack $gap="s">
       <FacilityPicker
         label="Whose hireling was caught"
         bastion={bastion}
@@ -237,7 +283,7 @@ const CriminalHirelingSteps = ({ children, ...props }: StepsProps) => {
         </label>
       </Row>
       {children}
-    </Steps>
+    </Stack>
   );
 };
 
@@ -246,7 +292,7 @@ const OpportunitySteps = ({ children, ...props }: StepsProps) => {
   const accepted = event.inputs.accept === 1;
 
   return (
-    <Steps>
+    <Stack $gap="s">
       <Row>
         <label>
           <input
@@ -273,7 +319,7 @@ const OpportunitySteps = ({ children, ...props }: StepsProps) => {
         </Button>
       ) : null}
       {children}
-    </Steps>
+    </Stack>
   );
 };
 
@@ -282,7 +328,7 @@ const PaymentSteps = ({ children, ...props }: StepsProps) => {
   const isRefugees = event.key === 'refugees';
 
   return (
-    <Steps>
+    <Stack $gap="s">
       {isRefugees ? (
         <DieInput
           label="How many refugees"
@@ -301,7 +347,7 @@ const PaymentSteps = ({ children, ...props }: StepsProps) => {
         }
       />
       {children}
-    </Steps>
+    </Stack>
   );
 };
 
@@ -311,7 +357,7 @@ const GuestSteps = ({ children, ...props }: StepsProps) => {
   const kind = kindRoll >= 1 && kindRoll <= 4 ? guestForRoll(kindRoll) : null;
 
   return (
-    <Steps>
+    <Stack $gap="s">
       <DieInput
         label={`Ask ${playerName}'s player who it is`}
         sides={4}
@@ -319,11 +365,11 @@ const GuestSteps = ({ children, ...props }: StepsProps) => {
         onChange={value => setInput(props, 'kindRoll', value)}
       />
       {kind ? (
-        <Text>{kind.label}.</Text>
+        <Paragraph>{kind.label}.</Paragraph>
       ) : (
-        <Muted>
+        <MutedNote>
           {guestKinds.map(({ roll, key }) => `${roll}: ${key}`).join(' · ')}
-        </Muted>
+        </MutedNote>
       )}
       {kind?.key === 'sanctuary' ? (
         <DieInput
@@ -334,12 +380,12 @@ const GuestSteps = ({ children, ...props }: StepsProps) => {
         />
       ) : null}
       {children}
-    </Steps>
+    </Stack>
   );
 };
 
 const LostHirelingsSteps = ({ children, ...props }: StepsProps) => (
-  <Steps>
+  <Stack $gap="s">
     <FacilityPicker
       label="Facility whose hirelings went missing"
       bastion={props.bastion}
@@ -349,11 +395,11 @@ const LostHirelingsSteps = ({ children, ...props }: StepsProps) => (
       }
     />
     {children}
-  </Steps>
+  </Stack>
 );
 
 const DiscoverySteps = ({ children, ...props }: StepsProps) => (
-  <Steps>
+  <Stack $gap="s">
     <TextInput
       aria-label="Which potion or scroll"
       placeholder={`${props.playerName} picks an Uncommon potion or scroll`}
@@ -361,7 +407,7 @@ const DiscoverySteps = ({ children, ...props }: StepsProps) => (
       onChange={change => props.onChange({ storageItem: change.target.value })}
     />
     {children}
-  </Steps>
+  </Stack>
 );
 
 const RequestForAidSteps = ({ children, ...props }: StepsProps) => {
@@ -370,7 +416,7 @@ const RequestForAidSteps = ({ children, ...props }: StepsProps) => {
   const sent = Math.min(event.inputs.sent ?? 0, bastion.defenderCount);
 
   return (
-    <Steps>
+    <Stack $gap="s">
       <Row>
         <label>
           <input
@@ -426,7 +472,7 @@ const RequestForAidSteps = ({ children, ...props }: StepsProps) => {
         </>
       ) : null}
       {children}
-    </Steps>
+    </Stack>
   );
 };
 
@@ -435,7 +481,7 @@ const TreasureSteps = ({ children, ...props }: StepsProps) => {
   const tableRoll = event.inputs.tableRoll ?? 0;
 
   return (
-    <Steps>
+    <Stack $gap="s">
       <DieInput
         label={`Ask ${playerName}'s player to roll on the treasure table`}
         sides={100}
@@ -455,12 +501,12 @@ const TreasureSteps = ({ children, ...props }: StepsProps) => {
         />
       ) : null}
       {children}
-    </Steps>
+    </Stack>
   );
 };
 
 const QuietWeekSteps = ({ children, ...props }: StepsProps) => (
-  <Steps>
+  <Stack $gap="s">
     <TextInput
       aria-label="Anything worth noting"
       placeholder="Anything worth noting (optional)"
@@ -468,56 +514,5 @@ const QuietWeekSteps = ({ children, ...props }: StepsProps) => (
       onChange={change => props.onChange({ note: change.target.value })}
     />
     {children}
-  </Steps>
+  </Stack>
 );
-
-const Steps = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Row = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: ${props => props.theme.space.xs};
-  }
-`;
-
-const Text = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Note = styled(Text)`
-  color: ${props => props.theme.color.success};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Result = styled.p`
-  margin: 0;
-  font-weight: 600;
-  color: ${props => props.theme.color.accent};
-`;
-
-const Dice = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => props.theme.color.accent};
-`;
-
-const Small = styled(TextInput)`
-  width: 6rem;
-`;

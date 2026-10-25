@@ -147,13 +147,13 @@ export const requestForAidOutcome = ({
 
 export type EventInputs = Readonly<Record<string, number>>;
 
-export type EventOutcome = {
+export interface EventOutcome {
   goldGained: number;
   goldPaid: number;
   defendersGained: number;
   defendersLost: number;
   guestKind: 'renowned' | 'sanctuary' | 'mercenary' | 'monster' | null;
-};
+}
 
 const noOutcome: EventOutcome = {
   goldGained: 0,

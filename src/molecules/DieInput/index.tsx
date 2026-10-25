@@ -1,12 +1,13 @@
 'use client';
 
 import { useId } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { TextInput } from '~/atoms/TextInput';
 import { rollExpression } from '~/utils/rollDice';
+import { Row } from '~/molecules/DieInput/components/Row';
+import { Dice } from '~/molecules/DieInput/components/Dice';
+import { Input } from '~/molecules/DieInput/components/Input';
 
-export type DieInputProps = {
+export interface DieInputProps {
   /** What to ask for: "Ask Wren's player to roll". */
   label: string;
   count?: number;
@@ -14,7 +15,7 @@ export type DieInputProps = {
   /** The total entered, or 0 while nothing has been rolled. */
   value: number;
   onChange: (total: number) => void;
-};
+}
 
 /**
  * A dice roll the players make at the table and the DM types in — the total
@@ -55,20 +56,3 @@ export const DieInput = ({
     </Row>
   );
 };
-
-const Row = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Dice = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => props.theme.color.accent};
-`;
-
-const Input = styled(TextInput)`
-  width: 6rem;
-`;

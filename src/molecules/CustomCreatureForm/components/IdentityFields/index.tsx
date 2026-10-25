@@ -1,12 +1,10 @@
 'use client';
 
 import { TextInput } from '~/atoms/TextInput';
-import {
-  Field,
-  Grid,
-  Label,
-  Select,
-} from '~/molecules/CustomCreatureForm/styled';
+import { Stack } from '~/atoms/Stack';
+import { Grid } from '~/molecules/CustomCreatureForm/components/Grid';
+import { FieldLabel } from '~/atoms/FieldLabel';
+import { Select } from '~/molecules/CustomCreatureForm/components/Select';
 import type { CustomCreatureFormValues } from '~/molecules/CustomCreatureForm';
 import { experienceByChallengeRating } from '~/content/challengeRating';
 import { formatChallengeRating } from '~/utils/formatChallengeRating';
@@ -16,51 +14,51 @@ const CHALLENGE_RATING_OPTIONS = Object.keys(experienceByChallengeRating)
   .toSorted((left, right) => left - right)
   .map(value => ({ value, label: formatChallengeRating(value) }));
 
-type IdentityFieldsProps = {
+interface IdentityFieldsProps {
   values: CustomCreatureFormValues;
   onChange: (patch: Partial<CustomCreatureFormValues>) => void;
-};
+}
 
 /** Name/size/type/alignment/CR plus AC, HP, hit dice and initiative bonus. */
 export const IdentityFields = ({ values, onChange }: IdentityFieldsProps) => (
   <>
-    <Field>
-      <Label htmlFor="custom-creature-name">Name</Label>
+    <Stack $gap="xs">
+      <FieldLabel htmlFor="custom-creature-name">Name</FieldLabel>
       <TextInput
         id="custom-creature-name"
         value={values.name}
         required
         onChange={event => onChange({ name: event.target.value })}
       />
-    </Field>
+    </Stack>
 
     <Grid $columns={4}>
-      <Field>
-        <Label htmlFor="custom-creature-size">Size</Label>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-size">Size</FieldLabel>
         <TextInput
           id="custom-creature-size"
           value={values.size}
           onChange={event => onChange({ size: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor="custom-creature-type">Type</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-type">Type</FieldLabel>
         <TextInput
           id="custom-creature-type"
           value={values.type}
           onChange={event => onChange({ type: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor="custom-creature-alignment">Alignment</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-alignment">Alignment</FieldLabel>
         <TextInput
           id="custom-creature-alignment"
           value={values.alignment}
           onChange={event => onChange({ alignment: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor="custom-creature-cr">Challenge Rating</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-cr">Challenge Rating</FieldLabel>
         <Select
           id="custom-creature-cr"
           value={values.challengeRating}
@@ -74,12 +72,12 @@ export const IdentityFields = ({ values, onChange }: IdentityFieldsProps) => (
             </option>
           ))}
         </Select>
-      </Field>
+      </Stack>
     </Grid>
 
     <Grid $columns={4}>
-      <Field>
-        <Label htmlFor="custom-creature-ac">AC</Label>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-ac">AC</FieldLabel>
         <TextInput
           id="custom-creature-ac"
           type="number"
@@ -89,18 +87,18 @@ export const IdentityFields = ({ values, onChange }: IdentityFieldsProps) => (
             onChange({ armorClass: Number(event.target.value) || 0 })
           }
         />
-      </Field>
-      <Field>
-        <Label htmlFor="custom-creature-armor-detail">Armor</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-armor-detail">Armor</FieldLabel>
         <TextInput
           id="custom-creature-armor-detail"
           value={values.armorDetail}
           placeholder="natural armor"
           onChange={event => onChange({ armorDetail: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor="custom-creature-hp">HP</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-hp">HP</FieldLabel>
         <TextInput
           id="custom-creature-hp"
           type="number"
@@ -110,20 +108,22 @@ export const IdentityFields = ({ values, onChange }: IdentityFieldsProps) => (
             onChange({ hitPoints: Number(event.target.value) || 1 })
           }
         />
-      </Field>
-      <Field>
-        <Label htmlFor="custom-creature-hit-dice">Hit Dice</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor="custom-creature-hit-dice">Hit Dice</FieldLabel>
         <TextInput
           id="custom-creature-hit-dice"
           value={values.hitDice}
           placeholder="2d8 + 2"
           onChange={event => onChange({ hitDice: event.target.value })}
         />
-      </Field>
+      </Stack>
     </Grid>
 
-    <Field>
-      <Label htmlFor="custom-creature-initiative">Initiative Bonus</Label>
+    <Stack $gap="xs">
+      <FieldLabel htmlFor="custom-creature-initiative">
+        Initiative Bonus
+      </FieldLabel>
       <TextInput
         id="custom-creature-initiative"
         type="number"
@@ -131,6 +131,6 @@ export const IdentityFields = ({ values, onChange }: IdentityFieldsProps) => (
         placeholder="—"
         onChange={event => onChange({ initiativeBonus: event.target.value })}
       />
-    </Field>
+    </Stack>
   </>
 );

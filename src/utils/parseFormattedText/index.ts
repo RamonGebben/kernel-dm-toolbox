@@ -1,13 +1,17 @@
 export type InlineNode =
   | { type: 'text'; value: string }
-  | { type: 'bold'; children: InlineNode[] }
-  | { type: 'italic'; children: InlineNode[] }
-  | { type: 'boldItalic'; children: InlineNode[] };
+  | { type: 'bold'; children: Array<InlineNode> }
+  | { type: 'italic'; children: Array<InlineNode> }
+  | { type: 'boldItalic'; children: Array<InlineNode> };
 
 export type BlockNode =
-  | { type: 'paragraph'; children: InlineNode[] }
-  | { type: 'list'; items: InlineNode[][] }
-  | { type: 'table'; header: InlineNode[][]; rows: InlineNode[][][] };
+  | { type: 'paragraph'; children: Array<InlineNode> }
+  | { type: 'list'; items: Array<Array<InlineNode>> }
+  | {
+      type: 'table';
+      header: Array<Array<InlineNode>>;
+      rows: Array<Array<Array<InlineNode>>>;
+    };
 
 /**
  * The markdown actually present in imported Open5e text, surveyed across the
@@ -19,8 +23,8 @@ export type BlockNode =
 const INLINE_PATTERN = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_/g;
 
 /** Bold/italic emphasis within one line of text. Recurses so nested emphasis (unseen in the data, but cheap to support) still resolves. */
-export const parseInline = (text: string): InlineNode[] => {
-  const nodes: InlineNode[] = [];
+export const parseInline = (text: string): Array<InlineNode> => {
+  const nodes: Array<InlineNode> = [];
   let lastIndex = 0;
 
   for (const match of text.matchAll(INLINE_PATTERN)) {
@@ -63,13 +67,13 @@ const isTableSeparatorRow = (line: string): boolean => {
   return cells.every(cell => /^[\s:-]+$/.test(cell));
 };
 
-const parseTableRow = (line: string): InlineNode[][] =>
+const parseTableRow = (line: string): Array<Array<InlineNode>> =>
   line
     .match(TABLE_ROW)![1]
     .split('|')
     .map(cell => parseInline(cell.trim()));
 
-const isTableStart = (lines: readonly string[], index: number): boolean =>
+const isTableStart = (lines: ReadonlyArray<string>, index: number): boolean =>
   TABLE_ROW.test(lines[index]) &&
   index + 1 < lines.length &&
   isTableSeparatorRow(lines[index + 1]);
@@ -82,9 +86,9 @@ const isTableStart = (lines: readonly string[], index: number): boolean =>
  * through to a plain paragraph instead — degrading gracefully rather than
  * producing a garbled table.
  */
-export const parseFormattedText = (text: string): BlockNode[] => {
+export const parseFormattedText = (text: string): Array<BlockNode> => {
   const lines = text.split('\n');
-  const blocks: BlockNode[] = [];
+  const blocks: Array<BlockNode> = [];
   let index = 0;
 
   while (index < lines.length) {
@@ -94,7 +98,7 @@ export const parseFormattedText = (text: string): BlockNode[] => {
     }
 
     if (LIST_ITEM.test(lines[index])) {
-      const items: InlineNode[][] = [];
+      const items: Array<Array<InlineNode>> = [];
       while (index < lines.length) {
         const match = lines[index].match(LIST_ITEM);
         if (!match) break;
@@ -108,7 +112,7 @@ export const parseFormattedText = (text: string): BlockNode[] => {
     if (isTableStart(lines, index)) {
       const header = parseTableRow(lines[index]);
       index += 2; // header + separator
-      const rows: InlineNode[][][] = [];
+      const rows: Array<Array<Array<InlineNode>>> = [];
       while (index < lines.length && TABLE_ROW.test(lines[index])) {
         rows.push(parseTableRow(lines[index]));
         index += 1;
@@ -117,7 +121,7 @@ export const parseFormattedText = (text: string): BlockNode[] => {
       continue;
     }
 
-    const paragraphLines: string[] = [];
+    const paragraphLines: Array<string> = [];
     while (
       index < lines.length &&
       lines[index].trim() !== '' &&

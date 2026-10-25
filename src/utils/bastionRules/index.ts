@@ -37,7 +37,7 @@ export const meetsPrerequisite = (
   if (!className) return false;
 
   return (
-    facilityPrerequisites[prerequisite].classes as readonly string[]
+    facilityPrerequisites[prerequisite].classes as ReadonlyArray<string>
   ).includes(className);
 };
 
@@ -47,7 +47,10 @@ export type EligibilityProblem =
   | { kind: 'duplicate' }
   | { kind: 'allowance'; allowance: number };
 
-type Owner = { level: number; className: string | null };
+interface Owner {
+  level: number;
+  className: string | null;
+}
 
 /**
  * Why this owner cannot take this facility right now — an empty list means
@@ -62,18 +65,18 @@ export const findEligibilityProblems = (
   owner: Owner,
   held: {
     /** What this owner holds — counted against their allowance. */
-    byOwner: readonly string[];
+    byOwner: ReadonlyArray<string>;
     /**
      * Everything in the bastion, whoever holds it. Each facility type is
      * there once, for everyone to use — only Barrack, Garden, Stable and
      * Training Area may repeat (DECISIONS #34).
      */
-    inBastion: readonly string[];
+    inBastion: ReadonlyArray<string>;
   },
-): EligibilityProblem[] => {
+): Array<EligibilityProblem> => {
   const allowance = allowanceForLevel(owner.level);
 
-  const problems: (EligibilityProblem | null)[] = [
+  const problems: Array<EligibilityProblem | null> = [
     owner.level < facility.level
       ? { kind: 'level', requiredLevel: facility.level }
       : null,
@@ -122,7 +125,7 @@ export const hirelingCount = (
  * bunk, so this is a guide, not a cap.
  */
 export const defenderCapacity = (
-  facilities: readonly { facilityKey: string; space: FacilitySpace }[],
+  facilities: ReadonlyArray<{ facilityKey: string; space: FacilitySpace }>,
 ): number =>
   facilities
     .filter(facility => facility.facilityKey === 'barrack')

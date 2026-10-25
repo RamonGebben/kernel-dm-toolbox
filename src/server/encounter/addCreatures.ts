@@ -32,12 +32,12 @@ export type AddCreaturesInput =
   | { source: 'custom'; id: string; count: number };
 
 /** The handful of columns a combatant row actually copies from its source. */
-type CombatantSource = {
+interface CombatantSource {
   name: string;
   initiativeBonus: number | null;
   hitPoints: number;
   armorClass: number;
-};
+}
 
 const loadCombatantSource = async (
   db: Database,

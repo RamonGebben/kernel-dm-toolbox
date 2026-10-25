@@ -1,18 +1,19 @@
 'use client';
 
-import styled from 'styled-components';
+import { List } from '~/atoms/Tabs/components/List';
+import { Tab } from '~/atoms/Tabs/components/Tab';
 
-export type TabOption<TValue extends string> = {
+export interface TabOption<TValue extends string> {
   value: TValue;
   label: string;
-};
+}
 
-type TabsProps<TValue extends string> = {
-  options: readonly TabOption<TValue>[];
+interface TabsProps<TValue extends string> {
+  options: ReadonlyArray<TabOption<TValue>>;
   value: TValue;
   onChange: (value: TValue) => void;
   label: string;
-};
+}
 
 export const Tabs = <TValue extends string>({
   options,
@@ -35,37 +36,3 @@ export const Tabs = <TValue extends string>({
     ))}
   </List>
 );
-
-const List = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.xs};
-  width: 100%;
-`;
-
-const Tab = styled.button<{ $isActive: boolean }>`
-  flex: 1 1 0;
-  min-width: 0;
-  text-align: center;
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: ${props =>
-    props.$isActive ? props.theme.color.accent : 'transparent'};
-  border: 1px solid
-    ${props =>
-      props.$isActive ? props.theme.color.accent : props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props =>
-    props.$isActive
-      ? props.theme.color.textInverted
-      : props.theme.color.textMuted};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: 600;
-  cursor: pointer;
-
-  &:hover {
-    color: ${props =>
-      props.$isActive
-        ? props.theme.color.textInverted
-        : props.theme.color.textPrimary};
-  }
-`;

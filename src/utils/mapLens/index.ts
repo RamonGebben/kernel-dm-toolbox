@@ -12,7 +12,12 @@ import {
  * `~/utils/mapViewport`.
  */
 
-export type LensRect = { x: number; y: number; width: number; height: number };
+export interface LensRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 /** The map-space rectangle a player viewport shows, given their screen size. */
 export const computeLensRect = (

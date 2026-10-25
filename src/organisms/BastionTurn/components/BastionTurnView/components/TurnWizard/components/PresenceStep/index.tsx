@@ -1,14 +1,20 @@
 'use client';
 
-import styled from 'styled-components';
 import type { TurnContext } from '~/server/trpc/helpers/bastionTurnPlan';
 import type { TurnActor, TurnDraft } from '~/server/trpc/schemas/bastionTurns';
+import { Stack } from '~/atoms/Stack';
+import { Heading } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Heading';
+import { StepCard } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/StepCard';
+import { MutedParagraph } from '~/atoms/MutedParagraph';
+import { Paragraph } from '~/atoms/Paragraph';
+import { Choice } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/PresenceStep/components/Choice';
+import { Hint } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/PresenceStep/components/Hint';
 
-export type PresenceStepProps = {
+export interface PresenceStepProps {
   context: TurnContext;
   draft: TurnDraft;
   onChange: (draft: TurnDraft) => void;
-};
+}
 
 type Plan = 'orders' | 'maintain' | 'away';
 
@@ -18,12 +24,12 @@ const planOf = (actor: TurnActor): Plan => {
 };
 
 /** What each choice means for the rest of the turn, in the DM's terms. */
-const plans: readonly {
+const plans: ReadonlyArray<{
   plan: Plan;
   label: string;
   hint: (name: string) => string;
   change: Partial<TurnActor>;
-}[] = [
+}> = [
   {
     plan: 'orders',
     label: 'Gives orders',
@@ -69,13 +75,13 @@ export const PresenceStep = ({
     });
 
   return (
-    <Wrapper>
-      <Intro>
+    <Stack>
+      <MutedParagraph>
         Each character either gives orders to facilities this turn or leaves the
         bastion to look after itself. Pick one for everyone.
-      </Intro>
+      </MutedParagraph>
       {context.bastions.map(bastion => (
-        <Bastion key={bastion.id} aria-label={bastion.name}>
+        <Stack as="section" $gap="s" key={bastion.id} aria-label={bastion.name}>
           <Heading>{bastion.name}</Heading>
           {draft.actors
             .filter(actor => actor.bastionId === bastion.id)
@@ -86,10 +92,10 @@ export const PresenceStep = ({
               const group = `${bastion.id}-${actor.characterId}`;
 
               return (
-                <Actor key={group} aria-label={name}>
-                  <Question>
+                <StepCard key={group} aria-label={name}>
+                  <Paragraph>
                     What does {name} do at {bastion.name} this turn?
-                  </Question>
+                  </Paragraph>
                   {plans.map(({ plan, label, hint, change }) => (
                     <Choice key={plan}>
                       <label>
@@ -105,66 +111,11 @@ export const PresenceStep = ({
                       <Hint id={`${group}-${plan}`}>{hint(name)}</Hint>
                     </Choice>
                   ))}
-                </Actor>
+                </StepCard>
               );
             })}
-        </Bastion>
+        </Stack>
       ))}
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Bastion = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Heading = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Actor = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  padding: ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Intro = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Question = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Choice = styled.div`
-  display: flex;
-  flex-direction: column;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: ${props => props.theme.space.xs};
-  }
-`;
-
-const Hint = styled.span`
-  padding-left: ${props => props.theme.space.lg};
-  color: ${props => props.theme.color.textMuted};
-`;

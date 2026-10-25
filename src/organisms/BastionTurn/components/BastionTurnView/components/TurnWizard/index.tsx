@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { ConfirmButton } from '~/molecules/ConfirmButton';
 import type { TurnContext } from '~/server/trpc/helpers/bastionTurnPlan';
@@ -25,8 +24,16 @@ import {
   ReviewStep,
   type TurnPreview,
 } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/ReviewStep';
+import { Stack } from '~/atoms/Stack';
+import { Stepper } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Stepper';
+import { Step } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Step';
+import { Body } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Body';
+import { WarningNote } from '~/atoms/WarningNote';
+import { ErrorText } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/ErrorText';
+import { InlineRow } from '~/atoms/InlineRow';
+import { Spacer } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Spacer';
 
-export type TurnWizardProps = {
+export interface TurnWizardProps {
   context: TurnContext;
   initialDraft: TurnDraft;
   isSaving: boolean;
@@ -38,7 +45,7 @@ export type TurnWizardProps = {
   onRequestPreview: (draft: TurnDraft) => void;
   onDiscard: () => void;
   onCommit: () => Promise<unknown>;
-};
+}
 
 const stepLabels: Record<TurnStep, string> = {
   since: 'Since last turn',
@@ -88,7 +95,7 @@ export const TurnWizard = ({
   const stepProps = { context, draft, onChange: setDraft };
 
   return (
-    <Wrapper>
+    <Stack>
       <Stepper aria-label="Bastion turn steps">
         {turnSteps.map((step, index) => (
           <Step
@@ -111,10 +118,10 @@ export const TurnWizard = ({
         />
       </Body>
 
-      {blocker ? <Blocker role="status">{blocker}</Blocker> : null}
+      {blocker ? <WarningNote role="status">{blocker}</WarningNote> : null}
       {error ? <ErrorText role="alert">{error}</ErrorText> : null}
 
-      <Footer>
+      <InlineRow>
         <ConfirmButton
           label="Discard turn"
           confirmLabel="Discard this turn"
@@ -146,12 +153,12 @@ export const TurnWizard = ({
             Next: {stepLabels[stepAfter(draft.step)]}
           </Button>
         )}
-      </Footer>
-    </Wrapper>
+      </InlineRow>
+    </Stack>
   );
 };
 
-type CurrentStepProps = {
+interface CurrentStepProps {
   step: TurnStep;
   stepProps: {
     context: TurnContext;
@@ -161,7 +168,7 @@ type CurrentStepProps = {
   preview: TurnPreview | null;
   isPreviewing: boolean;
   treasuryGold: number;
-};
+}
 
 /** A named subcomponent rather than a ternary chain, one guard per step. */
 const CurrentStep = ({
@@ -184,61 +191,3 @@ const CurrentStep = ({
     />
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Stepper = styled.ol`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const stepColors = {
-  current: 'accent',
-  done: 'textPrimary',
-  todo: 'textMuted',
-} as const;
-
-const Step = styled.li<{ $state: keyof typeof stepColors }>`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid
-    ${props =>
-      props.$state === 'current'
-        ? props.theme.color.accent
-        : props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color[stepColors[props.$state]]};
-`;
-
-const Body = styled.div`
-  min-height: 12rem;
-`;
-
-const Blocker = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.warning};
-`;
-
-const ErrorText = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.danger};
-`;
-
-const Footer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Spacer = styled.span`
-  flex: 1;
-`;

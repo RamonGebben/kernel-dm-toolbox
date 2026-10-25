@@ -3,11 +3,11 @@
 import { NewCreatureWizardView } from '~/organisms/NewCreatureWizard/components/NewCreatureWizardView';
 import { useNewCreatureWizard } from '~/organisms/NewCreatureWizard/hooks/useNewCreatureWizard';
 
-type NewCreatureWizardProps = {
+interface NewCreatureWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated: (id: string) => void;
-};
+}
 
 /**
  * Connected boundary for the "New Creature" flow (issue #3): step 1 picks a

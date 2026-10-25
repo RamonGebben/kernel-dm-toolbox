@@ -4,8 +4,6 @@ import {
   healthStatusLabels,
 } from '~/utils/healthStatusPresentation';
 
-const color = { success: 'green', warning: 'yellow', danger: 'red' };
-
 describe('healthStatusLabels', () => {
   it('renders the words a player could perceive, not a number', () => {
     expect(healthStatusLabels.healthy).toBe('Healthy');
@@ -15,9 +13,9 @@ describe('healthStatusLabels', () => {
 });
 
 describe('healthStatusColor', () => {
-  it('resolves each status against the theme colours passed in', () => {
-    expect(healthStatusColor.healthy(color)).toBe('green');
-    expect(healthStatusColor.bloodied(color)).toBe('yellow');
-    expect(healthStatusColor.unconscious(color)).toBe('red');
+  it('draws each status in its own theme hue', () => {
+    expect(healthStatusColor.healthy).toBe('tertiary');
+    expect(healthStatusColor.bloodied).toBe('quaternary');
+    expect(healthStatusColor.unconscious).toBe('error');
   });
 });

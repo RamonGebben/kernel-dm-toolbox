@@ -7,31 +7,44 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import styled, { css } from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { Icon } from '~/atoms/Icon';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
 import { MapRow, type MapRowFolderOption } from '~/molecules/MapRow';
+import { FillStack } from '~/atoms/FillStack';
+import { Toolbar } from '~/organisms/MapGalleryPanel/components/MapGalleryView/components/Toolbar';
+import { HiddenFileInput } from '~/organisms/MapGalleryPanel/components/MapGalleryView/components/HiddenFileInput';
+import { NewFolderForm } from '~/organisms/MapGalleryPanel/components/MapGalleryView/components/NewFolderForm';
+import { ErrorNote } from '~/atoms/ErrorNote';
+import { Sections } from '~/organisms/MapGalleryPanel/components/MapGalleryView/components/Sections';
+import { Stack } from '~/atoms/Stack';
+import { SpreadRow } from '~/atoms/SpreadRow';
+import { SectionTitle } from '~/organisms/MapGalleryPanel/components/MapGalleryView/components/SectionTitle';
+import { CollapseToggle } from '~/organisms/MapGalleryPanel/components/MapGalleryView/components/CollapseToggle';
+import { Chevron } from '~/organisms/MapGalleryPanel/components/MapGalleryView/components/Chevron';
+import { Cluster } from '~/atoms/Cluster';
+import { PlainList } from '~/atoms/PlainList';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type MapGalleryItem = {
+export interface MapGalleryItem {
   id: string;
   name: string;
   kind: string;
   fileUrl: string;
   hasGridCalibration: boolean;
-};
+}
 
-export type MapGalleryFolder = {
+export interface MapGalleryFolder {
   id: string;
   name: string;
-  maps: MapGalleryItem[];
-};
+  maps: Array<MapGalleryItem>;
+}
 
-export type MapGalleryViewProps = {
+export interface MapGalleryViewProps {
   isPending: boolean;
-  folders: readonly MapGalleryFolder[];
-  unfiledMaps: readonly MapGalleryItem[];
+  folders: ReadonlyArray<MapGalleryFolder>;
+  unfiledMaps: ReadonlyArray<MapGalleryItem>;
   isUploading: boolean;
   uploadError: string | null;
   /** Which map is live on the table right now — null once none is loaded. */
@@ -44,7 +57,7 @@ export type MapGalleryViewProps = {
   onRenameMap: (id: string, name: string) => void;
   onMoveMap: (id: string, folderId: string | null) => void;
   onRemoveMap: (id: string) => void;
-};
+}
 
 const MAP_FILE_ACCEPT = '.png,.jpg,.jpeg,.webp,.webm';
 
@@ -71,7 +84,7 @@ export const MapGalleryView = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newFolderName, setNewFolderName] = useState('');
 
-  const folderOptions: MapRowFolderOption[] = folders.map(folder => ({
+  const folderOptions: Array<MapRowFolderOption> = folders.map(folder => ({
     id: folder.id,
     name: folder.name,
   }));
@@ -92,7 +105,7 @@ export const MapGalleryView = ({
   };
 
   return (
-    <Wrapper>
+    <FillStack>
       <Toolbar>
         <Button
           variant="secondary"
@@ -127,7 +140,7 @@ export const MapGalleryView = ({
         </NewFolderForm>
       </Toolbar>
 
-      {uploadError && <ErrorText role="alert">{uploadError}</ErrorText>}
+      {uploadError && <ErrorNote role="alert">{uploadError}</ErrorNote>}
 
       <GalleryBody
         isPending={isPending}
@@ -142,7 +155,7 @@ export const MapGalleryView = ({
         onMoveMap={onMoveMap}
         onRemoveMap={onRemoveMap}
       />
-    </Wrapper>
+    </FillStack>
   );
 };
 
@@ -158,7 +171,7 @@ type GalleryBodyProps = Pick<
   | 'onRenameMap'
   | 'onMoveMap'
   | 'onRemoveMap'
-> & { folderOptions: MapRowFolderOption[] };
+> & { folderOptions: Array<MapRowFolderOption> };
 
 /** A real named subcomponent, so the loading/empty/loaded states stay guard clauses. */
 const GalleryBody = ({
@@ -174,7 +187,7 @@ const GalleryBody = ({
   onMoveMap,
   onRemoveMap,
 }: GalleryBodyProps) => {
-  if (isPending) return <Skeleton role="status" aria-label="Loading maps" />;
+  if (isPending) return <Skeleton $height="12rem" aria-label="Loading maps" />;
 
   if (!folders.length && !unfiledMaps.length) {
     return (
@@ -203,9 +216,9 @@ const GalleryBody = ({
       ))}
 
       {unfiledMaps.length > 0 && (
-        <Section>
+        <Stack $gap="s">
           {folders.length > 0 && <SectionTitle>Unfiled</SectionTitle>}
-          <List>
+          <PlainList>
             {unfiledMaps.map(map => (
               <li key={map.id}>
                 <MapRow
@@ -222,16 +235,16 @@ const GalleryBody = ({
                 />
               </li>
             ))}
-          </List>
-        </Section>
+          </PlainList>
+        </Stack>
       )}
     </Sections>
   );
 };
 
-type FolderGroupProps = {
+interface FolderGroupProps {
   folder: MapGalleryFolder;
-  folderOptions: MapRowFolderOption[];
+  folderOptions: Array<MapRowFolderOption>;
   activeMapId: MapGalleryViewProps['activeMapId'];
   onLoad: MapGalleryViewProps['onLoad'];
   onRenameFolder: MapGalleryViewProps['onRenameFolder'];
@@ -239,7 +252,7 @@ type FolderGroupProps = {
   onRenameMap: MapGalleryViewProps['onRenameMap'];
   onMoveMap: MapGalleryViewProps['onMoveMap'];
   onRemoveMap: MapGalleryViewProps['onRemoveMap'];
-};
+}
 
 const FolderGroup = ({
   folder,
@@ -264,8 +277,8 @@ const FolderGroup = ({
   };
 
   return (
-    <Section>
-      <SectionHeader>
+    <Stack $gap="s">
+      <SpreadRow>
         {isEditingName ? (
           <TextInput
             autoFocus
@@ -296,7 +309,7 @@ const FolderGroup = ({
             </SectionTitle>
           </CollapseToggle>
         )}
-        <FolderActions>
+        <Cluster $gap="xs">
           <Button
             variant="ghost"
             size="sm"
@@ -312,10 +325,10 @@ const FolderGroup = ({
           >
             Delete
           </Button>
-        </FolderActions>
-      </SectionHeader>
+        </Cluster>
+      </SpreadRow>
       {isExpanded && (
-        <List id={listId}>
+        <PlainList id={listId}>
           {folder.maps.map(map => (
             <li key={map.id}>
               <MapRow
@@ -332,125 +345,8 @@ const FolderGroup = ({
               />
             </li>
           ))}
-        </List>
+        </PlainList>
       )}
-    </Section>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  min-height: 0;
-  height: 100%;
-`;
-
-const Toolbar = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const HiddenFileInput = styled.input`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-`;
-
-const NewFolderForm = styled.form`
-  display: flex;
-  flex: 1;
-  min-width: 12rem;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const ErrorText = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.danger};
-`;
-
-const Sections = styled.div`
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  min-height: 0;
-  overflow-y: auto;
-`;
-
-const Section = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const SectionHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const SectionTitle = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const CollapseToggle = styled.button`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-  min-width: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-
-  &:hover ${SectionTitle} {
-    color: ${props => props.theme.color.textPrimary};
-  }
-`;
-
-const Chevron = styled.span<{ $isExpanded: boolean }>`
-  display: inline-flex;
-  flex-shrink: 0;
-  transition: transform 120ms ease;
-  ${props =>
-    !props.$isExpanded &&
-    css`
-      transform: rotate(-90deg);
-    `}
-`;
-
-const FolderActions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Skeleton = styled.div`
-  height: 12rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

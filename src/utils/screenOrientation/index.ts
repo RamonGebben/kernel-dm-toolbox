@@ -8,7 +8,10 @@
 export type PlayerScreenOrientationSetting = 'auto' | 'landscape' | 'portrait';
 export type PhysicalOrientation = 'landscape' | 'portrait';
 
-export type PhysicalSize = { width: number; height: number };
+export interface PhysicalSize {
+  width: number;
+  height: number;
+}
 
 /** A square viewport counts as landscape — there's no rotation to prefer. */
 export const derivePhysicalOrientation = (
@@ -21,14 +24,14 @@ export const resolveEffectiveOrientation = (
   physical: PhysicalOrientation,
 ): PhysicalOrientation => (setting === 'auto' ? physical : setting);
 
-export type OrientationFrame = {
+export interface OrientationFrame {
   rotationDeg: 0 | 90;
   /** The frame's own local (pre-rotation) box. Swapped relative to the
    * physical viewport exactly when a rotation is needed, so the rotated
    * frame's bounding box exactly refills the physical viewport. */
   width: number;
   height: number;
-};
+}
 
 /** The frame the player screen's content should render into, given its
  * actual physical size and the DM's orientation setting. */

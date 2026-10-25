@@ -1,31 +1,41 @@
 'use client';
 
 import { useId, useState, type KeyboardEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { Icon } from '~/atoms/Icon';
 import { Portal } from '~/atoms/Portal';
 import { TextInput } from '~/atoms/TextInput';
 import { useDismissableMenu } from '~/hooks/useDismissableMenu';
 import { useFloatingPosition } from '~/hooks/useFloatingPosition';
+import { Row } from '~/molecules/MapRow/components/Row';
+import { SpreadRow } from '~/atoms/SpreadRow';
+import { Name } from '~/molecules/MapRow/components/Name';
+import { Meta } from '~/molecules/MapRow/components/Meta';
+import { Footer } from '~/molecules/MapRow/components/Footer';
+import { MenuWrapper } from '~/molecules/MapRow/components/MenuWrapper';
+import { MenuTrigger } from '~/molecules/MapRow/components/MenuTrigger';
+import { Menu } from '~/molecules/MapRow/components/Menu';
+import { MenuLabel } from '~/molecules/MapRow/components/MenuLabel';
+import { MenuDivider } from '~/molecules/MapRow/components/MenuDivider';
+import { MenuItem } from '~/molecules/MapRow/components/MenuItem';
 
-export type MapRowFolderOption = {
+export interface MapRowFolderOption {
   id: string;
   name: string;
-};
+}
 
-export type MapRowProps = {
+export interface MapRowProps {
   name: string;
   kind: string;
   hasGridCalibration: boolean;
-  folderOptions: readonly MapRowFolderOption[];
+  folderOptions: ReadonlyArray<MapRowFolderOption>;
   currentFolderId: string | null;
   isLoaded: boolean;
   onLoad: () => void;
   onRename: (name: string) => void;
   onMove: (folderId: string | null) => void;
   onRemove: () => void;
-};
+}
 
 /** One map in the gallery: its name (renamable in place), where it lives, and actions. */
 export const MapRow = ({
@@ -59,7 +69,7 @@ export const MapRow = ({
 
   return (
     <Row $isLoaded={isLoaded}>
-      <Header>
+      <SpreadRow $align="flex-start">
         {isEditingName ? (
           <TextInput
             autoFocus
@@ -80,7 +90,7 @@ export const MapRow = ({
           onRename={() => setIsEditingName(true)}
           onRemove={onRemove}
         />
-      </Header>
+      </SpreadRow>
       <Meta>
         {kind === 'video' ? 'Video' : 'Image'} ·{' '}
         {hasGridCalibration ? 'Grid calibrated' : 'No grid calibration'}
@@ -100,14 +110,14 @@ export const MapRow = ({
   );
 };
 
-type MapRowMenuProps = {
+interface MapRowMenuProps {
   name: string;
-  folderOptions: readonly MapRowFolderOption[];
+  folderOptions: ReadonlyArray<MapRowFolderOption>;
   currentFolderId: string | null;
   onMove: (folderId: string | null) => void;
   onRename: () => void;
   onRemove: () => void;
-};
+}
 
 /**
  * The kebab menu: move to folder, rename, and remove, collapsed behind one
@@ -208,106 +218,3 @@ const MapRowMenu = ({
     </MenuWrapper>
   );
 };
-
-const Row = styled.div<{ $isLoaded: boolean }>`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  padding: ${props => props.theme.space.sm} ${props => props.theme.space.md};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid
-    ${props =>
-      props.$isLoaded ? props.theme.color.accent : props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Name = styled.p`
-  margin: 0;
-  min-width: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Meta = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Footer = styled.div`
-  display: flex;
-  justify-content: flex-end;
-`;
-
-const MenuWrapper = styled.div`
-  display: inline-flex;
-`;
-
-const MenuTrigger = styled(Button)`
-  padding: ${props => props.theme.space.xs};
-`;
-
-/** Positioned off-screen until `useFloatingPosition` measures the trigger,
- * so there is nothing to flash before its first real `top`/`left` commits. */
-const Menu = styled.div`
-  position: fixed;
-  top: -9999px;
-  left: -9999px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  min-width: 12rem;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  box-shadow: ${props => props.theme.shadow.raised};
-`;
-
-const MenuLabel = styled.p`
-  margin: 0;
-  padding: 0 ${props => props.theme.space.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const MenuDivider = styled.hr`
-  width: 100%;
-  margin: ${props => props.theme.space.xs} 0;
-  border: none;
-  border-top: 1px solid ${props => props.theme.color.border};
-`;
-
-const MenuItem = styled.button<{ $isDanger?: boolean }>`
-  display: flex;
-  align-items: center;
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: transparent;
-  border: none;
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props =>
-    props.$isDanger ? props.theme.color.danger : props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
-  text-align: left;
-  cursor: pointer;
-
-  &:hover {
-    background: ${props => props.theme.color.surface};
-  }
-
-  &[aria-pressed='true'] {
-    color: ${props => props.theme.color.accent};
-    font-weight: 600;
-  }
-`;

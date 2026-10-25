@@ -1,19 +1,17 @@
 'use client';
 
 import { TextInput } from '~/atoms/TextInput';
-import {
-  Field,
-  Grid,
-  Label,
-  SectionTitle,
-} from '~/molecules/CustomCreatureForm/styled';
+import { Stack } from '~/atoms/Stack';
+import { Grid } from '~/molecules/CustomCreatureForm/components/Grid';
+import { FieldLabel } from '~/atoms/FieldLabel';
+import { SectionTitle } from '~/molecules/CustomCreatureForm/components/SectionTitle';
 import { ABILITY_FIELDS } from '~/molecules/CustomCreatureForm/fields';
 import type { CustomCreatureFormValues } from '~/molecules/CustomCreatureForm';
 
-type AbilityScoreFieldsProps = {
+interface AbilityScoreFieldsProps {
   values: CustomCreatureFormValues;
   onChange: (patch: Partial<CustomCreatureFormValues>) => void;
-};
+}
 
 /** The six ability scores, plus an optional saving-throw bonus for each. */
 export const AbilityScoreFields = ({
@@ -24,8 +22,10 @@ export const AbilityScoreFields = ({
     <SectionTitle>Ability Scores</SectionTitle>
     <Grid $columns={6}>
       {ABILITY_FIELDS.map(([key, , , label]) => (
-        <Field key={key}>
-          <Label htmlFor={`custom-creature-ability-${key}`}>{label}</Label>
+        <Stack $gap="xs" key={key}>
+          <FieldLabel htmlFor={`custom-creature-ability-${key}`}>
+            {label}
+          </FieldLabel>
           <TextInput
             id={`custom-creature-ability-${key}`}
             type="number"
@@ -41,15 +41,17 @@ export const AbilityScoreFields = ({
               })
             }
           />
-        </Field>
+        </Stack>
       ))}
     </Grid>
 
     <SectionTitle>Saving Throws</SectionTitle>
     <Grid $columns={6}>
       {ABILITY_FIELDS.map(([key, , , label]) => (
-        <Field key={key}>
-          <Label htmlFor={`custom-creature-save-${key}`}>{label} Save</Label>
+        <Stack $gap="xs" key={key}>
+          <FieldLabel htmlFor={`custom-creature-save-${key}`}>
+            {label} Save
+          </FieldLabel>
           <TextInput
             id={`custom-creature-save-${key}`}
             type="number"
@@ -64,7 +66,7 @@ export const AbilityScoreFields = ({
               })
             }
           />
-        </Field>
+        </Stack>
       ))}
     </Grid>
   </>

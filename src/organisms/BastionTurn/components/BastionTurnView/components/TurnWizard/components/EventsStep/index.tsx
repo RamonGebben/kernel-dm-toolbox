@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { DieInput } from '~/molecules/DieInput';
 import type { TurnContext } from '~/server/trpc/helpers/bastionTurnPlan';
 import type { TurnDraft, TurnEvent } from '~/server/trpc/schemas/bastionTurns';
@@ -15,12 +14,17 @@ import {
   EventResolver,
   type EventChange,
 } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/EventResolver';
+import { Stack } from '~/atoms/Stack';
+import { Event } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/EventsStep/components/Event';
+import { Heading } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Heading';
+import { EventName } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/EventsStep/components/EventName';
+import { MutedNote } from '~/atoms/MutedNote';
 
-export type EventsStepProps = {
+export interface EventsStepProps {
   context: TurnContext;
   draft: TurnDraft;
   onChange: (draft: TurnDraft) => void;
-};
+}
 
 /**
  * Step 4: one Bastion Event for everyone who maintained. Each asks for the
@@ -29,9 +33,9 @@ export type EventsStepProps = {
 export const EventsStep = ({ context, draft, onChange }: EventsStepProps) => {
   if (!draft.events.length) {
     return (
-      <Muted>
+      <MutedNote>
         Everyone gave orders this turn, so there are no Bastion Events to roll.
-      </Muted>
+      </MutedNote>
     );
   }
 
@@ -51,7 +55,7 @@ export const EventsStep = ({ context, draft, onChange }: EventsStepProps) => {
   };
 
   return (
-    <Wrapper>
+    <Stack>
       {draft.events.map((event, index) => {
         const bastion = context.bastions.find(
           ({ id }) => id === event.bastionId,
@@ -85,7 +89,7 @@ export const EventsStep = ({ context, draft, onChange }: EventsStepProps) => {
             {definition ? (
               <>
                 <EventName>{definition.name}</EventName>
-                <Muted>{definition.summary}</Muted>
+                <MutedNote>{definition.summary}</MutedNote>
                 <EventResolver
                   event={event}
                   playerName={name}
@@ -99,40 +103,6 @@ export const EventsStep = ({ context, draft, onChange }: EventsStepProps) => {
           </Event>
         );
       })}
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Event = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.md};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Heading = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const EventName = styled.p`
-  margin: 0;
-  font-weight: 600;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.accent};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { CheckboxRow, FieldRow, Select } from '~/atoms/FormControls';
+import { CheckboxRow } from '~/atoms/CheckboxRow';
+import { FieldRow } from '~/atoms/FieldRow';
+import { Select } from '~/atoms/Select';
 import { specialFacilities } from '~/content/bastion/specialFacilities';
 import { bastionOrderLabels } from '~/content/bastion/orders';
 import type { FacilityLevel } from '~/content/bastion/types';
@@ -13,36 +14,45 @@ import {
   findEligibilityProblems,
   spaceLabel,
 } from '~/utils/bastionRules';
+import { Stack } from '~/atoms/Stack';
+import { MutedParagraph } from '~/atoms/MutedParagraph';
+import { LevelHeading } from '~/organisms/BastionDetail/components/BastionDetailView/components/FacilityPicker/components/LevelHeading';
+import { PlainList } from '~/atoms/PlainList';
+import { Row } from '~/organisms/BastionDetail/components/BastionDetailView/components/FacilityPicker/components/Row';
+import { Shrink } from '~/atoms/Shrink';
+import { Paragraph } from '~/atoms/Paragraph';
+import { MutedNote } from '~/atoms/MutedNote';
+import { WarningNote } from '~/atoms/WarningNote';
 
-export type PickerMember = {
+export interface PickerMember {
   id: string;
   name: string;
   level: number;
   className: string | null;
   /** Catalog keys this member already holds here. */
-  heldKeys: readonly string[];
-};
+  heldKeys: ReadonlyArray<string>;
+}
 
-export type FacilityPickerProps = {
+export interface FacilityPickerProps {
   /**
    * Who can take a facility: the owner alone in their own bastion, every
    * member in the party's — each checked against their own allowance.
    */
-  members: readonly PickerMember[];
+  members: ReadonlyArray<PickerMember>;
   /**
    * Every facility already in the bastion, whoever holds it — each type is
    * there once for everyone (bar the four that may repeat).
    */
-  bastionKeys: readonly string[];
+  bastionKeys: ReadonlyArray<string>;
   isSaving: boolean;
   onAdd: (
     facilityKey: string,
     ignoreRequirements: boolean,
     holderCharacterId: string,
   ) => void;
-};
+}
 
-const levels: readonly FacilityLevel[] = [5, 9, 13, 17];
+const levels: ReadonlyArray<FacilityLevel> = [5, 9, 13, 17];
 
 /**
  * The catalog, checked against the member taking it: what they can take now,
@@ -67,12 +77,15 @@ export const FacilityPicker = ({
   );
   const owner = members.find(({ id }) => id === holderId) ?? members[0];
 
-  if (!owner) return <Intro>Nobody can hold a facility here yet.</Intro>;
+  if (!owner)
+    return (
+      <MutedParagraph>Nobody can hold a facility here yet.</MutedParagraph>
+    );
 
   const { heldKeys } = owner;
 
   return (
-    <Wrapper>
+    <Stack>
       {members.length > 1 ? (
         <FieldRow>
           <label htmlFor="facility-picker-holder">For</label>
@@ -89,11 +102,11 @@ export const FacilityPicker = ({
           </Select>
         </FieldRow>
       ) : null}
-      <Intro>
+      <MutedParagraph>
         {owner.name} is level {owner.level}
         {owner.className ? ` (${owner.className})` : ''}. Facilities they cannot
         take yet say why.
-      </Intro>
+      </MutedParagraph>
       <CheckboxRow>
         <input
           id="facility-picker-ignore-rules"
@@ -107,9 +120,14 @@ export const FacilityPicker = ({
       </CheckboxRow>
 
       {levels.map(level => (
-        <Group key={level} aria-label={`Level ${level} facilities`}>
+        <Stack
+          as="section"
+          $gap="xs"
+          key={level}
+          aria-label={`Level ${level} facilities`}
+        >
           <LevelHeading>Level {level}</LevelHeading>
-          <List>
+          <PlainList>
             {specialFacilities
               .filter(facility => facility.level === level)
               .map(facility => {
@@ -120,19 +138,19 @@ export const FacilityPicker = ({
 
                 return (
                   <Row key={facility.key}>
-                    <Details>
-                      <Name>{facility.name}</Name>
-                      <Meta>
+                    <Shrink>
+                      <Paragraph>{facility.name}</Paragraph>
+                      <MutedNote>
                         {spaceLabel(facility.space)} ·{' '}
                         {bastionOrderLabels[facility.order]}
                         {facility.allowMultiple ? ' · can take several' : ''}
-                      </Meta>
+                      </MutedNote>
                       {problems.map(problem => (
-                        <Problem key={problem.kind}>
+                        <WarningNote key={problem.kind}>
                           {describeEligibilityProblem(problem)}
-                        </Problem>
+                        </WarningNote>
                       ))}
-                    </Details>
+                    </Shrink>
                     <Button
                       variant="secondary"
                       size="sm"
@@ -149,74 +167,9 @@ export const FacilityPicker = ({
                   </Row>
                 );
               })}
-          </List>
-        </Group>
+          </PlainList>
+        </Stack>
       ))}
-    </Wrapper>
+    </Stack>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Intro = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Group = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const LevelHeading = styled.h4`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Row = styled.li`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Details = styled.div`
-  min-width: 0;
-`;
-
-const Name = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Meta = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Problem = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.warning};
-`;

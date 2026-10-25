@@ -45,15 +45,15 @@ export const ensureEncounter = async (db: Database) => {
   );
 };
 
-export type AppliedCondition = {
+export interface AppliedCondition {
   id: string;
   conditionSlug: string;
   name: string;
   roundsRemaining: number | null;
   note: string | null;
-};
+}
 
-export type EncounterCombatant = {
+export interface EncounterCombatant {
   id: string;
   displayName: string;
   initiative: number;
@@ -73,18 +73,18 @@ export type EncounterCombatant = {
   playerCharacterId: string | null;
   isPlayerCharacter: boolean;
   healthStatus: 'healthy' | 'bloodied' | 'unconscious';
-  conditions: AppliedCondition[];
+  conditions: Array<AppliedCondition>;
   /** Only present for monsters, and only used by the difficulty readout. */
   challengeRating: number | null;
-};
+}
 
-export type EncounterState = {
+export interface EncounterState {
   roundNumber: number;
   activeCombatantId: string | null;
-  combatants: EncounterCombatant[];
+  combatants: Array<EncounterCombatant>;
   /** Derived, not stored — it changes whenever the board does. */
   difficulty: DifficultyResult;
-};
+}
 
 /**
  * The whole encounter, ordered. The single read the DM screen and the player

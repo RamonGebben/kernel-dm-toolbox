@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { PartyMemberCard } from '~/molecules/PartyMemberCard';
@@ -11,11 +10,16 @@ import {
   type PartyCharacter,
 } from '~/organisms/PartyRoster/hooks/usePartyRoster';
 import type { PartyEditorTarget } from '~/utils/partyEditorHref';
+import { Stack } from '~/atoms/Stack';
+import { Toolbar } from '~/organisms/PartyRoster/components/PartyRosterView/components/Toolbar';
+import { SectionHeading } from '~/organisms/PartyRoster/components/PartyRosterView/components/SectionHeading';
+import { List } from '~/organisms/PartyRoster/components/PartyRosterView/components/List';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type PartyRosterViewProps = {
+export interface PartyRosterViewProps {
   isPending: boolean;
-  active: readonly PartyCharacter[];
-  benched: readonly PartyCharacter[];
+  active: ReadonlyArray<PartyCharacter>;
+  benched: ReadonlyArray<PartyCharacter>;
   editor: PartyEditorTarget<PartyCharacter>;
   isSaving: boolean;
   isRemoving: boolean;
@@ -27,7 +31,7 @@ export type PartyRosterViewProps = {
   onSubmit: (values: CharacterFormValues) => void;
   onToggleActive: (character: PartyCharacter) => void;
   onRemove: (id: string) => void;
-};
+}
 
 /** Presentational: props in, JSX out, every state reachable from a story. */
 export const PartyRosterView = ({
@@ -45,7 +49,7 @@ export const PartyRosterView = ({
   onToggleActive,
   onRemove,
 }: PartyRosterViewProps) => (
-  <Wrapper>
+  <Stack>
     <Toolbar>
       <Button size="sm" onClick={onStartCreate}>
         Add character
@@ -78,7 +82,7 @@ export const PartyRosterView = ({
       onRemove={onRemove}
       onClose={onCloseEditor}
     />
-  </Wrapper>
+  </Stack>
 );
 
 type RosterBodyProps = Pick<
@@ -101,7 +105,7 @@ const RosterBody = ({
   onToggleActive,
 }: RosterBodyProps) => {
   if (isPending)
-    return <Skeleton role="status" aria-label="Loading the party" />;
+    return <Skeleton $height="8rem" aria-label="Loading the party" />;
 
   if (!active.length && !benched.length) {
     return (
@@ -142,7 +146,7 @@ type MemberListProps = Pick<
   'updatingId' | 'onStartEdit' | 'onToggleActive'
 > & {
   label: string;
-  characters: readonly PartyCharacter[];
+  characters: ReadonlyArray<PartyCharacter>;
 };
 
 const MemberList = ({
@@ -165,38 +169,3 @@ const MemberList = ({
     ))}
   </List>
 );
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Toolbar = styled.div`
-  display: flex;
-  justify-content: flex-end;
-`;
-
-const SectionHeading = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const List = styled.ul`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
-  gap: ${props => props.theme.space.sm};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Skeleton = styled.div`
-  height: 8rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

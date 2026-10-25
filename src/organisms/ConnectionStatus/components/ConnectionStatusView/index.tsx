@@ -1,14 +1,16 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { StatusShell } from '~/organisms/ConnectionStatus/components/StatusShell';
 import type { ConnectionStatus } from '~/organisms/ConnectionStatus/hooks/useConnectionStatus';
+import { Message } from '~/organisms/ConnectionStatus/components/ConnectionStatusView/components/Message';
+import { Detail } from '~/organisms/ConnectionStatus/components/ConnectionStatusView/components/Detail';
+import { SkeletonLine } from '~/organisms/ConnectionStatus/components/ConnectionStatusView/components/SkeletonLine';
 
-type ConnectionStatusViewProps = {
+interface ConnectionStatusViewProps {
   status: ConnectionStatus;
   onRetry: () => void;
-};
+}
 
 /**
  * Purely presentational: props in, JSX out. Every state is reachable from
@@ -54,23 +56,3 @@ export const ConnectionStatusView = ({
     </StatusShell>
   );
 };
-
-const Message = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Detail = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-  font-family: ${props => props.theme.font.mono};
-`;
-
-const SkeletonLine = styled.div<{ $isShort?: boolean }>`
-  height: 1rem;
-  width: ${props => (props.$isShort ? '40%' : '70%')};
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

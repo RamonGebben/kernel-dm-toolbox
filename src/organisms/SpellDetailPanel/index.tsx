@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { SpellDetailView } from '~/organisms/SpellDetailPanel/components/SpellDetailView';
-import { useSpellSelectionStore } from '~/stores/spellSelection';
+import { useSpellSelectionStore } from '~/store/spellSelection';
 
 /**
  * Connected boundary: the fixed right-hand panel showing the selected spell.

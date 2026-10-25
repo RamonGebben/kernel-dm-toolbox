@@ -1,29 +1,35 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { FieldRow, Select } from '~/atoms/FormControls';
+import { FieldRow } from '~/atoms/FieldRow';
+import { Select } from '~/atoms/Select';
 import { Modal } from '~/atoms/Modal';
 import { TextInput } from '~/atoms/TextInput';
 import type { BastionMode } from '~/server/db/schema';
+import { Wrapper } from '~/organisms/BastionList/components/BastionListView/components/BastionModeSwitch/components/Wrapper';
+import { Current } from '~/organisms/BastionList/components/BastionListView/components/BastionModeSwitch/components/Current';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { Body } from '~/organisms/BastionList/components/BastionListView/components/BastionModeSwitch/components/Body';
+import { ErrorText } from '~/organisms/BastionList/components/BastionListView/components/BastionModeSwitch/components/ErrorText';
+import { Cluster } from '~/atoms/Cluster';
 
 export type ModeChange =
   | { mode: 'party'; name: string }
   | { mode: 'per-character'; keeperCharacterId?: string };
 
-export type BastionModeSwitchProps = {
+export interface BastionModeSwitchProps {
   mode: BastionMode;
   /** How many bastions exist — merging or splitting only matters if any do. */
   bastionCount: number;
   /** Suggested name for the merged party bastion. */
   suggestedName: string;
-  members: readonly { id: string; name: string }[];
+  members: ReadonlyArray<{ id: string; name: string }>;
   isSwitching: boolean;
   error: string | null;
   /** Resolves once switched, so the dialog knows to close. */
   onSwitch: (change: ModeChange) => Promise<unknown>;
-};
+}
 
 const modeLabels: Record<BastionMode, string> = {
   'per-character': 'One per character',
@@ -70,7 +76,7 @@ export const BastionModeSwitch = ({
   return (
     <Wrapper>
       <Current>
-        <Label>Bastions</Label>
+        <MutedCaption>Bastions</MutedCaption>
         <span>{modeLabels[mode]}</span>
       </Current>
       <Button
@@ -141,7 +147,7 @@ export const BastionModeSwitch = ({
             </>
           )}
           {error ? <ErrorText role="alert">{error}</ErrorText> : null}
-          <Actions>
+          <Cluster>
             <Button
               size="sm"
               disabled={isSwitching}
@@ -152,49 +158,9 @@ export const BastionModeSwitch = ({
             <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
-          </Actions>
+          </Cluster>
         </Body>
       </Modal>
     </Wrapper>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Current = styled.div`
-  display: flex;
-  flex-direction: column;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Label = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Body = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  color: ${props => props.theme.color.textPrimary};
-
-  p {
-    margin: 0;
-  }
-`;
-
-const ErrorText = styled.p`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.danger};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;

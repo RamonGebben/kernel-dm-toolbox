@@ -1,19 +1,20 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
-import {
-  Field,
-  Grid,
-  Label,
-  SectionTitle,
-  Select,
-} from '~/molecules/CustomCreatureForm/styled';
+import { Grid } from '~/molecules/CustomCreatureForm/components/Grid';
+import { FieldLabel } from '~/atoms/FieldLabel';
+import { SectionTitle } from '~/molecules/CustomCreatureForm/components/SectionTitle';
+import { Select } from '~/molecules/CustomCreatureForm/components/Select';
 import type {
   ActionFormValues,
   AttackFormValues,
 } from '~/molecules/CustomCreatureForm';
+import { Stack } from '~/atoms/Stack';
+import { Row } from '~/molecules/CustomCreatureForm/components/Row';
+import { AttackWrapper } from '~/molecules/CustomCreatureForm/components/ActionRows/components/AttackWrapper';
+import { ToggleLabel } from '~/molecules/CustomCreatureForm/components/ToggleLabel';
+import { TextArea } from '~/molecules/CustomCreatureForm/components/TextArea';
 
 const emptyAttack: AttackFormValues = {
   name: '',
@@ -41,20 +42,20 @@ const emptyAction: ActionFormValues = {
   attack: null,
 };
 
-const ACTION_TYPE_OPTIONS: {
+const ACTION_TYPE_OPTIONS: Array<{
   value: ActionFormValues['actionType'];
   label: string;
-}[] = [
+}> = [
   { value: 'ACTION', label: 'Action' },
   { value: 'BONUS_ACTION', label: 'Bonus Action' },
   { value: 'REACTION', label: 'Reaction' },
   { value: 'LEGENDARY_ACTION', label: 'Legendary Action' },
 ];
 
-type ActionRowsProps = {
-  actions: ActionFormValues[];
-  onChange: (actions: ActionFormValues[]) => void;
-};
+interface ActionRowsProps {
+  actions: Array<ActionFormValues>;
+  onChange: (actions: Array<ActionFormValues>) => void;
+}
 
 /**
  * Repeatable action rows, each with an optional structured attack sub-form
@@ -80,15 +81,15 @@ export const ActionRows = ({ actions, onChange }: ActionRowsProps) => {
     onChange(actions.filter((_action, current) => current !== index));
 
   return (
-    <RowsWrapper>
+    <Stack $gap="s">
       <SectionTitle>Actions</SectionTitle>
       {actions.map((action, index) => (
         <Row key={index}>
           <Grid $columns={2}>
-            <Field>
-              <Label htmlFor={`custom-creature-action-name-${index}`}>
+            <Stack $gap="xs">
+              <FieldLabel htmlFor={`custom-creature-action-name-${index}`}>
                 Name
-              </Label>
+              </FieldLabel>
               <TextInput
                 id={`custom-creature-action-name-${index}`}
                 value={action.name}
@@ -96,11 +97,11 @@ export const ActionRows = ({ actions, onChange }: ActionRowsProps) => {
                   updateAction(index, { name: event.target.value })
                 }
               />
-            </Field>
-            <Field>
-              <Label htmlFor={`custom-creature-action-type-${index}`}>
+            </Stack>
+            <Stack $gap="xs">
+              <FieldLabel htmlFor={`custom-creature-action-type-${index}`}>
                 Type
-              </Label>
+              </FieldLabel>
               <Select
                 id={`custom-creature-action-type-${index}`}
                 value={action.actionType}
@@ -117,14 +118,14 @@ export const ActionRows = ({ actions, onChange }: ActionRowsProps) => {
                   </option>
                 ))}
               </Select>
-            </Field>
+            </Stack>
           </Grid>
 
           {action.actionType === 'LEGENDARY_ACTION' && (
-            <Field>
-              <Label htmlFor={`custom-creature-action-cost-${index}`}>
+            <Stack $gap="xs">
+              <FieldLabel htmlFor={`custom-creature-action-cost-${index}`}>
                 Legendary Action Cost
-              </Label>
+              </FieldLabel>
               <TextInput
                 id={`custom-creature-action-cost-${index}`}
                 type="number"
@@ -138,13 +139,13 @@ export const ActionRows = ({ actions, onChange }: ActionRowsProps) => {
                   })
                 }
               />
-            </Field>
+            </Stack>
           )}
 
-          <Field>
-            <Label htmlFor={`custom-creature-action-desc-${index}`}>
+          <Stack $gap="xs">
+            <FieldLabel htmlFor={`custom-creature-action-desc-${index}`}>
               Description
-            </Label>
+            </FieldLabel>
             <TextArea
               id={`custom-creature-action-desc-${index}`}
               value={action.desc}
@@ -152,7 +153,7 @@ export const ActionRows = ({ actions, onChange }: ActionRowsProps) => {
                 updateAction(index, { desc: event.target.value })
               }
             />
-          </Field>
+          </Stack>
 
           <ToggleLabel>
             <input
@@ -193,171 +194,132 @@ export const ActionRows = ({ actions, onChange }: ActionRowsProps) => {
       >
         Add action
       </Button>
-    </RowsWrapper>
+    </Stack>
   );
 };
 
-type AttackFieldsProps = {
+interface AttackFieldsProps {
   attack: AttackFormValues;
   index: number;
   onChange: (patch: Partial<AttackFormValues>) => void;
-};
+}
 
 const AttackFields = ({ attack, index, onChange }: AttackFieldsProps) => (
   <AttackWrapper>
     <Grid $columns={3}>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-name-${index}`}>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-name-${index}`}>
           Attack Name
-        </Label>
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-name-${index}`}
           value={attack.name}
           onChange={event => onChange({ name: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-type-${index}`}>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-type-${index}`}>
           Attack Type
-        </Label>
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-type-${index}`}
           value={attack.attackType}
           placeholder="Melee Weapon Attack"
           onChange={event => onChange({ attackType: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-tohit-${index}`}>To Hit</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-tohit-${index}`}>
+          To Hit
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-tohit-${index}`}
           type="number"
           value={attack.toHitMod}
           onChange={event => onChange({ toHitMod: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-reach-${index}`}>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-reach-${index}`}>
           Reach (ft.)
-        </Label>
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-reach-${index}`}
           type="number"
           value={attack.reach}
           onChange={event => onChange({ reach: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-range-${index}`}>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-range-${index}`}>
           Range (ft.)
-        </Label>
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-range-${index}`}
           type="number"
           value={attack.range}
           onChange={event => onChange({ range: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-long-range-${index}`}>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-long-range-${index}`}>
           Long Range (ft.)
-        </Label>
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-long-range-${index}`}
           type="number"
           value={attack.longRange}
           onChange={event => onChange({ longRange: event.target.value })}
         />
-      </Field>
+      </Stack>
     </Grid>
 
     <SectionTitle>Damage</SectionTitle>
     <Grid $columns={4}>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-dice-count-${index}`}>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-dice-count-${index}`}>
           Dice
-        </Label>
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-dice-count-${index}`}
           type="number"
           value={attack.damageDieCount}
           onChange={event => onChange({ damageDieCount: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-die-type-${index}`}>Die</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-die-type-${index}`}>
+          Die
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-die-type-${index}`}
           value={attack.damageDieType}
           placeholder="d6"
           onChange={event => onChange({ damageDieType: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-bonus-${index}`}>Bonus</Label>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-bonus-${index}`}>
+          Bonus
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-bonus-${index}`}
           type="number"
           value={attack.damageBonus}
           onChange={event => onChange({ damageBonus: event.target.value })}
         />
-      </Field>
-      <Field>
-        <Label htmlFor={`custom-creature-attack-damage-type-${index}`}>
+      </Stack>
+      <Stack $gap="xs">
+        <FieldLabel htmlFor={`custom-creature-attack-damage-type-${index}`}>
           Damage Type
-        </Label>
+        </FieldLabel>
         <TextInput
           id={`custom-creature-attack-damage-type-${index}`}
           value={attack.damageType}
           placeholder="slashing"
           onChange={event => onChange({ damageType: event.target.value })}
         />
-      </Field>
+      </Stack>
     </Grid>
   </AttackWrapper>
 );
-
-const RowsWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Row = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const AttackWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const ToggleLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const TextArea = styled.textarea`
-  width: 100%;
-  min-height: 4rem;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
-  resize: vertical;
-`;

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
+import { Group } from '~/molecules/ConfirmButton/components/Group';
 
-export type ConfirmButtonProps = {
+export interface ConfirmButtonProps {
   /** The first button: it only asks. */
   label: string;
   /** The second button: it does the thing. */
@@ -13,7 +13,7 @@ export type ConfirmButtonProps = {
   ariaLabel?: string;
   disabled?: boolean;
   onConfirm: () => void;
-};
+}
 
 /**
  * A destructive action behind a second click, inline rather than in a
@@ -61,8 +61,3 @@ export const ConfirmButton = ({
     </Group>
   );
 };
-
-const Group = styled.span`
-  display: inline-flex;
-  gap: ${props => props.theme.space.xs};
-`;

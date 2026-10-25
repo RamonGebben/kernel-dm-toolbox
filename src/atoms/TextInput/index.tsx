@@ -1,25 +1,22 @@
 'use client';
 
 import styled from 'styled-components';
-import type { InputHTMLAttributes } from 'react';
 
-export type TextInputProps = InputHTMLAttributes<HTMLInputElement>;
-
-export const TextInput = (props: TextInputProps) => (
-  <StyledInput type="text" {...props} />
-);
-
-const StyledInput = styled.input`
+/** A themed single-line input; `type` defaults to `text`. */
+export const TextInput = styled.input.attrs(props => ({
+  type: props.type ?? 'text',
+}))`
   width: 100%;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
+  padding: ${props => props.theme.spacing('s')};
+  background: ${props => props.theme.color('background')};
+  border: ${props => props.theme.borderWidth('s')} solid
+    ${props => props.theme.color('formBackground', 'emphasis')};
+  border-radius: ${props => props.theme.borderRadius('s')};
+  color: ${props => props.theme.color('background', 'text')};
   font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
+  font-size: ${props => props.theme.fontSize('base')};
 
   &::placeholder {
-    color: ${props => props.theme.color.textMuted};
+    color: ${props => props.theme.color('formBackground', 'text')};
   }
 `;

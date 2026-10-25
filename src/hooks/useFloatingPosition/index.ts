@@ -4,16 +4,16 @@ import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 
 export type FloatingAlign = 'start' | 'end';
 
-export type FloatingPosition = {
+export interface FloatingPosition {
   top: number;
   left: number;
-};
+}
 
-export type FloatingAnchorRect = {
+export interface FloatingAnchorRect {
   bottom: number;
   left: number;
   right: number;
-};
+}
 
 const VIEWPORT_MARGIN = 8;
 
@@ -73,7 +73,7 @@ const useIsomorphicLayoutEffect =
   typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** `0.25rem` in px, read from the root so the gap tracks whatever
- * `theme.space.xs` actually resolves to rather than a hardcoded pixel
+ * `theme.spacing('xs')` actually resolves to rather than a hardcoded pixel
  * count. */
 const gapPx = () =>
   0.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);

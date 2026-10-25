@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef } from 'react';
  * tracked in a ref, so only `delayMs` needs to stay stable across renders
  * for the returned function's identity to stay stable too.
  */
-export const useDebouncedCallback = <Args extends unknown[]>(
+export const useDebouncedCallback = <Args extends Array<unknown>>(
   callback: (...args: Args) => void,
   delayMs: number,
 ): [(...args: Args) => void, () => void] => {

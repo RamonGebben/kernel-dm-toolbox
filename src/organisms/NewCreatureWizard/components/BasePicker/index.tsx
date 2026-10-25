@@ -1,19 +1,25 @@
 'use client';
 
-import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 import type { BaseSelection } from '~/organisms/NewCreatureWizard/hooks/useNewCreatureWizard';
+import { Stack } from '~/atoms/Stack';
+import { Results } from '~/organisms/NewCreatureWizard/components/BasePicker/components/Results';
+import { PlainList } from '~/atoms/PlainList';
+import { Row } from '~/organisms/NewCreatureWizard/components/BasePicker/components/Row';
+import { NameAndChallengeRating } from '~/organisms/NewCreatureWizard/components/BasePicker/components/NameAndChallengeRating';
+import { MonoCaption } from '~/atoms/MonoCaption';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type BasePickerProps = {
+export interface BasePickerProps {
   search: string;
   onSearchChange: (search: string) => void;
-  creatures: readonly CreatureSummary[];
+  creatures: ReadonlyArray<CreatureSummary>;
   isPending: boolean;
   onChoose: (selection: BaseSelection) => void;
-};
+}
 
 /**
  * Step 1 of the "New Creature" wizard: start blank, or search across both
@@ -26,7 +32,7 @@ export const BasePicker = ({
   isPending,
   onChoose,
 }: BasePickerProps) => (
-  <Wrapper>
+  <Stack $gap="s">
     <Button
       type="button"
       variant="secondary"
@@ -43,7 +49,7 @@ export const BasePicker = ({
     />
 
     <Results>
-      {isPending && <Skeleton role="status" aria-label="Loading creatures" />}
+      {isPending && <Skeleton $height="8rem" aria-label="Loading creatures" />}
 
       {!isPending && !creatures.length && (
         <EmptyState
@@ -53,7 +59,7 @@ export const BasePicker = ({
       )}
 
       {!isPending && creatures.length > 0 && (
-        <List>
+        <PlainList>
           {creatures.map(creature => (
             <li
               key={`${creature.source}-${creature.source === 'library' ? creature.slug : creature.id}`}
@@ -61,9 +67,7 @@ export const BasePicker = ({
               <Row>
                 <NameAndChallengeRating>
                   <span>{creature.name}</span>
-                  <ChallengeRating>
-                    CR {creature.challengeRatingLabel}
-                  </ChallengeRating>
+                  <MonoCaption>CR {creature.challengeRatingLabel}</MonoCaption>
                 </NameAndChallengeRating>
                 <Button
                   type="button"
@@ -82,59 +86,8 @@ export const BasePicker = ({
               </Row>
             </li>
           ))}
-        </List>
+        </PlainList>
       )}
     </Results>
-  </Wrapper>
+  </Stack>
 );
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Results = styled.div`
-  max-height: 20rem;
-  overflow-y: auto;
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Row = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const NameAndChallengeRating = styled.span`
-  display: flex;
-  align-items: baseline;
-  gap: ${props => props.theme.space.sm};
-  min-width: 0;
-`;
-
-const ChallengeRating = styled.span`
-  flex-shrink: 0;
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Skeleton = styled.div`
-  height: 8rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

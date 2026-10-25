@@ -13,11 +13,11 @@ import type {
   MapCanvasFogStroke,
 } from '~/organisms/MapCanvas/components/MapCanvasView';
 
-export type FogMaskHandle = {
+export interface FogMaskHandle {
   maskRef: RefObject<HTMLCanvasElement | null>;
   /** Paints one stroke immediately, for live feedback while a gesture is in progress. */
   paintStroke: (stroke: MapCanvasFogStroke) => void;
-};
+}
 
 /** Draws one stroke onto the mask: reveal erases, cover paints, both feathered by softness. */
 const drawFogStroke = (

@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import {
   ConditionPicker,
@@ -10,20 +9,23 @@ import {
   ConditionBadges,
   type AppliedConditionSummary,
 } from '~/molecules/ConditionBadges';
+import { Wrapper } from '~/organisms/StatblockPanel/components/CombatantControls/components/Wrapper';
+import { SpreadRow } from '~/atoms/SpreadRow';
+import { Name } from '~/organisms/StatblockPanel/components/CombatantControls/components/Name';
 
-export type CombatantControlsProps = {
+export interface CombatantControlsProps {
   displayName: string;
   isHidden: boolean;
   isPending: boolean;
-  conditions: readonly AppliedConditionSummary[];
-  conditionOptions: readonly ConditionOption[];
+  conditions: ReadonlyArray<AppliedConditionSummary>;
+  conditionOptions: ReadonlyArray<ConditionOption>;
   onToggleHidden: () => void;
   onApplyCondition: (input: {
     conditionSlug: string;
     roundsRemaining: number | null;
   }) => void;
   onRemoveCondition: (id: string) => void;
-};
+}
 
 /**
  * What the DM does *to* the selected combatant, above the reference material
@@ -41,7 +43,7 @@ export const CombatantControls = ({
   onRemoveCondition,
 }: CombatantControlsProps) => (
   <Wrapper>
-    <Header>
+    <SpreadRow>
       <Name>{displayName}</Name>
       <Button
         variant="ghost"
@@ -51,7 +53,7 @@ export const CombatantControls = ({
       >
         {isHidden ? 'Reveal to players' : 'Hide from players'}
       </Button>
-    </Header>
+    </SpreadRow>
 
     <ConditionBadges conditions={conditions} onRemove={onRemoveCondition} />
     <ConditionPicker
@@ -61,23 +63,3 @@ export const CombatantControls = ({
     />
   </Wrapper>
 );
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  margin-bottom: ${props => props.theme.space.lg};
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Name = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;

@@ -1,13 +1,18 @@
 'use client';
 
-import Link from 'next/link';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { formatModifier } from '~/utils/formatModifier';
 import { describeCharacter } from '~/utils/describeCharacter';
 import { buildPartyEditorHref } from '~/utils/partyEditorHref';
+import { Row } from '~/molecules/CharacterRow/components/Row';
+import { Shrink } from '~/atoms/Shrink';
+import { Paragraph } from '~/atoms/Paragraph';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Meta } from '~/molecules/CharacterRow/components/Meta';
+import { Actions } from '~/molecules/CharacterRow/components/Actions';
+import { EditLink } from '~/molecules/CharacterRow/components/EditLink';
 
-export type CharacterRowProps = {
+export interface CharacterRowProps {
   id: string;
   name: string;
   playerName: string | null;
@@ -21,7 +26,7 @@ export type CharacterRowProps = {
   /** True once they are already in the encounter — they cannot be added twice. */
   isInEncounter: boolean;
   onAddToEncounter: () => void;
-};
+}
 
 /**
  * A party member in the tracker's pick list. Picking only: editing is a link
@@ -42,17 +47,17 @@ export const CharacterRow = ({
   onAddToEncounter,
 }: CharacterRowProps) => (
   <Row>
-    <Details>
-      <Name>{name}</Name>
-      <Identity>
+    <Shrink>
+      <Paragraph>{name}</Paragraph>
+      <MutedNote>
         {describeCharacter({ level, className, subclass, species })}
         {playerName ? ` · ${playerName}` : ''}
-      </Identity>
+      </MutedNote>
       <Meta>
         AC {armorClass} · {maxHitPoints} HP · init{' '}
         {formatModifier(initiativeModifier)}
       </Meta>
-    </Details>
+    </Shrink>
     <Actions>
       <Button
         variant="secondary"
@@ -69,62 +74,3 @@ export const CharacterRow = ({
     </Actions>
   </Row>
 );
-
-const Row = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.sm} ${props => props.theme.space.md};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-
-  ${props => props.theme.media.md} {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-`;
-
-const Details = styled.div`
-  min-width: 0;
-`;
-
-const Name = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Identity = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Meta = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-`;
-
-/** Styled like a ghost `Button`, but a real link: it navigates to /party. */
-const EditLink = styled(Link)`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border-radius: ${props => props.theme.radius.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-  text-decoration: none;
-
-  &:hover {
-    color: ${props => props.theme.color.textPrimary};
-    background: ${props => props.theme.color.surface};
-  }
-`;

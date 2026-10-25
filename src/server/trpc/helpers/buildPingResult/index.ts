@@ -1,10 +1,10 @@
 import type { PingInput, PingResult } from '~/server/trpc/schemas/health';
 
-type BuildPingResultArgs = {
+interface BuildPingResultArgs {
   input: PingInput;
   campaignName: string;
   now: Date;
-};
+}
 
 /**
  * The resolver's actual logic, as a pure function: no I/O, no tRPC types, no

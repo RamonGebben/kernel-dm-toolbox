@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import styled from 'styled-components';
+import { Svg } from '~/atoms/Icon/components/Svg';
 
 /**
  * The icon set, as inline SVG.
@@ -28,11 +28,11 @@ export type IconName =
   | 'users'
   | 'castle';
 
-export type IconProps = {
+export interface IconProps {
   name: IconName;
   /** Any CSS length. Defaults to 1.5rem, the size the nav rail wants. */
   size?: string;
-};
+}
 
 const paths: Record<IconName, ReactNode> = {
   swords: (
@@ -157,9 +157,3 @@ export const Icon = ({ name, size = '1.5rem' }: IconProps) => (
     {paths[name]}
   </Svg>
 );
-
-const Svg = styled.svg<{ $size: string }>`
-  width: ${props => props.$size};
-  height: ${props => props.$size};
-  flex-shrink: 0;
-`;

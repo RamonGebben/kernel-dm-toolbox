@@ -16,40 +16,42 @@ import type {
   CreatureSummary,
 } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 
-export type CreatureLibraryState = {
+export interface CreatureLibraryState {
   isPending: boolean;
   isLibraryImported: boolean;
-  creatures: CreatureSummary[];
+  creatures: Array<CreatureSummary>;
   search: string;
   setSearch: (search: string) => void;
-  sourceOptions: CheckboxListOption[];
-  selectedSources: string[];
-  setSelectedSources: (sources: string[]) => void;
-  typeOptions: CheckboxListOption[];
-  selectedTypes: string[];
-  setSelectedTypes: (types: string[]) => void;
-  documentOptions: CheckboxListOption[];
-  selectedDocuments: string[];
-  setSelectedDocuments: (documents: string[]) => void;
-  challengeRatingOptions: ChallengeRatingOption[];
+  sourceOptions: Array<CheckboxListOption>;
+  selectedSources: Array<string>;
+  setSelectedSources: (sources: Array<string>) => void;
+  typeOptions: Array<CheckboxListOption>;
+  selectedTypes: Array<string>;
+  setSelectedTypes: (types: Array<string>) => void;
+  documentOptions: Array<CheckboxListOption>;
+  selectedDocuments: Array<string>;
+  setSelectedDocuments: (documents: Array<string>) => void;
+  challengeRatingOptions: Array<ChallengeRatingOption>;
   challengeRatingRange: ChallengeRatingRange;
   setMinChallengeRating: (min: number | null) => void;
   setMaxChallengeRating: (max: number | null) => void;
-};
+}
 
-export type ChallengeRatingOption = { value: number; label: string };
+export interface ChallengeRatingOption {
+  value: number;
+  label: string;
+}
 
 /**
  * Every challenge rating the rules define, ascending. Fixed rather than
  * derived from the imported rows: the XP table is already the complete list,
  * and a range bound doesn't need a creature to exist at exactly that CR.
  */
-export const CHALLENGE_RATING_OPTIONS: ChallengeRatingOption[] = Object.keys(
-  experienceByChallengeRating,
-)
-  .map(Number)
-  .toSorted((a, b) => a - b)
-  .map(value => ({ value, label: formatChallengeRating(value) }));
+export const CHALLENGE_RATING_OPTIONS: Array<ChallengeRatingOption> =
+  Object.keys(experienceByChallengeRating)
+    .map(Number)
+    .toSorted((a, b) => a - b)
+    .map(value => ({ value, label: formatChallengeRating(value) }));
 
 /**
  * Setting a minimum above the current maximum drags the maximum up with it,
@@ -77,7 +79,7 @@ export const withMaxChallengeRating = (
  * from" is exactly two values by construction, not something the data can
  * grow a third option for.
  */
-export const SOURCE_FILTER_OPTIONS: CheckboxListOption[] = [
+export const SOURCE_FILTER_OPTIONS: Array<CheckboxListOption> = [
   { value: 'library', label: 'Library' },
   { value: 'custom', label: 'Custom' },
 ];
@@ -89,7 +91,7 @@ export const SOURCE_FILTER_OPTIONS: CheckboxListOption[] = [
  * both are the same query.
  */
 export const toCreatureSourceInput = (
-  selectedSources: readonly string[],
+  selectedSources: ReadonlyArray<string>,
 ): CreatureSource => {
   const hasLibrary = selectedSources.includes('library');
   const hasCustom = selectedSources.includes('custom');
@@ -109,15 +111,15 @@ export const toCreatureSourceInput = (
  */
 export const toDocumentsFilterInput = (
   source: CreatureSource,
-  selectedDocuments: readonly string[],
-): string[] => (source === 'custom' ? [] : [...selectedDocuments]);
+  selectedDocuments: ReadonlyArray<string>,
+): Array<string> => (source === 'custom' ? [] : [...selectedDocuments]);
 
-type ToLibraryStateArgs = {
+interface ToLibraryStateArgs {
   isStatusPending: boolean;
   isListPending: boolean;
   status: LibraryImportStatus;
-  creatures: CreatureSummary[] | undefined;
-};
+  creatures: Array<CreatureSummary> | undefined;
+}
 
 /**
  * The hook's decision logic as a pure function, so the browser-free unit
@@ -168,9 +170,9 @@ export const useCreatureLibrary = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<Array<string>>([]);
+  const [selectedTypes, setSelectedTypes] = useState<Array<string>>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<Array<string>>([]);
   const [challengeRatingRange, setChallengeRatingRange] =
     useState<ChallengeRatingRange>({ min: null, max: null });
 

@@ -38,7 +38,7 @@ const makeStrokeId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-export type ViewportInteractionHandle = {
+export interface ViewportInteractionHandle {
   /**
    * Map-space cursor position while calibrating, for the live rectangle
    * preview. Null before the pointer has moved since the first click.
@@ -49,7 +49,7 @@ export type ViewportInteractionHandle = {
    * `pointermove` was the same render-storm bug `onViewportChange` had.
    */
   calibrationPreviewRef: RefObject<MapPoint | null>;
-};
+}
 
 /**
  * Wires pan, zoom, fog painting and grid-calibration clicks onto the canvas.
@@ -94,7 +94,7 @@ export const useViewportInteraction = ({
   viewportRef: RefObject<Viewport>;
   fogRef: RefObject<MapCanvasFogState | undefined>;
   fogToolRef: RefObject<MapCanvasFogTool | undefined>;
-  onFogStrokeBatch?: (strokes: MapCanvasFogStroke[]) => void;
+  onFogStrokeBatch?: (strokes: Array<MapCanvasFogStroke>) => void;
   calibrationActiveRef: RefObject<boolean>;
   onCalibrateClick?: (point: MapPoint) => void;
   paintFogStroke: (stroke: MapCanvasFogStroke) => void;
@@ -132,7 +132,7 @@ export const useViewportInteraction = ({
   onMeasurementConfirm?: (shape: MeasurementShapeInput) => void;
   /** Every shape already placed on this map, for the click-to-select hit
    * test — reused rather than re-fetched. */
-  measurementShapesRef: RefObject<MapCanvasMeasurementShape[]>;
+  measurementShapesRef: RefObject<Array<MapCanvasMeasurementShape>>;
   /** Mirrors the caller's selection, so a click on empty canvas (with the
    * tool disarmed) knows whether there's anything to deselect. */
   selectedMeasurementShapeIdRef: RefObject<string | null>;
@@ -166,7 +166,7 @@ export const useViewportInteraction = ({
   const lensStartMapPointRef = useRef<MapPoint>({ x: 0, y: 0 });
   const startTrackerRectRef = useRef<LensRect | null>(null);
   const trackerStartMapPointRef = useRef<MapPoint>({ x: 0, y: 0 });
-  const pendingStrokesRef = useRef<MapCanvasFogStroke[]>([]);
+  const pendingStrokesRef = useRef<Array<MapCanvasFogStroke>>([]);
   /** The grid cell (as its snapped center) the measurement tool's "armed but
    * not yet placing" hover last redrew for — lets `handlePointerMove` skip
    * rescheduling a draw for a pixel of movement that stays inside the same

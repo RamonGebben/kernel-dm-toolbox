@@ -1,10 +1,10 @@
 /** The fields ordering depends on — deliberately narrow, so tests are cheap. */
-export type Orderable = {
+export interface Orderable {
   id: string;
   initiative: number;
   sortOrder: number;
   isDelayed: boolean;
-};
+}
 
 /**
  * Initiative order: highest first.
@@ -14,8 +14,8 @@ export type Orderable = {
  * order and re-enter where the DM puts them.
  */
 export const sortCombatants = <TCombatant extends Orderable>(
-  combatants: readonly TCombatant[],
-): TCombatant[] =>
+  combatants: ReadonlyArray<TCombatant>,
+): Array<TCombatant> =>
   [...combatants].sort((left, right) => {
     if (left.isDelayed !== right.isDelayed) return left.isDelayed ? 1 : -1;
     if (left.initiative !== right.initiative)
@@ -31,7 +31,7 @@ export const sortCombatants = <TCombatant extends Orderable>(
  * advances the round counter — the caller should not have to infer it.
  */
 export const nextTurn = <TCombatant extends Orderable>(
-  combatants: readonly TCombatant[],
+  combatants: ReadonlyArray<TCombatant>,
   activeId: string | null,
 ): { activeId: string | null; didWrap: boolean } => {
   const order = sortCombatants(combatants).filter(
@@ -55,7 +55,7 @@ export const nextTurn = <TCombatant extends Orderable>(
 
 /** The mirror of `nextTurn`, for correcting a mis-click. */
 export const previousTurn = <TCombatant extends Orderable>(
-  combatants: readonly TCombatant[],
+  combatants: ReadonlyArray<TCombatant>,
   activeId: string | null,
 ): { activeId: string | null; didWrap: boolean } => {
   const order = sortCombatants(combatants).filter(

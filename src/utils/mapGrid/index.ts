@@ -1,6 +1,6 @@
 import type { Viewport } from '~/utils/mapViewport';
 
-export type GridLineRange = {
+export interface GridLineRange {
   minX: number;
   maxX: number;
   minY: number;
@@ -8,7 +8,7 @@ export type GridLineRange = {
   startX: number;
   startY: number;
   cellSize: number;
-};
+}
 
 /**
  * The visible range of grid lines for the current viewport, buffered a tile

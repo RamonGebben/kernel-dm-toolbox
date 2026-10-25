@@ -1,14 +1,14 @@
-export type TickableCondition = {
+export interface TickableCondition {
   id: string;
   roundsRemaining: number | null;
-};
+}
 
-export type TickResult<TCondition> = {
+export interface TickResult<TCondition> {
   /** Conditions that survive, with their counter decremented. */
-  remaining: TCondition[];
+  remaining: Array<TCondition>;
   /** Conditions whose duration ran out and should be cleared. */
-  expired: TCondition[];
-};
+  expired: Array<TCondition>;
+}
 
 /**
  * Counts conditions down by one round.
@@ -22,7 +22,7 @@ export type TickResult<TCondition> = {
  * A null counter means indefinite and never expires.
  */
 export const tickConditions = <TCondition extends TickableCondition>(
-  conditions: readonly TCondition[],
+  conditions: ReadonlyArray<TCondition>,
 ): TickResult<TCondition> =>
   conditions.reduce<TickResult<TCondition>>(
     (result, condition) => {

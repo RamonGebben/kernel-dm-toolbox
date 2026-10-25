@@ -4,7 +4,7 @@ import { NewCreatureWizardView } from '~/organisms/NewCreatureWizard/components/
 import { emptyCustomCreatureForm } from '~/molecules/CustomCreatureForm';
 import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 
-const creatures: CreatureSummary[] = [
+const creatures: Array<CreatureSummary> = [
   {
     source: 'library',
     slug: 'srd-2024_goblin',

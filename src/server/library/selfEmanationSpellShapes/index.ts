@@ -34,11 +34,11 @@ export const SELF_EMANATION_SPELL_SHAPES: Readonly<Record<string, number>> = {
   'srd-2024_tiny-hut': 10,
 };
 
-export type SpellShape = {
+export interface SpellShape {
   shapeType: string | null;
   shapeSize: number | null;
   shapeSizeUnit: string | null;
-};
+}
 
 /**
  * Fills in a known self-emanation spell's shape when upstream left it null.

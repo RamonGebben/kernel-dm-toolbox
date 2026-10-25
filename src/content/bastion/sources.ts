@@ -4,12 +4,12 @@
  * are for the 2024 printings; this is the one place to correct them.
  */
 
-type RuleSource = {
+interface RuleSource {
   book: 'DMG' | 'PHB';
   page: number;
   /** A section's first page, where the tables run on over several. */
   isSectionStart?: boolean;
-};
+}
 
 export const ruleSources = {
   /** The Arcana, Armaments, Implements and Relics tables, by rarity. */

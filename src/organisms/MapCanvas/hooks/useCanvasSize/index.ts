@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, type RefObject } from 'react';
 
-export type CssSize = { width: number; height: number };
+export interface CssSize {
+  width: number;
+  height: number;
+}
 export type CanvasSize = CssSize & { dpr: number };
 
 /**

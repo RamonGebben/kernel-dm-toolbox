@@ -17,23 +17,23 @@ export type ImportProgress = (message: string) => void;
 /** Only the fields the matcher needs — the same shape `toSpellRow` output
  * already has, so `importLibrary` can pass its freshly-mapped spell rows
  * straight through without a second query. */
-export type SpellEffectCandidate = {
+export interface SpellEffectCandidate {
   slug: string;
   shapeType?: string | null;
-  damageTypes?: string[];
-};
+  damageTypes?: Array<string>;
+}
 
-export type ImportSpellEffectsOptions = {
+export interface ImportSpellEffectsOptions {
   db: Database;
-  spellRows: readonly SpellEffectCandidate[];
+  spellRows: ReadonlyArray<SpellEffectCandidate>;
   /** Where clips are written on disk. */
   storageDir: string;
   gitRef?: string;
   fetchBinary?: FetchBinary;
   onProgress?: ImportProgress;
-};
+}
 
-export type ImportSpellEffectsResult = {
+export interface ImportSpellEffectsResult {
   /** How many spells matched a clip — not how many files were fetched;
    * several commonly share one deduplicated clip. */
   matchedCount: number;
@@ -43,7 +43,7 @@ export type ImportSpellEffectsResult = {
   /** Matched, but the fetch or write failed — logged and skipped rather
    * than aborting the rest of the import. */
   failedCount: number;
-};
+}
 
 /**
  * Matches each spell to an animated effect clip (`~/server/library/effectCandidates`)

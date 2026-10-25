@@ -25,8 +25,8 @@ const DICE_PATTERN =
   /(?<![a-zA-Z])(\d+)?d(\d+)(?:\s*([+-])\s*(\d+))?(?![a-rt-z])/gi;
 
 /** Splits free-form text into plain-text and dice-expression segments. */
-export const tokenizeDiceText = (text: string): DiceTextSegment[] => {
-  const segments: DiceTextSegment[] = [];
+export const tokenizeDiceText = (text: string): Array<DiceTextSegment> => {
+  const segments: Array<DiceTextSegment> = [];
   let lastIndex = 0;
 
   for (const match of text.matchAll(DICE_PATTERN)) {

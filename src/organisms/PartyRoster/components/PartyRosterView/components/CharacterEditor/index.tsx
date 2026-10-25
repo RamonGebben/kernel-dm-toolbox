@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Modal } from '~/atoms/Modal';
 import { Button } from '~/atoms/Button';
 import {
   CharacterForm,
   type CharacterFormValues,
 } from '~/molecules/CharacterForm';
+import { Footer } from '~/organisms/PartyRoster/components/PartyRosterView/components/CharacterEditor/components/Footer';
+import { Warning } from '~/organisms/PartyRoster/components/PartyRosterView/components/CharacterEditor/components/Warning';
 
-export type CharacterEditorProps = {
+export interface CharacterEditorProps {
   /** Null opens a blank form for a new character. */
   editing: { id: string; name: string; values: CharacterFormValues } | null;
   isOpen: boolean;
@@ -18,7 +19,7 @@ export type CharacterEditorProps = {
   onSubmit: (values: CharacterFormValues) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
-};
+}
 
 /**
  * The create/edit dialog. Removing lives here, behind a second click, rather
@@ -59,11 +60,11 @@ export const CharacterEditor = ({
   </Modal>
 );
 
-type RemoveCharacterProps = {
+interface RemoveCharacterProps {
   name: string;
   isRemoving: boolean;
   onConfirm: () => void;
-};
+}
 
 /** Two clicks: the first only asks. */
 const RemoveCharacter = ({
@@ -104,20 +105,3 @@ const RemoveCharacter = ({
     </Footer>
   );
 };
-
-const Footer = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  margin-top: ${props => props.theme.space.md};
-  padding-top: ${props => props.theme.space.md};
-  border-top: 1px solid ${props => props.theme.color.border};
-`;
-
-const Warning = styled.p`
-  flex-basis: 100%;
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;

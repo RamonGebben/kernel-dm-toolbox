@@ -1,14 +1,14 @@
 import { rollInitiative, type RollD20 } from '~/utils/rollDice';
 
 /** The fields the "Roll for initiative" form needs, and nothing else. */
-export type InitiativeRollEntry = {
+export interface InitiativeRollEntry {
   id: string;
   isPlayerCharacter: boolean;
   /** What the row currently holds — a monster's automatic roll, or 0. */
   initiative: number;
   /** Null for a player character, and for a monster with no bonus upstream. */
   initiativeBonus: number | null;
-};
+}
 
 /** Keyed by combatant id; the raw string each number input holds. */
 export type InitiativeDrafts = Record<string, string>;
@@ -22,7 +22,7 @@ export type InitiativeDrafts = Record<string, string>;
  * type what they say (DECISIONS #16).
  */
 export const toInitiativeDrafts = (
-  entries: readonly InitiativeRollEntry[],
+  entries: ReadonlyArray<InitiativeRollEntry>,
 ): InitiativeDrafts =>
   Object.fromEntries(
     entries.map(entry => [
@@ -33,7 +33,7 @@ export const toInitiativeDrafts = (
 
 /** Rerolls every monster, leaving whatever the DM typed for the players. */
 export const rerollMonsterDrafts = (
-  entries: readonly InitiativeRollEntry[],
+  entries: ReadonlyArray<InitiativeRollEntry>,
   drafts: InitiativeDrafts,
   roll?: RollD20,
 ): InitiativeDrafts =>
@@ -55,9 +55,9 @@ export const rerollMonsterDrafts = (
  * would silently drop them to the bottom.
  */
 export const toInitiativeValues = (
-  entries: readonly InitiativeRollEntry[],
+  entries: ReadonlyArray<InitiativeRollEntry>,
   drafts: InitiativeDrafts,
-): { id: string; initiative: number }[] =>
+): Array<{ id: string; initiative: number }> =>
   entries.map(entry => {
     const parsed = Number.parseInt(drafts[entry.id] ?? '', 10);
 

@@ -353,7 +353,7 @@ export const bastionTurnsRouter = createTRPCRouter({
 
     return rows.map(row => {
       const summary = (row.summary ?? {}) as {
-        lines?: string[];
+        lines?: Array<string>;
         treasuryDelta?: number;
       };
 

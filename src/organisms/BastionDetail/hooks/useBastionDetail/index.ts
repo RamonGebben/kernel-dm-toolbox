@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useInvalidateBastions } from '~/hooks/useInvalidateBastions';
-import { useBastionSelectionStore } from '~/stores/bastionSelection';
+import { useBastionSelectionStore } from '~/store/bastionSelection';
 import { resolveSelectedBastionId } from '~/utils/bastionSelection';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
 
@@ -31,10 +31,10 @@ export const toBastionDetailState = (
 
 /** The most recent failure among the panel's mutations, for one banner. */
 export const latestErrorMessage = (
-  mutations: readonly {
+  mutations: ReadonlyArray<{
     error: { message: string } | null;
     submittedAt: number;
-  }[],
+  }>,
 ): string | null =>
   mutations
     .filter(mutation => mutation.error)

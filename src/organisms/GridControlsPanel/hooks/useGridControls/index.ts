@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
-import { useMapToolStore } from '~/stores/mapTool';
+import { useMapToolStore } from '~/store/mapTool';
 import { useActiveMap } from '~/hooks/useActiveMap';
 
 export const useGridControls = () => {

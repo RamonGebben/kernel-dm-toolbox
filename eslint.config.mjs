@@ -1,22 +1,26 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
-import storybook from 'eslint-plugin-storybook';
+import next from '@pindakaasman/eslint-config/next';
+import storybook from '@pindakaasman/eslint-config/storybook';
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  ...storybook.configs['flat/recommended'],
+  ...next,
+  ...storybook,
   {
     rules: {
-      // Named exports everywhere; `export default` only where a framework file
-      // convention demands it (pages, layouts, route segment configs, stories).
+      // Functions and plain data: no classes, no enums.
       'no-restricted-syntax': [
         'error',
         {
           selector: 'ClassDeclaration',
           message:
             'This codebase is functions and plain data — no classes. See CLAUDE.md.',
+        },
+        // Repeated from the shared config: a rule's options are replaced, not
+        // merged, so the class ban above would otherwise drop the enum ban.
+        {
+          selector: 'TSEnumDeclaration',
+          message:
+            "Use a union of string literals instead of enum - see the typescript plugin's conventions skill.",
         },
       ],
       // An underscore prefix is the codebase's marker for "deliberately
@@ -63,11 +67,6 @@ const eslintConfig = defineConfig([
     },
   },
   globalIgnores([
-    '.next/**',
-    'out/**',
-    'build/**',
-    'next-env.d.ts',
-    'storybook-static/**',
     'coverage/**',
     'playwright-report/**',
     'test-results/**',

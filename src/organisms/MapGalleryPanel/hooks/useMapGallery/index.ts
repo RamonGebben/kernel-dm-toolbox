@@ -4,22 +4,23 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 
-export type MapGalleryItem = {
+export interface MapGalleryItem {
   id: string;
   name: string;
   kind: string;
   fileUrl: string;
   hasGridCalibration: boolean;
-};
+}
 
-export type MapGalleryFolder = {
+export interface MapGalleryFolder {
   id: string;
   name: string;
-  maps: MapGalleryItem[];
-};
+  maps: Array<MapGalleryItem>;
+}
 
 type RawGallery =
-  { folders: MapGalleryFolder[]; unfiledMaps: MapGalleryItem[] } | undefined;
+  | { folders: Array<MapGalleryFolder>; unfiledMaps: Array<MapGalleryItem> }
+  | undefined;
 
 /**
  * Defaults an unfetched/pending gallery to empty, so `undefined` never

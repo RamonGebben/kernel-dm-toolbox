@@ -1,11 +1,20 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { describeCharacter } from '~/utils/describeCharacter';
 import { formatModifier } from '~/utils/formatModifier';
+import { Card } from '~/molecules/PartyMemberCard/components/Card';
+import { SpreadRow } from '~/atoms/SpreadRow';
+import { Shrink } from '~/atoms/Shrink';
+import { Name } from '~/molecules/PartyMemberCard/components/Name';
+import { Badge } from '~/molecules/PartyMemberCard/components/Badge';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Actions } from '~/molecules/PartyMemberCard/components/Actions';
+import { Stats } from '~/molecules/PartyMemberCard/components/Stats';
+import { Stat } from '~/molecules/PartyMemberCard/components/Stat';
+import { Notes } from '~/molecules/PartyMemberCard/components/Notes';
 
-export type PartyMemberCardProps = {
+export interface PartyMemberCardProps {
   name: string;
   playerName: string | null;
   level: number;
@@ -24,7 +33,7 @@ export type PartyMemberCardProps = {
   isUpdating: boolean;
   onEdit: () => void;
   onToggleActive: () => void;
-};
+}
 
 /** An unrecorded passive reads as a dash, never as a misleading 0. */
 const passive = (score: number | null) => (score === null ? '—' : `${score}`);
@@ -50,17 +59,17 @@ export const PartyMemberCard = ({
   onToggleActive,
 }: PartyMemberCardProps) => (
   <Card $isActive={isActive} aria-label={name}>
-    <Header>
-      <Identity>
+    <SpreadRow $align="flex-start">
+      <Shrink>
         <Name>
           {name}
           {isActive ? null : <Badge>Benched</Badge>}
         </Name>
-        <Summary>
+        <MutedNote>
           {describeCharacter({ level, className, subclass, species })}
           {playerName ? ` · played by ${playerName}` : ''}
-        </Summary>
-      </Identity>
+        </MutedNote>
+      </Shrink>
       <Actions>
         <Button
           variant="secondary"
@@ -80,7 +89,7 @@ export const PartyMemberCard = ({
           {isActive ? 'Bench' : 'Recall'}
         </Button>
       </Actions>
-    </Header>
+    </SpreadRow>
 
     <Stats>
       <Stat>
@@ -112,91 +121,3 @@ export const PartyMemberCard = ({
     {notes ? <Notes>{notes}</Notes> : null}
   </Card>
 );
-
-const Card = styled.article<{ $isActive: boolean }>`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.md};
-  background: ${props => props.theme.color.canvas};
-  /* Benched reads as a dashed outline, not dimmed text — fading the text
-   * would drop muted copy below AA contrast. */
-  border: 1px ${props => (props.$isActive ? 'solid' : 'dashed')}
-    ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Identity = styled.div`
-  min-width: 0;
-`;
-
-const Name = styled.h3`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Badge = styled.span`
-  padding: 0 ${props => props.theme.space.xs};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: normal;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Summary = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Actions = styled.div`
-  display: flex;
-  flex-shrink: 0;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Stats = styled.dl`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${props => props.theme.space.xs} ${props => props.theme.space.md};
-  margin: 0;
-`;
-
-const Stat = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.xs};
-  font-size: ${props => props.theme.fontSize.sm};
-
-  dt {
-    color: ${props => props.theme.color.textMuted};
-  }
-
-  dd {
-    margin: 0;
-    font-family: ${props => props.theme.font.mono};
-    color: ${props => props.theme.color.textPrimary};
-  }
-`;
-
-const Notes = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-  white-space: pre-line;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-`;

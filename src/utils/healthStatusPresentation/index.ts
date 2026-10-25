@@ -1,3 +1,4 @@
+import type { BaseColor } from '@pindakaasman/design-system';
 import type { HealthStatus } from '~/utils/applyDamage';
 
 /**
@@ -12,10 +13,9 @@ export const healthStatusLabels = {
   unconscious: 'Down',
 } as const satisfies Record<HealthStatus, string>;
 
-/** Each entry only asks for the one colour token it needs, rather than the
- * whole theme, so this stays trivially testable without a theme fixture. */
+/** The theme hue each status is drawn in, to pass to `theme.color()`. */
 export const healthStatusColor = {
-  healthy: (color: { success: string }) => color.success,
-  bloodied: (color: { warning: string }) => color.warning,
-  unconscious: (color: { danger: string }) => color.danger,
-} as const;
+  healthy: 'tertiary',
+  bloodied: 'quaternary',
+  unconscious: 'error',
+} as const satisfies Record<HealthStatus, BaseColor>;

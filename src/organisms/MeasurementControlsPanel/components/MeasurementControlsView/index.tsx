@@ -1,34 +1,50 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
-import { FieldRow, Select } from '~/atoms/FormControls';
+import { FieldRow } from '~/atoms/FieldRow';
+import { Select } from '~/atoms/Select';
 import { TextInput } from '~/atoms/TextInput';
 import {
   SIZE_PRESETS_FEET,
   TV_READABILITY_SCALE_PRESETS,
   type MeasurementShapeType,
 } from '~/utils/mapMeasurement';
+import { Stack } from '~/atoms/Stack';
+import { Instructions } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/Instructions';
+import { PresetRow } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/PresetRow';
+import { PresetButton } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/PresetButton';
+import { SpellBadge } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/SpellBadge';
+import { SpellBadgeLabel } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/SpellBadgeLabel';
+import { SpellList } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/SpellList';
+import { MutedNote } from '~/atoms/MutedNote';
+import { SpellOption } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/SpellOption';
+import { SpellOptionHeader } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/SpellOptionHeader';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { ShapeListHeading } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/ShapeListHeading';
+import { ShapeRow } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/ShapeRow';
+import { ShapeSelectButton } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/ShapeSelectButton';
+import { ShapeSwatch } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/ShapeSwatch';
+import { ShapeRowLabel } from '~/organisms/MeasurementControlsPanel/components/MeasurementControlsView/components/ShapeRowLabel';
 
-export type MeasurementControlsTool = {
+export interface MeasurementControlsTool {
   enabled: boolean;
   shapeType: MeasurementShapeType;
   color: string;
   label: string;
   sourceSpellSlug: string | null;
   presetExtentFeet: number | null;
-};
+}
 
-export type MeasurementControlsShape = {
+export interface MeasurementControlsShape {
   id: string;
   shapeType: MeasurementShapeType;
   extentFeet: number;
   label: string | null;
   color: string;
-};
+}
 
-export type MeasurementControlsSpellOption = {
+export interface MeasurementControlsSpellOption {
   slug: string;
   name: string;
   shapeType: MeasurementShapeType;
@@ -37,9 +53,9 @@ export type MeasurementControlsSpellOption = {
    * null for a spell with no damage type, which keeps the tool's current
    * colour rather than overwriting it with a guess. */
   color: string | null;
-};
+}
 
-export type MeasurementControlsViewProps = {
+export interface MeasurementControlsViewProps {
   hasSelectedMap: boolean;
   tool: MeasurementControlsTool;
   onToolChange: (patch: Partial<MeasurementControlsTool>) => void;
@@ -52,16 +68,16 @@ export type MeasurementControlsViewProps = {
    * shown on the player screen before a shape exists to preview. */
   cursorScale: number;
   onCursorScaleChange: (scale: number) => void;
-  shapes: MeasurementControlsShape[];
+  shapes: Array<MeasurementControlsShape>;
   onRemoveShape: (id: string) => void;
   selectedShapeId: string | null;
   onSelectShape: (id: string | null) => void;
   spellSearch: string;
   onSpellSearchChange: (search: string) => void;
-  spellOptions: MeasurementControlsSpellOption[];
+  spellOptions: Array<MeasurementControlsSpellOption>;
   onSelectSpell: (slug: string) => void;
   onClearSpell: () => void;
-};
+}
 
 const SHAPE_LABELS: Record<MeasurementShapeType, string> = {
   ruler: 'Ruler',
@@ -104,7 +120,7 @@ export const MeasurementControlsView = ({
   }
 
   return (
-    <Wrapper>
+    <Stack>
       <Button
         variant={tool.enabled ? 'primary' : 'secondary'}
         size="sm"
@@ -230,7 +246,7 @@ export const MeasurementControlsView = ({
       {spellSearch.trim().length > 0 && (
         <SpellList>
           {spellOptions.length === 0 && (
-            <SpellListEmpty>No area spells match.</SpellListEmpty>
+            <MutedNote>No area spells match.</MutedNote>
           )}
           {spellOptions.map(option => (
             <SpellOption
@@ -242,9 +258,9 @@ export const MeasurementControlsView = ({
                 {option.color && <ShapeSwatch $color={option.color} />}
                 {option.name}
               </SpellOptionHeader>
-              <SpellOptionMeta>
+              <MutedCaption>
                 {SHAPE_LABELS[option.shapeType]} · {option.extentFeet} ft
-              </SpellOptionMeta>
+              </MutedCaption>
             </SpellOption>
           ))}
         </SpellList>
@@ -252,9 +268,9 @@ export const MeasurementControlsView = ({
 
       <ShapeListHeading>Placed ({shapes.length})</ShapeListHeading>
       {shapes.length === 0 ? (
-        <Muted>Nothing placed on this map yet.</Muted>
+        <MutedNote>Nothing placed on this map yet.</MutedNote>
       ) : (
-        <ShapeList>
+        <Stack $gap="xs">
           {shapes.map(shape => {
             const isSelected = shape.id === selectedShapeId;
             return (
@@ -267,9 +283,9 @@ export const MeasurementControlsView = ({
                   <ShapeSwatch $color={shape.color} />
                   <ShapeRowLabel>
                     {shape.label || SHAPE_LABELS[shape.shapeType]}
-                    <ShapeRowMeta>
+                    <MutedCaption>
                       {SHAPE_LABELS[shape.shapeType]} · {shape.extentFeet} ft
-                    </ShapeRowMeta>
+                    </MutedCaption>
                   </ShapeRowLabel>
                 </ShapeSelectButton>
                 <Button
@@ -282,9 +298,9 @@ export const MeasurementControlsView = ({
               </ShapeRow>
             );
           })}
-        </ShapeList>
+        </Stack>
       )}
-    </Wrapper>
+    </Stack>
   );
 };
 
@@ -292,11 +308,11 @@ export const MeasurementControlsView = ({
  * presets over the same `TV_READABILITY_SCALE_PRESETS` set — the only thing
  * that differs between them is which value they read and which handler they
  * call. */
-type ScalePresetFieldProps = {
+interface ScalePresetFieldProps {
   label: string;
   value: number;
   onChange: (scale: number) => void;
-};
+}
 
 const ScalePresetField = ({
   label,
@@ -319,174 +335,3 @@ const ScalePresetField = ({
     </PresetRow>
   </FieldRow>
 );
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Instructions = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const PresetRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const PresetButton = styled.button<{ $isActive: boolean }>`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid
-    ${props =>
-      props.$isActive ? props.theme.color.accent : props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props =>
-    props.$isActive ? props.theme.color.accentMuted : props.theme.color.canvas};
-  color: ${props => props.theme.color.textPrimary};
-  font-size: ${props => props.theme.fontSize.sm};
-  cursor: pointer;
-`;
-
-const SpellBadge = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const SpellBadgeLabel = styled.span`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const SpellList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  max-height: 10rem;
-  overflow-y: auto;
-`;
-
-const SpellListEmpty = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const SpellOption = styled.button`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.canvas};
-  color: ${props => props.theme.color.textPrimary};
-  font-size: ${props => props.theme.fontSize.sm};
-  text-align: left;
-  cursor: pointer;
-
-  &:hover {
-    background: ${props => props.theme.color.surfaceRaised};
-  }
-`;
-
-const SpellOptionHeader = styled.span`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const SpellOptionMeta = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const ShapeListHeading = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  letter-spacing: 0.04em;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const ShapeList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-/** A plain row — the swatch/label are a real \`<button>\` (\`ShapeSelectButton\`)
- * and "Remove" is a sibling \`Button\`. Nesting the whole row as one button
- * containing another button is both invalid HTML and a "nested interactive
- * controls" a11y violation, so the two affordances live side by side
- * instead. Selection is shown with the border only, never a background
- * fill — \`accentMuted\` behind the row's muted text fails colour-contrast. */
-const ShapeRow = styled.div<{ $isSelected: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  width: 100%;
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  border: 1px solid
-    ${props =>
-      props.$isSelected ? props.theme.color.accent : props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.canvas};
-`;
-
-const ShapeSelectButton = styled.button`
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  gap: ${props => props.theme.space.sm};
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-
-  &:focus-visible {
-    outline: 2px solid ${props => props.theme.color.accent};
-    outline-offset: 2px;
-  }
-`;
-
-const ShapeSwatch = styled.span<{ $color: string }>`
-  width: 0.75rem;
-  height: 0.75rem;
-  flex: none;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.$color};
-`;
-
-const ShapeRowLabel = styled.div`
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  color: ${props => props.theme.color.textPrimary};
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const ShapeRowMeta = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;

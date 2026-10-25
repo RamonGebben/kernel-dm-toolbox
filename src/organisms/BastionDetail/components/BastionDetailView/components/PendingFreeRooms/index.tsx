@@ -1,23 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { Select } from '~/atoms/FormControls';
+import { Select } from '~/atoms/Select';
 import {
   basicFacilityTypes,
   isBasicFacilityType,
 } from '~/content/bastion/basicFacilities';
 import type { BasicFacilityType } from '~/content/bastion/types';
+import { Stack } from '~/atoms/Stack';
+import { Prompt } from '~/organisms/BastionDetail/components/BastionDetailView/components/PendingFreeRooms/components/Prompt';
+import { Paragraph } from '~/atoms/Paragraph';
 
-export type PendingFreeRoomsProps = {
-  members: readonly { id: string; name: string }[];
+export interface PendingFreeRoomsProps {
+  members: ReadonlyArray<{ id: string; name: string }>;
   onAdd: (rooms: {
     characterId: string;
     crampedBasicType: BasicFacilityType;
     roomyBasicType: BasicFacilityType;
   }) => void;
-};
+}
 
 /**
  * Party members who reached level 5 after the party bastion was founded:
@@ -27,18 +29,18 @@ export const PendingFreeRooms = ({ members, onAdd }: PendingFreeRoomsProps) => {
   if (!members.length) return null;
 
   return (
-    <Wrapper aria-label="Free rooms to add">
+    <Stack as="section" $gap="xs" aria-label="Free rooms to add">
       {members.map(member => (
         <MemberPrompt key={member.id} member={member} onAdd={onAdd} />
       ))}
-    </Wrapper>
+    </Stack>
   );
 };
 
-type MemberPromptProps = {
+interface MemberPromptProps {
   member: { id: string; name: string };
   onAdd: PendingFreeRoomsProps['onAdd'];
-};
+}
 
 const MemberPrompt = ({ member, onAdd }: MemberPromptProps) => {
   const [cramped, setCramped] = useState<BasicFacilityType>('bedroom');
@@ -46,7 +48,9 @@ const MemberPrompt = ({ member, onAdd }: MemberPromptProps) => {
 
   return (
     <Prompt>
-      <Text>{member.name} has reached level 5 and brings two free rooms:</Text>
+      <Paragraph>
+        {member.name} has reached level 5 and brings two free rooms:
+      </Paragraph>
       <Select
         aria-label={`${member.name}'s free Cramped room`}
         value={cramped}
@@ -90,24 +94,3 @@ const MemberPrompt = ({ member, onAdd }: MemberPromptProps) => {
     </Prompt>
   );
 };
-
-const Wrapper = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Prompt = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.sm} ${props => props.theme.space.md};
-  border: 1px solid ${props => props.theme.color.accent};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Text = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textPrimary};
-`;

@@ -18,11 +18,11 @@ export type ConnectionStatus =
       checkedAt: Date;
     };
 
-type ToConnectionStatusArgs = {
+interface ToConnectionStatusArgs {
   isPending: boolean;
   error: { message: string } | null;
   data: PingResult | undefined;
-};
+}
 
 /**
  * The hook's entire decision logic, exported as a pure function so the

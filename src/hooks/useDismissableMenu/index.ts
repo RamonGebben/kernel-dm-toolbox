@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, type RefObject } from 'react';
 
-export type DismissableMenuRefs = {
+export interface DismissableMenuRefs {
   /** The trigger, still rendered inline where the caller mounted it. */
   triggerRef: RefObject<HTMLDivElement | null>;
   /** The floating content itself, rendered through `Portal` — a different
    * DOM subtree than the trigger, so containment has to be tested against
    * both refs rather than one shared wrapper. */
   menuRef: RefObject<HTMLDivElement | null>;
-};
+}
 
 /**
  * Click-outside-or-Escape-to-close wiring shared by any open popover whose

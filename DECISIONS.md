@@ -1103,3 +1103,34 @@ dice automatically — the dice count is shown, and the DM enters the result.
 - _Rules and tables are cited by book and page_
   (`~/content/bastion/sources`), since "the Arcana tables" is no help
   without knowing where they are.
+
+## 36. The shared mise conventions, and a theme built on their design system
+
+**Decision.** The project follows the conventions of the `mise` plugin set:
+the shared `@pindakaasman` TypeScript, ESLint and Prettier configs, a
+husky + lint-staged pre-commit gate, and `@pindakaasman/design-system` as the
+styled-components theme. Every styled definition is its own component
+folder with a story; the generic ones are atoms.
+
+**Why.** One set of rules across projects, checked by tooling rather than
+remembered. The pre-commit hook runs the same checks CI does, on exactly
+what the commit contains.
+
+**What the theme migration gave up, and how.** The design system's token
+names are fixed, and the old theme did not fit them one to one:
+
+- _Thirteen named colours became seven hues with three variants._ Each old
+  colour has exactly one slot, listed in `src/theme/tokens.ts`. The cost is
+  at the call site: a border is `color('formBackground', 'emphasis')`, which
+  says less than `color.border` did.
+- _The palette lives under `modes.light` although it is dark._ That is the
+  design system's name for the only mode. With no `modes.dark` the OS
+  preference is ignored, which is what a single dark theme wants.
+- _The focus ring is not a shadow token._ The three shadow slots are
+  elevations, so the ring is `focusRing(theme)`, built from colour tokens.
+- _The 16px radius has no slot._ The two map control surfaces that use it
+  keep the literal value.
+- _Type and spacing do not change with the breakpoint._ All four
+  breakpoints carry the same scale, so the app renders as it did.
+- _z-index moved to the shared scale_ (dropdown 100, sticky 200, modal 300).
+  Only the order matters, and it is unchanged.

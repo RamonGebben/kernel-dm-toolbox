@@ -1,17 +1,20 @@
 'use client';
 
-import styled from 'styled-components';
 import {
   difficultyLabels,
   type EncounterDifficulty,
 } from '~/content/encounterDifficulty';
+import { Wrapper } from '~/molecules/DifficultyReadout/components/Wrapper';
+import { Rating } from '~/molecules/DifficultyReadout/components/Rating';
+import { MonoMuted } from '~/atoms/MonoMuted';
+import { MutedInline } from '~/atoms/MutedInline';
 
-export type DifficultyReadoutProps = {
+export interface DifficultyReadoutProps {
   difficulty: EncounterDifficulty;
   totalExperience: number;
   /** False when nobody from the party is in the fight yet. */
   hasParty: boolean;
-};
+}
 
 /**
  * "Moderate · 2,900 XP" — the encounter's weight at a glance.
@@ -27,7 +30,7 @@ export const DifficultyReadout = ({
   if (!hasParty) {
     return (
       <Wrapper>
-        <Muted>Add the party to rate this fight</Muted>
+        <MutedInline>Add the party to rate this fight</MutedInline>
       </Wrapper>
     );
   }
@@ -35,38 +38,7 @@ export const DifficultyReadout = ({
   return (
     <Wrapper>
       <Rating $difficulty={difficulty}>{difficultyLabels[difficulty]}</Rating>
-      <Experience>{totalExperience.toLocaleString()} XP</Experience>
+      <MonoMuted>{totalExperience.toLocaleString()} XP</MonoMuted>
     </Wrapper>
   );
 };
-
-const difficultyColor = {
-  trivial: (color: { textMuted: string }) => color.textMuted,
-  low: (color: { success: string }) => color.success,
-  moderate: (color: { accent: string }) => color.accent,
-  high: (color: { warning: string }) => color.warning,
-  deadly: (color: { danger: string }) => color.danger,
-} as const;
-
-const Wrapper = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: ${props => props.theme.space.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const Rating = styled.span<{ $difficulty: EncounterDifficulty }>`
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: ${props => difficultyColor[props.$difficulty](props.theme.color)};
-`;
-
-const Experience = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Muted = styled.span`
-  color: ${props => props.theme.color.textMuted};
-`;

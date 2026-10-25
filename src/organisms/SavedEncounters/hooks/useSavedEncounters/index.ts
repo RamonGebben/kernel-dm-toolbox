@@ -14,10 +14,10 @@ import type { SavedEncounterSummary } from '~/organisms/SavedEncounters/componen
 export const hasSaveableCreatures = (
   encounter:
     | {
-        combatants: {
+        combatants: Array<{
           creatureSlug: string | null;
           customCreatureId: string | null;
-        }[];
+        }>;
       }
     | undefined,
 ): boolean =>
@@ -54,7 +54,7 @@ export const useSavedEncounters = () => {
   return {
     isPending: list.isPending,
     isSaving: save.isPending,
-    presets: (list.data ?? []) as SavedEncounterSummary[],
+    presets: (list.data ?? []) as Array<SavedEncounterSummary>,
     canSaveCurrent: hasSaveableCreatures(encounter.data),
     save: (name: string) => save.mutate({ name }),
     apply: (id: string) => addToEncounter.mutate({ id }),

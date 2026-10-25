@@ -11,7 +11,7 @@ import type { FacilityPrerequisite } from '~/content/bastion/types';
 export const facilityPrerequisites: Readonly<
   Record<
     FacilityPrerequisite,
-    { label: string; classes: readonly CharacterClass[] }
+    { label: string; classes: ReadonlyArray<CharacterClass> }
   >
 > = {
   'arcane-focus': {

@@ -1,18 +1,24 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { TextInput } from '~/atoms/TextInput';
-import { Select } from '~/atoms/FormControls';
 import {
   characterClasses,
   srdSpecies,
   srdSubclassByClass,
   type CharacterClass,
 } from '~/content/characterOptions';
+import { Stack } from '~/atoms/Stack';
+import { Field } from '~/molecules/CharacterForm/components/Field';
+import { InlineRow } from '~/atoms/InlineRow';
+import { Grid } from '~/molecules/CharacterForm/components/Grid';
+import { FieldLabel } from '~/atoms/FieldLabel';
+import { ClassSelect } from '~/molecules/CharacterForm/components/ClassSelect';
+import { TextArea } from '~/atoms/TextArea';
+import { Cluster } from '~/atoms/Cluster';
 
-export type CharacterFormValues = {
+export interface CharacterFormValues {
   name: string;
   playerName: string;
   /** `''` is "no class chosen yet". */
@@ -29,7 +35,7 @@ export type CharacterFormValues = {
   passiveInvestigation: number | null;
   notes: string;
   isActive: boolean;
-};
+}
 
 export const emptyCharacterForm: CharacterFormValues = {
   name: '',
@@ -56,19 +62,19 @@ type PassiveKey =
 type TextKey = 'name' | 'playerName' | 'subclass' | 'species' | 'notes';
 
 const isCharacterClass = (value: string): value is CharacterClass =>
-  (characterClasses as readonly string[]).includes(value);
+  (characterClasses as ReadonlyArray<string>).includes(value);
 
 /** A blank passive box is null; anything typed is a number. */
 const toPassive = (raw: string): number | null =>
   raw.trim() === '' ? null : Number(raw) || 0;
 
-type CharacterFormProps = {
+interface CharacterFormProps {
   initialValues?: CharacterFormValues;
   isSaving: boolean;
   submitLabel: string;
   onSubmit: (values: CharacterFormValues) => void;
   onCancel: () => void;
-};
+}
 
 /**
  * Uncontrolled from the caller's point of view: it owns its own draft state
@@ -103,10 +109,10 @@ export const CharacterForm = ({
     : null;
 
   return (
-    <Form onSubmit={handleSubmit}>
+    <Stack as="form" $gap="s" onSubmit={handleSubmit}>
       <Grid $columns={2}>
         <Field>
-          <Label htmlFor="character-name">Name</Label>
+          <FieldLabel htmlFor="character-name">Name</FieldLabel>
           <TextInput
             id="character-name"
             value={values.name}
@@ -115,7 +121,7 @@ export const CharacterForm = ({
           />
         </Field>
         <Field>
-          <Label htmlFor="character-player">Player</Label>
+          <FieldLabel htmlFor="character-player">Player</FieldLabel>
           <TextInput
             id="character-player"
             value={values.playerName}
@@ -126,7 +132,7 @@ export const CharacterForm = ({
 
       <Grid $columns={3}>
         <Field>
-          <Label htmlFor="character-class">Class</Label>
+          <FieldLabel htmlFor="character-class">Class</FieldLabel>
           <ClassSelect
             id="character-class"
             value={values.className}
@@ -147,7 +153,7 @@ export const CharacterForm = ({
           </ClassSelect>
         </Field>
         <Field>
-          <Label htmlFor="character-subclass">Subclass</Label>
+          <FieldLabel htmlFor="character-subclass">Subclass</FieldLabel>
           <TextInput
             id="character-subclass"
             list="character-subclass-suggestions"
@@ -159,7 +165,7 @@ export const CharacterForm = ({
           </datalist>
         </Field>
         <Field>
-          <Label htmlFor="character-species">Species</Label>
+          <FieldLabel htmlFor="character-species">Species</FieldLabel>
           <TextInput
             id="character-species"
             list="character-species-suggestions"
@@ -176,7 +182,7 @@ export const CharacterForm = ({
 
       <Grid $columns={4}>
         <Field>
-          <Label htmlFor="character-level">Level</Label>
+          <FieldLabel htmlFor="character-level">Level</FieldLabel>
           <TextInput
             id="character-level"
             type="number"
@@ -187,7 +193,7 @@ export const CharacterForm = ({
           />
         </Field>
         <Field>
-          <Label htmlFor="character-ac">AC</Label>
+          <FieldLabel htmlFor="character-ac">AC</FieldLabel>
           <TextInput
             id="character-ac"
             type="number"
@@ -197,7 +203,7 @@ export const CharacterForm = ({
           />
         </Field>
         <Field>
-          <Label htmlFor="character-hp">Max HP</Label>
+          <FieldLabel htmlFor="character-hp">Max HP</FieldLabel>
           <TextInput
             id="character-hp"
             type="number"
@@ -207,7 +213,7 @@ export const CharacterForm = ({
           />
         </Field>
         <Field>
-          <Label htmlFor="character-init">Init</Label>
+          <FieldLabel htmlFor="character-init">Init</FieldLabel>
           <TextInput
             id="character-init"
             type="number"
@@ -221,9 +227,9 @@ export const CharacterForm = ({
 
       <Grid $columns={3}>
         <Field>
-          <Label htmlFor="character-passive-perception">
+          <FieldLabel htmlFor="character-passive-perception">
             Passive Perception
-          </Label>
+          </FieldLabel>
           <TextInput
             id="character-passive-perception"
             type="number"
@@ -235,7 +241,9 @@ export const CharacterForm = ({
           />
         </Field>
         <Field>
-          <Label htmlFor="character-passive-insight">Passive Insight</Label>
+          <FieldLabel htmlFor="character-passive-insight">
+            Passive Insight
+          </FieldLabel>
           <TextInput
             id="character-passive-insight"
             type="number"
@@ -245,9 +253,9 @@ export const CharacterForm = ({
           />
         </Field>
         <Field>
-          <Label htmlFor="character-passive-investigation">
+          <FieldLabel htmlFor="character-passive-investigation">
             Passive Investigation
-          </Label>
+          </FieldLabel>
           <TextInput
             id="character-passive-investigation"
             type="number"
@@ -260,7 +268,7 @@ export const CharacterForm = ({
         </Field>
       </Grid>
 
-      <CheckboxField>
+      <InlineRow>
         <input
           id="character-active"
           type="checkbox"
@@ -272,11 +280,11 @@ export const CharacterForm = ({
             }))
           }
         />
-        <Label htmlFor="character-active">Active party member</Label>
-      </CheckboxField>
+        <FieldLabel htmlFor="character-active">Active party member</FieldLabel>
+      </InlineRow>
 
       <Field>
-        <Label htmlFor="character-notes">Notes</Label>
+        <FieldLabel htmlFor="character-notes">Notes</FieldLabel>
         <TextArea
           id="character-notes"
           rows={4}
@@ -285,66 +293,14 @@ export const CharacterForm = ({
         />
       </Field>
 
-      <Actions>
+      <Cluster>
         <Button type="submit" size="sm" disabled={isSaving}>
           {isSaving ? 'Saving…' : submitLabel}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-      </Actions>
-    </Form>
+      </Cluster>
+    </Stack>
   );
 };
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Field = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  min-width: 0;
-`;
-
-const CheckboxField = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Grid = styled.div<{ $columns: number }>`
-  display: grid;
-  grid-template-columns: repeat(${props => props.$columns}, minmax(0, 1fr));
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Label = styled.label`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const ClassSelect = styled(Select)`
-  padding: ${props => props.theme.space.sm};
-  font-size: ${props => props.theme.fontSize.md};
-`;
-
-const TextArea = styled.textarea`
-  width: 100%;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
-  resize: vertical;
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;

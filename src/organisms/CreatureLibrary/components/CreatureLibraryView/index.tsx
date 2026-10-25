@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { TextInput } from '~/atoms/TextInput';
 import { EmptyState } from '~/atoms/EmptyState';
 import { Button } from '~/atoms/Button';
@@ -12,6 +11,12 @@ import {
   ChallengeRatingRangeFilter,
   type ChallengeRatingRange,
 } from '~/organisms/CreatureLibrary/components/CreatureLibraryView/components/ChallengeRatingRangeFilter';
+import { Footer } from '~/organisms/CreatureLibrary/components/CreatureLibraryView/components/Footer';
+import { FillStack } from '~/atoms/FillStack';
+import { ScrollArea } from '~/atoms/ScrollArea';
+import { PlainList } from '~/atoms/PlainList';
+import { Skeleton } from '~/atoms/Skeleton';
+import { Command } from '~/atoms/Command';
 
 export type { ChallengeRatingRange };
 
@@ -31,32 +36,32 @@ export type CreatureSummary =
       challengeRatingLabel: string;
     };
 
-export type CreatureLibraryViewProps = {
+export interface CreatureLibraryViewProps {
   isPending: boolean;
   /** False until the library has been imported on this instance. */
   isLibraryImported: boolean;
-  creatures: readonly CreatureSummary[];
+  creatures: ReadonlyArray<CreatureSummary>;
   search: string;
-  sourceOptions: readonly CheckboxListOption[];
-  selectedSources: readonly string[];
-  typeOptions: readonly CheckboxListOption[];
-  selectedTypes: readonly string[];
-  documentOptions: readonly CheckboxListOption[];
-  selectedDocuments: readonly string[];
-  challengeRatingOptions: readonly { value: number; label: string }[];
+  sourceOptions: ReadonlyArray<CheckboxListOption>;
+  selectedSources: ReadonlyArray<string>;
+  typeOptions: ReadonlyArray<CheckboxListOption>;
+  selectedTypes: ReadonlyArray<string>;
+  documentOptions: ReadonlyArray<CheckboxListOption>;
+  selectedDocuments: ReadonlyArray<string>;
+  challengeRatingOptions: ReadonlyArray<{ value: number; label: string }>;
   challengeRatingRange: ChallengeRatingRange;
   selectedSlug: string | null;
   selectedCustomCreatureId: string | null;
   onSearchChange: (search: string) => void;
-  onSourcesChange: (sources: string[]) => void;
-  onTypesChange: (types: string[]) => void;
-  onDocumentsChange: (documents: string[]) => void;
+  onSourcesChange: (sources: Array<string>) => void;
+  onTypesChange: (types: Array<string>) => void;
+  onDocumentsChange: (documents: Array<string>) => void;
   onMinChallengeRatingChange: (min: number | null) => void;
   onMaxChallengeRatingChange: (max: number | null) => void;
   onSelect: (creature: CreatureSummary) => void;
   onAdd: (creature: CreatureSummary) => void;
   onNewCreature: () => void;
-};
+}
 
 /**
  * Presentational: every state is reachable from a story because nothing here
@@ -100,7 +105,7 @@ export const CreatureLibraryView = ({
     selectedSources.includes('custom') && !selectedSources.includes('library');
 
   return (
-    <Wrapper>
+    <FillStack>
       <TextInput
         value={search}
         onChange={event => onSearchChange(event.target.value)}
@@ -176,7 +181,7 @@ export const CreatureLibraryView = ({
           },
         ]}
       />
-      <Results>
+      <ScrollArea>
         <ResultsBody
           isPending={isPending}
           isLibraryImported={isLibraryImported}
@@ -187,13 +192,13 @@ export const CreatureLibraryView = ({
           onSelect={onSelect}
           onAdd={onAdd}
         />
-      </Results>
+      </ScrollArea>
       <Footer>
         <Button type="button" size="sm" isFullWidth onClick={onNewCreature}>
           New Creature
         </Button>
       </Footer>
-    </Wrapper>
+    </FillStack>
   );
 };
 
@@ -231,7 +236,7 @@ const ResultsBody = ({
   onAdd,
 }: ResultsBodyProps) => {
   if (isPending)
-    return <Skeleton role="status" aria-label="Loading creatures" />;
+    return <Skeleton $height="12rem" aria-label="Loading creatures" />;
 
   // `isLibraryImported` only reflects the read-only Open5e import — a DM's
   // own custom creatures are unrelated to it, so this only renders the "no
@@ -258,7 +263,7 @@ const ResultsBody = ({
   }
 
   return (
-    <List>
+    <PlainList>
       {creatures.map(creature => {
         const isSelected =
           creature.source === 'library'
@@ -279,51 +284,6 @@ const ResultsBody = ({
           </li>
         );
       })}
-    </List>
+    </PlainList>
   );
 };
-
-const Footer = styled.div`
-  padding-top: ${props => props.theme.space.sm};
-  border-top: 1px solid ${props => props.theme.color.border};
-`;
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  min-height: 0;
-  height: 100%;
-`;
-
-/** The scroll container, so the filter box above it stays put. */
-const Results = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Skeleton = styled.div`
-  height: 12rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;
-
-const Command = styled.code`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  font-family: ${props => props.theme.font.mono};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.accent};
-`;

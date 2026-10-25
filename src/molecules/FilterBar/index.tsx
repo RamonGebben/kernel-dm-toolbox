@@ -1,13 +1,18 @@
 'use client';
 
 import { useId, useState, type ReactNode } from 'react';
-import styled from 'styled-components';
 import { Portal } from '~/atoms/Portal';
 import { useDismissableMenu } from '~/hooks/useDismissableMenu';
 import { useFloatingPosition } from '~/hooks/useFloatingPosition';
 import { FilterTag } from '~/molecules/FilterBar/components/FilterTag';
+import { Popover } from '~/molecules/FilterBar/components/Popover';
+import { Bar } from '~/molecules/FilterBar/components/Bar';
+import { AddButton } from '~/molecules/FilterBar/components/AddButton';
+import { Menu } from '~/molecules/FilterBar/components/Menu';
+import { MenuItem } from '~/molecules/FilterBar/components/MenuItem';
+import { Heading } from '~/molecules/FilterBar/components/Heading';
 
-export type FilterBarFilter = {
+export interface FilterBarFilter {
   key: string;
   label: string;
   /** The collapsed tag's text — `null` means the filter isn't applied, so
@@ -17,12 +22,12 @@ export type FilterBarFilter = {
   editor: ReactNode;
   onClear: () => void;
   disabled?: boolean;
-};
+}
 
-export type FilterBarProps = {
-  filters: readonly FilterBarFilter[];
+export interface FilterBarProps {
+  filters: ReadonlyArray<FilterBarFilter>;
   disabled?: boolean;
-};
+}
 
 type Popover = { kind: 'menu' } | { kind: 'editor'; key: string } | null;
 
@@ -153,86 +158,3 @@ export const FilterBar = ({ filters, disabled = false }: FilterBarProps) => {
     </Bar>
   );
 };
-
-const Bar = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const AddButton = styled.button`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: transparent;
-  border: 1px dashed ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.pill};
-  color: ${props => props.theme.color.textMuted};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    border-color: ${props => props.theme.color.accent};
-    color: ${props => props.theme.color.textPrimary};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: ${props => props.theme.shadow.focus};
-  }
-`;
-
-/** Positioned off-screen until `useFloatingPosition` measures the bar, so
- * there is nothing to flash before its first real `top`/`left` commits. */
-const Popover = styled.div`
-  position: fixed;
-  top: -9999px;
-  left: -9999px;
-  z-index: 10;
-  min-width: 12rem;
-  padding: ${props => props.theme.space.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  box-shadow: ${props => props.theme.shadow.raised};
-`;
-
-const Menu = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const MenuItem = styled.button`
-  padding: ${props => props.theme.space.xs} ${props => props.theme.space.sm};
-  background: transparent;
-  border: none;
-  border-radius: ${props => props.theme.radius.sm};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.sm};
-  text-align: left;
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    background: ${props => props.theme.color.canvas};
-    color: ${props => props.theme.color.accent};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-const Heading = styled.h3`
-  margin: 0 0 ${props => props.theme.space.sm};
-  color: ${props => props.theme.color.textMuted};
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: 600;
-`;

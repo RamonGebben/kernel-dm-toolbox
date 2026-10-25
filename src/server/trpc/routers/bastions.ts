@@ -86,7 +86,7 @@ const currentMode = async (db: Database): Promise<BastionMode> =>
  * anyone benched who still holds one — their facilities do not vanish.
  */
 const partyMembers = (
-  characters: readonly PlayerCharacter[],
+  characters: ReadonlyArray<PlayerCharacter>,
   holderIds: ReadonlySet<string>,
 ) =>
   characters
@@ -202,7 +202,7 @@ const childTables = [
 /** Per-character → party: one bastion, everything moved into it. */
 const mergeBastions = async (
   db: Database,
-  existing: readonly (typeof bastions.$inferSelect)[],
+  existing: ReadonlyArray<typeof bastions.$inferSelect>,
   name: string,
   now: Date,
 ) => {
@@ -254,10 +254,11 @@ const splitBastion = async (
     keeperId,
     liveCharacterIds: new Set(characters.map(({ id }) => id)),
     isArmoryStocked: shared.isArmoryStocked,
-    specialFacilities:
-      special as (typeof bastionSpecialFacilities.$inferSelect)[],
-    basicFacilities: basic as (typeof bastionBasicFacilities.$inferSelect)[],
-    projects: projects as (typeof bastionProjects.$inferSelect)[],
+    specialFacilities: special as Array<
+      typeof bastionSpecialFacilities.$inferSelect
+    >,
+    basicFacilities: basic as Array<typeof bastionBasicFacilities.$inferSelect>,
+    projects: projects as Array<typeof bastionProjects.$inferSelect>,
     storageItems: storage,
   });
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { Modal } from '~/atoms/Modal';
@@ -15,8 +14,14 @@ import {
   type ModeChange,
 } from '~/organisms/BastionList/components/BastionListView/components/BastionModeSwitch';
 import type { BastionMode } from '~/server/db/schema';
+import { Stack } from '~/atoms/Stack';
+import { PlainList } from '~/atoms/PlainList';
+import { Item } from '~/organisms/BastionList/components/BastionListView/components/Item';
+import { Name } from '~/organisms/BastionList/components/BastionListView/components/Name';
+import { MutedCaption } from '~/atoms/MutedCaption';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type BastionListItem = {
+export interface BastionListItem {
   id: string;
   name: string;
   kind: 'character' | 'party';
@@ -25,17 +30,17 @@ export type BastionListItem = {
   memberCount: number;
   specialFacilityCount: number;
   allowance: number;
-};
+}
 
-export type BastionListViewProps = {
+export interface BastionListViewProps {
   isPending: boolean;
   mode: BastionMode;
-  bastions: readonly BastionListItem[];
+  bastions: ReadonlyArray<BastionListItem>;
   selectedId: string | null;
-  foundable: readonly FoundableCharacter[];
+  foundable: ReadonlyArray<FoundableCharacter>;
   /** False once the party already has its one bastion. */
   canFound: boolean;
-  activeMembers: readonly { id: string; name: string }[];
+  activeMembers: ReadonlyArray<{ id: string; name: string }>;
   isFounding: boolean;
   foundError: string | null;
   isSwitching: boolean;
@@ -44,7 +49,7 @@ export type BastionListViewProps = {
   /** Resolves once founded, so the dialog knows to close. */
   onFound: (values: FoundBastionValues) => Promise<unknown>;
   onSwitchMode: (change: ModeChange) => Promise<unknown>;
-};
+}
 
 /** "Sigrid · level 9 · 3/4 facilities", or "The party · 3 members · 5/10 facilities". */
 const describeItem = (bastion: BastionListItem): string => {
@@ -84,7 +89,7 @@ export const BastionListView = ({
   };
 
   return (
-    <Wrapper>
+    <Stack>
       <BastionModeSwitch
         mode={mode}
         bastionCount={bastions.length}
@@ -122,7 +127,7 @@ export const BastionListView = ({
           onCancel={() => setIsFoundOpen(false)}
         />
       </Modal>
-    </Wrapper>
+    </Stack>
   );
 };
 
@@ -138,7 +143,7 @@ const ListBody = ({
   onSelect,
 }: ListBodyProps) => {
   if (isPending)
-    return <Skeleton role="status" aria-label="Loading bastions" />;
+    return <Skeleton $height="6rem" aria-label="Loading bastions" />;
 
   if (!bastions.length) {
     return (
@@ -150,7 +155,7 @@ const ListBody = ({
   }
 
   return (
-    <List aria-label="Bastions">
+    <PlainList aria-label="Bastions">
       {bastions.map(bastion => (
         <li key={bastion.id}>
           <Item
@@ -160,60 +165,10 @@ const ListBody = ({
             onClick={() => onSelect(bastion.id)}
           >
             <Name>{bastion.name}</Name>
-            <Meta>{describeItem(bastion)}</Meta>
+            <MutedCaption>{describeItem(bastion)}</MutedCaption>
           </Item>
         </li>
       ))}
-    </List>
+    </PlainList>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Item = styled.button<{ $isSelected: boolean }>`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: ${props => props.theme.space.sm} ${props => props.theme.space.md};
-  text-align: left;
-  background: ${props =>
-    props.$isSelected
-      ? props.theme.color.surfaceRaised
-      : props.theme.color.canvas};
-  border: 1px solid
-    ${props =>
-      props.$isSelected ? props.theme.color.accent : props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-`;
-
-const Name = styled.span`
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Meta = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Skeleton = styled.div`
-  height: 6rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

@@ -1,18 +1,30 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
-import { Select } from '~/atoms/FormControls';
+import { Select } from '~/atoms/Select';
 import { ConfirmButton } from '~/molecules/ConfirmButton';
 import { bastionOrderLabels } from '~/content/bastion/orders';
 import { specialFacilityEnlargeDays } from '~/content/bastion/basicFacilities';
 import type { BastionDetail } from '~/server/trpc/helpers/toBastionDetail';
 import { formatGold } from '~/utils/applyGoldChange';
 import { spaceLabel } from '~/utils/bastionRules';
+import { Card } from '~/atoms/Card';
+import { SpreadRow } from '~/atoms/SpreadRow';
+import { Name } from '~/organisms/BastionDetail/components/BastionDetailView/components/SpecialFacilityCard/components/Name';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Holder } from '~/organisms/BastionDetail/components/BastionDetailView/components/SpecialFacilityCard/components/Holder';
+import { WarningNote } from '~/atoms/WarningNote';
+import { VariantRow } from '~/organisms/BastionDetail/components/BastionDetailView/components/SpecialFacilityCard/components/VariantRow';
+import { Orders } from '~/organisms/BastionDetail/components/BastionDetailView/components/SpecialFacilityCard/components/Orders';
+import { OptionLabel } from '~/organisms/BastionDetail/components/BastionDetailView/components/SpecialFacilityCard/components/OptionLabel';
+import { MonoMuted } from '~/atoms/MonoMuted';
+import { MutedParagraph } from '~/atoms/MutedParagraph';
+import { Benefits } from '~/organisms/BastionDetail/components/BastionDetailView/components/SpecialFacilityCard/components/Benefits';
+import { Footer } from '~/organisms/BastionDetail/components/BastionDetailView/components/SpecialFacilityCard/components/Footer';
 
 type Facility = BastionDetail['specialFacilities'][number];
 
-export type SpecialFacilityCardProps = {
+export interface SpecialFacilityCardProps {
   facility: Facility;
   /** In a party bastion, say which member holds it. */
   showHolder: boolean;
@@ -20,7 +32,7 @@ export type SpecialFacilityCardProps = {
   onSetVariant: (variant: string | null) => void;
   onEnlarge: () => void;
   onRemove: () => void;
-};
+}
 
 /** "7 days · 10 gp", "7 days", "crafting rules" — whatever the option states. */
 const describeTerms = (option: Facility['orderOptions'][number]): string =>
@@ -41,33 +53,33 @@ export const SpecialFacilityCard = ({
   onEnlarge,
   onRemove,
 }: SpecialFacilityCardProps) => (
-  <Card aria-label={facility.name}>
-    <Header>
+  <Card as="article" aria-label={facility.name}>
+    <SpreadRow $align="flex-start">
       <div>
         <Name>{facility.name}</Name>
-        <Meta>
+        <MutedNote>
           {spaceLabel(facility.space)} · {facility.hirelings} hireling
           {facility.hirelings === 1 ? '' : 's'} ·{' '}
           {bastionOrderLabels[facility.order]}
-        </Meta>
+        </MutedNote>
         {showHolder ? (
           <Holder>Held by {facility.holder?.name ?? 'nobody'}</Holder>
         ) : null}
         {facility.job ? (
-          <Status>
+          <WarningNote>
             Working on {facility.job.label}
             {facility.job.note ? ` (${facility.job.note})` : ''},{' '}
             {facility.job.daysRemaining} days left
-          </Status>
+          </WarningNote>
         ) : null}
         {facility.isDuplicate ? (
-          <Status role="note">
+          <WarningNote role="note">
             A second {facility.name}: a bastion keeps one of each, so remove
             one.
-          </Status>
+          </WarningNote>
         ) : null}
         {facility.isOutOfAction ? (
-          <Status>Out of action for the next bastion turn</Status>
+          <WarningNote>Out of action for the next bastion turn</WarningNote>
         ) : null}
       </div>
       <ConfirmButton
@@ -76,7 +88,7 @@ export const SpecialFacilityCard = ({
         confirmLabel={`Remove ${facility.name}`}
         onConfirm={onRemove}
       />
-    </Header>
+    </SpreadRow>
 
     {facility.variantOptions ? (
       <VariantRow>
@@ -103,9 +115,9 @@ export const SpecialFacilityCard = ({
         <li key={option.key}>
           <OptionLabel>{option.label}</OptionLabel>
           {describeTerms(option) ? (
-            <Terms> · {describeTerms(option)}</Terms>
+            <MonoMuted> · {describeTerms(option)}</MonoMuted>
           ) : null}
-          <Summary>{option.summary}</Summary>
+          <MutedParagraph>{option.summary}</MutedParagraph>
         </li>
       ))}
     </Orders>
@@ -133,14 +145,14 @@ type EnlargeRowProps = Pick<
 
 const EnlargeRow = ({ facility, treasuryGold, onEnlarge }: EnlargeRowProps) => {
   if (facility.isBeingEnlarged)
-    return <Note>Being enlarged. See Construction.</Note>;
+    return <MutedNote>Being enlarged. See Construction.</MutedNote>;
   if (!facility.enlarge) return null;
 
   const canAfford = treasuryGold >= facility.enlarge.costGp;
 
   return (
     <Footer>
-      <Note>Once enlarged: {facility.enlarge.summary}</Note>
+      <MutedNote>Once enlarged: {facility.enlarge.summary}</MutedNote>
       <Button
         variant="secondary"
         size="sm"
@@ -154,99 +166,3 @@ const EnlargeRow = ({ facility, treasuryGold, onEnlarge }: EnlargeRowProps) => {
     </Footer>
   );
 };
-
-const Card = styled.article`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-  padding: ${props => props.theme.space.md};
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Name = styled.h4`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Meta = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Holder = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  font-weight: 600;
-  color: ${props => props.theme.color.accent};
-`;
-
-const Status = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.warning};
-`;
-
-const VariantRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Orders = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: ${props => props.theme.fontSize.sm};
-`;
-
-const OptionLabel = styled.span`
-  font-weight: 600;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Terms = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Summary = styled.p`
-  margin: 0;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Benefits = styled.ul`
-  margin: 0;
-  padding-left: ${props => props.theme.space.md};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Footer = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Note = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;

@@ -511,7 +511,7 @@ describe('the party bastion', () => {
     return { sigrid, hammie };
   };
 
-  const foundParty = async (memberIds: string[]) => {
+  const foundParty = async (memberIds: Array<string>) => {
     await caller.bastions.setMode({ mode: 'party', name: 'Unused' });
     return caller.bastions.found({
       mode: 'party',

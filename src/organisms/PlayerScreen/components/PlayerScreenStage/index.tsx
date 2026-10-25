@@ -1,18 +1,19 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import styled from 'styled-components';
 import {
   computeOrientationFrame,
   type PhysicalSize,
   type PlayerScreenOrientationSetting,
 } from '~/utils/screenOrientation';
+import { Stage } from '~/organisms/PlayerScreen/components/PlayerScreenStage/components/Stage';
+import { Frame } from '~/organisms/PlayerScreen/components/PlayerScreenStage/components/Frame';
 
-export type PlayerScreenStageProps = {
+export interface PlayerScreenStageProps {
   physicalSize: PhysicalSize;
   orientation: PlayerScreenOrientationSetting;
   children: ReactNode;
-};
+}
 
 /**
  * Wraps the player screen's entire content (whichever `playerScreenMode` is
@@ -41,24 +42,3 @@ export const PlayerScreenStage = ({
     </Stage>
   );
 };
-
-const Stage = styled.div`
-  position: relative;
-  width: 100dvw;
-  height: 100dvh;
-  overflow: hidden;
-  background: ${props => props.theme.color.canvas};
-`;
-
-const Frame = styled.div<{
-  $rotationDeg: 0 | 90;
-  $width: number;
-  $height: number;
-}>`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: ${props => props.$width}px;
-  height: ${props => props.$height}px;
-  transform: translate(-50%, -50%) rotate(${props => props.$rotationDeg}deg);
-`;

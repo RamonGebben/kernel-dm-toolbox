@@ -1,28 +1,34 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
-import styled from 'styled-components';
 import { tokenizeDiceText } from '~/utils/tokenizeDiceText';
 import {
   parseFormattedText,
   type BlockNode,
   type InlineNode,
 } from '~/utils/parseFormattedText';
-import { useDiceRollStore } from '~/stores/diceRoll';
+import { useDiceRollStore } from '~/store/diceRoll';
+import { DiceToken } from '~/molecules/FormattedText/components/DiceToken';
+import { Paragraph } from '~/molecules/FormattedText/components/Paragraph';
+import { List } from '~/molecules/FormattedText/components/List';
+import { Table } from '~/molecules/FormattedText/components/Table';
+import { Th } from '~/molecules/FormattedText/components/Th';
+import { Td } from '~/molecules/FormattedText/components/Td';
+import { BoldItalic } from '~/molecules/FormattedText/components/BoldItalic';
 
-export type FormattedTextProps = {
+export interface FormattedTextProps {
   text: string;
   /**
    * Only true for text rendered inside the statblock panel (tracker-only) —
    * lets a rolled result be applied to combatants. Never set from spell text.
    */
   canApplyToCombatants?: boolean;
-};
+}
 
-type RenderContext = {
+interface RenderContext {
   canApplyToCombatants: boolean;
   openDiceRoll: ReturnType<typeof useDiceRollStore.getState>['openDiceRoll'];
-};
+}
 
 /**
  * Renders spell/creature prose: the narrow markdown subset actually present
@@ -56,7 +62,7 @@ const renderBlock = (block: BlockNode, context: RenderContext): ReactNode => {
     return (
       <List>
         {block.items.map((item, index) => (
-          <ListItem key={index}>{renderInline(item, context)}</ListItem>
+          <li key={index}>{renderInline(item, context)}</li>
         ))}
       </List>
     );
@@ -84,7 +90,10 @@ const renderBlock = (block: BlockNode, context: RenderContext): ReactNode => {
   );
 };
 
-const renderInline = (nodes: InlineNode[], context: RenderContext): ReactNode =>
+const renderInline = (
+  nodes: Array<InlineNode>,
+  context: RenderContext,
+): ReactNode =>
   nodes.map((node, index) => {
     if (node.type === 'text') {
       return (
@@ -93,8 +102,8 @@ const renderInline = (nodes: InlineNode[], context: RenderContext): ReactNode =>
     }
 
     const children = renderInline(node.children, context);
-    if (node.type === 'bold') return <Bold key={index}>{children}</Bold>;
-    if (node.type === 'italic') return <Italic key={index}>{children}</Italic>;
+    if (node.type === 'bold') return <strong key={index}>{children}</strong>;
+    if (node.type === 'italic') return <em key={index}>{children}</em>;
     return <BoldItalic key={index}>{children}</BoldItalic>;
   });
 
@@ -123,69 +132,3 @@ const renderDiceText = (value: string, context: RenderContext): ReactNode =>
       </DiceToken>
     );
   });
-
-const DiceToken = styled.button`
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  color: ${props => props.theme.color.accent};
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-
-  &:hover {
-    color: ${props => props.theme.color.accentHover};
-  }
-`;
-
-const Paragraph = styled.p`
-  margin: 0 0 ${props => props.theme.space.xs};
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
-
-const List = styled.ul`
-  margin: 0 0 ${props => props.theme.space.xs};
-  padding-left: ${props => props.theme.space.lg};
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
-
-const ListItem = styled.li``;
-
-const Table = styled.table`
-  width: 100%;
-  margin: 0 0 ${props => props.theme.space.xs};
-  border-collapse: collapse;
-  font-size: ${props => props.theme.fontSize.sm};
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
-
-const Th = styled.th`
-  padding: ${props => props.theme.space.xs};
-  border: 1px solid ${props => props.theme.color.border};
-  color: ${props => props.theme.color.accent};
-  text-align: left;
-`;
-
-const Td = styled.td`
-  padding: ${props => props.theme.space.xs};
-  border: 1px solid ${props => props.theme.color.border};
-  vertical-align: top;
-`;
-
-const Bold = styled.strong``;
-
-const Italic = styled.em``;
-
-const BoldItalic = styled.strong`
-  font-style: italic;
-`;

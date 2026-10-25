@@ -21,12 +21,12 @@ export const isHotkeyEvent = (
   return true;
 };
 
-export type TrackerHotkeysOptions = {
+export interface TrackerHotkeysOptions {
   /** Only wired up once a fight is running — before that, "next" has no
    * meaning yet and the DM is still assembling the order. */
   enabled: boolean;
   onNextTurn: () => void;
-};
+}
 
 /**
  * `n` advances the turn from anywhere on the tracker page.

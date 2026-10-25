@@ -1,8 +1,6 @@
 import type { Preview } from '@storybook/nextjs-vite';
-import { ThemeProvider } from 'styled-components';
-import { GlobalStyle } from '../src/theme/GlobalStyle';
+import { ThemeProvider } from '../src/providers/ThemeProvider';
 import { theme } from '../src/theme';
-import { rawColors } from '../src/theme/colors';
 
 /**
  * Every story renders inside the same theme and global styles the app uses, so
@@ -16,8 +14,11 @@ const preview: Preview = {
     a11y: { test: 'error' },
     backgrounds: {
       options: {
-        canvas: { name: 'Canvas', value: rawColors.canvas },
-        surface: { name: 'Surface', value: rawColors.surface },
+        canvas: { name: 'Canvas', value: theme.rawColor('background') },
+        surface: {
+          name: 'Surface',
+          value: theme.rawColor('background', 'emphasis'),
+        },
       },
     },
   },
@@ -26,8 +27,7 @@ const preview: Preview = {
   },
   decorators: [
     Story => (
-      <ThemeProvider theme={theme}>
-        <GlobalStyle />
+      <ThemeProvider>
         <Story />
       </ThemeProvider>
     ),

@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
 import { useInvalidateBastions } from '~/hooks/useInvalidateBastions';
-import { useBastionSelectionStore } from '~/stores/bastionSelection';
+import { useBastionSelectionStore } from '~/store/bastionSelection';
 import {
   orderKeeperCandidates,
   resolveSelectedBastionId,

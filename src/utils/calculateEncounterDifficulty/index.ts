@@ -5,7 +5,7 @@ import {
 } from '~/content/encounterDifficulty';
 import { experienceForChallengeRating } from '~/utils/formatChallengeRating';
 
-export type DifficultyResult = {
+export interface DifficultyResult {
   /** Total XP of every monster in the fight. */
   totalExperience: number;
   /** The party's combined budget at each band. */
@@ -13,7 +13,7 @@ export type DifficultyResult = {
   difficulty: EncounterDifficulty;
   /** False when there is no party to measure the fight against. */
   hasParty: boolean;
-};
+}
 
 /** Typed rather than `as const`: it seeds a reduce that accumulates numbers. */
 const EMPTY_BUDGET: Record<DifficultyBand, number> = {
@@ -39,8 +39,8 @@ export const calculateEncounterDifficulty = ({
   partyLevels,
   monsterChallengeRatings,
 }: {
-  partyLevels: readonly number[];
-  monsterChallengeRatings: readonly number[];
+  partyLevels: ReadonlyArray<number>;
+  monsterChallengeRatings: ReadonlyArray<number>;
 }): DifficultyResult => {
   const totalExperience = monsterChallengeRatings.reduce(
     (total, challengeRating) =>

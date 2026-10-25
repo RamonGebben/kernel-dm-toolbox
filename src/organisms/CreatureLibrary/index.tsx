@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { CreatureLibraryView } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 import { useCreatureLibrary } from '~/organisms/CreatureLibrary/hooks/useCreatureLibrary';
-import { useSelectionStore } from '~/stores/selection';
+import { useSelectionStore } from '~/store/selection';
 import { NewCreatureWizard } from '~/organisms/NewCreatureWizard';
 import type { CreatureSummary } from '~/organisms/CreatureLibrary/components/CreatureLibraryView';
 

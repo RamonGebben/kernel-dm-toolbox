@@ -1,8 +1,11 @@
 'use client';
 
-import styled from 'styled-components';
+import { Tag } from '~/molecules/FilterBar/components/FilterTag/components/Tag';
+import { Body } from '~/molecules/FilterBar/components/FilterTag/components/Body';
+import { MutedInline } from '~/atoms/MutedInline';
+import { Remove } from '~/molecules/FilterBar/components/FilterTag/components/Remove';
 
-export type FilterTagProps = {
+export interface FilterTagProps {
   label: string;
   /** What the filter is set to; `null` while it is being set up for the first time. */
   summary: string | null;
@@ -10,7 +13,7 @@ export type FilterTagProps = {
   disabled?: boolean;
   onEdit: () => void;
   onRemove: () => void;
-};
+}
 
 /**
  * One applied filter, collapsed to a pill: "Type: Dragon, Undead ✕". The
@@ -33,7 +36,7 @@ export const FilterTag = ({
       disabled={disabled}
       onClick={onEdit}
     >
-      <Label>{label}:</Label> {summary ?? '…'}
+      <MutedInline>{label}:</MutedInline> {summary ?? '…'}
     </Body>
     <Remove
       type="button"
@@ -44,71 +47,3 @@ export const FilterTag = ({
     </Remove>
   </Tag>
 );
-
-const Tag = styled.span<{ $isEditing: boolean; $isDisabled: boolean }>`
-  display: inline-flex;
-  align-items: stretch;
-  max-width: 100%;
-  background: ${props => props.theme.color.canvas};
-  border: 1px solid
-    ${props =>
-      props.$isEditing ? props.theme.color.accent : props.theme.color.border};
-  border-radius: ${props => props.theme.radius.pill};
-  font-size: ${props => props.theme.fontSize.sm};
-  opacity: ${props => (props.$isDisabled ? 0.5 : 1)};
-
-  &:hover {
-    border-color: ${props => props.theme.color.accent};
-  }
-`;
-
-const Body = styled.button`
-  overflow: hidden;
-  padding: ${props => props.theme.space.xs} 0 ${props => props.theme.space.xs}
-    ${props => props.theme.space.sm};
-  background: transparent;
-  border: none;
-  border-radius: ${props => props.theme.radius.pill} 0 0
-    ${props => props.theme.radius.pill};
-  color: ${props => props.theme.color.textPrimary};
-  font-family: inherit;
-  font-size: inherit;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  cursor: pointer;
-
-  &:disabled {
-    cursor: not-allowed;
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: ${props => props.theme.shadow.focus};
-  }
-`;
-
-const Label = styled.span`
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Remove = styled.button`
-  padding: 0 ${props => props.theme.space.sm};
-  background: transparent;
-  border: none;
-  border-radius: 0 ${props => props.theme.radius.pill}
-    ${props => props.theme.radius.pill} 0;
-  color: ${props => props.theme.color.textMuted};
-  font-family: inherit;
-  font-size: ${props => props.theme.fontSize.md};
-  line-height: 1;
-  cursor: pointer;
-
-  &:hover {
-    color: ${props => props.theme.color.accent};
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: ${props => props.theme.shadow.focus};
-  }
-`;

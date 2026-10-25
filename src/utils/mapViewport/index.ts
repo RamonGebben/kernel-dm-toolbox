@@ -3,9 +3,19 @@
  * grid; a viewport is the window onto it currently drawn to the canvas.
  */
 
-export type Viewport = { x: number; y: number; zoom: number };
-export type ScreenPoint = { x: number; y: number };
-export type MapPoint = { x: number; y: number };
+export interface Viewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+export interface ScreenPoint {
+  x: number;
+  y: number;
+}
+export interface MapPoint {
+  x: number;
+  y: number;
+}
 
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 5;
@@ -100,7 +110,12 @@ export const computeCenteredViewport = ({
   };
 };
 
-export type MapRect = { x: number; y: number; width: number; height: number };
+export interface MapRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 /**
  * The map-space rectangle currently visible through this viewport, clamped to

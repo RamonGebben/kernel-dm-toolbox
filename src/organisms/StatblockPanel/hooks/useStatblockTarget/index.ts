@@ -2,9 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useTRPC } from '~/trpc/react';
-import { useSelectionStore } from '~/stores/selection';
+import { useSelectionStore } from '~/store/selection';
 
-type CombatantLike = {
+interface CombatantLike {
   id: string;
   displayName: string;
   creatureSlug: string | null;
@@ -14,13 +14,13 @@ type CombatantLike = {
   temporaryHitPoints: number;
   armorClass: number;
   isHidden: boolean;
-  conditions: {
+  conditions: Array<{
     id: string;
     name: string;
     roundsRemaining: number | null;
     note: string | null;
-  }[];
-};
+  }>;
+}
 
 export type StatblockTarget =
   | { kind: 'none' }
@@ -48,7 +48,7 @@ export const toStatblockTarget = ({
   selectedCreatureSlug: string | null;
   selectedCustomCreatureId: string | null;
   selectedCombatantId: string | null;
-  combatants: readonly CombatantLike[];
+  combatants: ReadonlyArray<CombatantLike>;
 }): StatblockTarget => {
   if (selectedCombatantId) {
     const combatant = combatants.find(

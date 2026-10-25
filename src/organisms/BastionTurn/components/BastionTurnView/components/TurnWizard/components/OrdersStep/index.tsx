@@ -1,7 +1,6 @@
 'use client';
 
-import styled from 'styled-components';
-import { Select } from '~/atoms/FormControls';
+import { Select } from '~/atoms/Select';
 import { TextInput } from '~/atoms/TextInput';
 import { bastionOrderLabels } from '~/content/bastion/orders';
 import type { FacilityOrderEffect } from '~/content/bastion/types';
@@ -28,12 +27,19 @@ import {
   findFacilityOrder,
   setFacilityOrder,
 } from '~/organisms/BastionTurn/hooks/useBastionTurn';
+import { Stack } from '~/atoms/Stack';
+import { Heading } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Heading';
+import { StepCard } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/StepCard';
+import { Row } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/OrdersStep/components/Row';
+import { FacilityName } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/OrdersStep/components/FacilityName';
+import { MutedNote } from '~/atoms/MutedNote';
+import { Small } from '~/organisms/BastionTurn/components/BastionTurnView/components/TurnWizard/components/Small';
 
-export type OrdersStepProps = {
+export interface OrdersStepProps {
   context: TurnContext;
   draft: TurnDraft;
   onChange: (draft: TurnDraft) => void;
-};
+}
 
 /** Why a facility cannot take an order this turn, or null when it can. */
 const unavailableBecause = (facility: TurnContextFacility): string | null => {
@@ -44,13 +50,13 @@ const unavailableBecause = (facility: TurnContextFacility): string | null => {
 };
 
 /** Someone home to give orders, and how many of theirs are spoken for. */
-type Giver = {
+interface Giver {
   id: string;
   name: string;
   level: number;
   given: number;
   limit: number;
-};
+}
 
 /**
  * Step 3: orders, facility by facility. Every facility in a bastion is there
@@ -70,17 +76,17 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
 
   if (!bastions.length) {
     return (
-      <Muted>
+      <MutedNote>
         Nobody is giving orders this turn, so everyone maintains. On to the
         Bastion Events.
-      </Muted>
+      </MutedNote>
     );
   }
 
   return (
-    <Wrapper>
+    <Stack>
       {bastions.map(bastion => {
-        const home: Giver[] = ordering(bastion.id).map(actor => {
+        const home: Array<Giver> = ordering(bastion.id).map(actor => {
           const member = bastion.actors.find(
             ({ id }) => id === actor.characterId,
           );
@@ -95,10 +101,15 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
         });
 
         return (
-          <Actor key={bastion.id} aria-label={`Orders for ${bastion.name}`}>
+          <Stack
+            as="section"
+            $gap="s"
+            key={bastion.id}
+            aria-label={`Orders for ${bastion.name}`}
+          >
             <Heading>
               {bastion.name}
-              <Muted as="span">
+              <MutedNote as="span">
                 {' '}
                 · orders given:{' '}
                 {home
@@ -106,10 +117,10 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
                     ({ name, given, limit }) => `${name} ${given} of ${limit}`,
                   )
                   .join(', ')}
-              </Muted>
+              </MutedNote>
             </Heading>
             {bastion.facilities.length ? null : (
-              <Muted>There are no special facilities here yet.</Muted>
+              <MutedNote>There are no special facilities here yet.</MutedNote>
             )}
             {bastion.facilities.map(facility => (
               <FacilityOrder
@@ -129,17 +140,17 @@ export const OrdersStep = ({ context, draft, onChange }: OrdersStepProps) => {
                 }
               />
             ))}
-          </Actor>
+          </Stack>
         );
       })}
-    </Wrapper>
+    </Stack>
   );
 };
 
-type FacilityOrderProps = {
+interface FacilityOrderProps {
   facility: TurnContextFacility;
   /** Who is home to give it an order. */
-  home: readonly Giver[];
+  home: ReadonlyArray<Giver>;
   /** Trade goods in storage, for a Storehouse to sell. */
   goods: TurnContextBastion['goods'];
   /** Defenders now and the bunks the barracks have, for recruiting. */
@@ -148,7 +159,7 @@ type FacilityOrderProps = {
   onChange: (
     order: { characterId: string; order: TurnFacilityOrder } | null,
   ) => void;
-};
+}
 
 /** One facility's order: what it does, and who of those home said so. */
 const FacilityOrder = ({
@@ -175,14 +186,16 @@ const FacilityOrder = ({
     (defaultGiver ? null : 'Everyone home has given all their orders');
 
   return (
-    <Facility>
+    <StepCard>
       <Row>
         <FacilityName>
           {facility.name}{' '}
-          <Muted as="span">· {bastionOrderLabels[facility.order]}</Muted>
+          <MutedNote as="span">
+            · {bastionOrderLabels[facility.order]}
+          </MutedNote>
         </FacilityName>
         {blocked || !defaultGiver ? (
-          <Muted as="span">{blocked}</Muted>
+          <MutedNote as="span">{blocked}</MutedNote>
         ) : (
           <Select
             aria-label={`Order for the ${facility.name}`}
@@ -222,18 +235,18 @@ const FacilityOrder = ({
         )}
       </Row>
       {current && option ? (
-        <Detail>
-          <Muted>
+        <Stack $gap="xs">
+          <MutedNote>
             {option.summary}{' '}
             {option.durationDays
               ? `Takes ${option.durationDays} days.`
               : `Its time follows the crafting rules; the turn counts ${TURN_DAYS} days.`}
-          </Muted>
+          </MutedNote>
           {option.effect === 'recruit-defenders' ? (
-            <Muted>
+            <MutedNote>
               {roster.defenders} of {roster.capacity} bunks in the barracks are
               taken. The recruits join when the order finishes next turn.
-            </Muted>
+            </MutedNote>
           ) : null}
           <TradeHint
             effect={option.effect}
@@ -345,21 +358,21 @@ const FacilityOrder = ({
             />
           </Row>
           {current.order.costGp ? (
-            <Muted>
+            <MutedNote>
               Paid from the treasury: {formatGold(current.order.costGp)}.
-            </Muted>
+            </MutedNote>
           ) : null}
-        </Detail>
+        </Stack>
       ) : null}
-    </Facility>
+    </StepCard>
   );
 };
 
-type TradeHintProps = {
+interface TradeHintProps {
   effect: FacilityOrderEffect | null;
   giver: Giver | undefined;
   lot: TurnContextBastion['goods'][number] | undefined;
-};
+}
 
 /** What a Storehouse order comes to for whoever gives it. */
 const TradeHint = ({ effect, giver, lot }: TradeHintProps) => {
@@ -367,91 +380,27 @@ const TradeHint = ({ effect, giver, lot }: TradeHintProps) => {
 
   if (effect === 'buy-goods') {
     return (
-      <Muted>
+      <MutedNote>
         {giver.name} is level {giver.level}: up to{' '}
         {formatGold(storehouseBuyLimit(giver.level))} of goods in one order.
         They arrive in storage, at what was paid, when the order finishes.
-      </Muted>
+      </MutedNote>
     );
   }
   if (effect !== 'sell-goods') return null;
   if (!lot) {
     return (
-      <Muted>
+      <MutedNote>
         There are no trade goods in storage to sell. Buy some first.
-      </Muted>
+      </MutedNote>
     );
   }
 
   return (
-    <Muted>
+    <MutedNote>
       Sells for {formatGold(storehouseSalePrice(lot.valueGp, giver.level))} (
       {storehouseSellMargin(giver.level)}% profit at level {giver.level}). The
       goods leave storage now and the gold comes in when the sale finishes.
-    </Muted>
+    </MutedNote>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-`;
-
-const Actor = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Heading = styled.h3`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Facility = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  padding: ${props => props.theme.space.sm};
-  border: 1px solid ${props => props.theme.color.border};
-  border-radius: ${props => props.theme.radius.sm};
-`;
-
-const Row = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.sm};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: ${props => props.theme.space.xs};
-  }
-`;
-
-const FacilityName = styled.span`
-  font-size: ${props => props.theme.fontSize.md};
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Detail = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Small = styled(TextInput)`
-  width: 6rem;
-`;

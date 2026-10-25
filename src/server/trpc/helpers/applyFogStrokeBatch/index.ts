@@ -9,7 +9,7 @@ import type { MapFogState, MapFogStroke } from '~/server/db/schema';
  */
 export const applyFogStrokeBatch = (
   fog: MapFogState,
-  strokes: readonly MapFogStroke[],
+  strokes: ReadonlyArray<MapFogStroke>,
 ): MapFogState => ({
   ...fog,
   strokes: [...fog.strokes, ...strokes],

@@ -1,14 +1,21 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import {
   ConditionBadges,
   type AppliedConditionSummary,
 } from '~/molecules/ConditionBadges';
-import { toHitPointTone, type HitPointTone } from '~/utils/applyDamage';
+import { toHitPointTone } from '~/utils/applyDamage';
+import { Row } from '~/molecules/CombatantRow/components/Row';
+import { Initiative } from '~/molecules/CombatantRow/components/Initiative';
+import { SelectButton } from '~/molecules/CombatantRow/components/SelectButton';
+import { Badge } from '~/molecules/CombatantRow/components/Badge';
+import { HitPointsButton } from '~/molecules/CombatantRow/components/HitPointsButton';
+import { Temporary } from '~/molecules/CombatantRow/components/Temporary';
+import { MonoMuted } from '~/atoms/MonoMuted';
+import { Actions } from '~/molecules/CombatantRow/components/Actions';
 
-export type CombatantRowProps = {
+export interface CombatantRowProps {
   displayName: string;
   initiative: number;
   currentHitPoints: number;
@@ -20,12 +27,12 @@ export type CombatantRowProps = {
   /** Whose turn it is right now. */
   isActive: boolean;
   isDelayed: boolean;
-  conditions: readonly AppliedConditionSummary[];
+  conditions: ReadonlyArray<AppliedConditionSummary>;
   onSelect: () => void;
   onToggleDelay: () => void;
   onRemove: () => void;
   onOpenHitPoints: () => void;
-};
+}
 
 /**
  * One line of the initiative order: initiative, name, hit points, AC.
@@ -88,7 +95,7 @@ export const CombatantRow = ({
         {currentHitPoints}/{maxHitPoints}
         {temporaryHitPoints > 0 && <Temporary>+{temporaryHitPoints}</Temporary>}
       </HitPointsButton>
-      <ArmorClass>{armorClass}</ArmorClass>
+      <MonoMuted>{armorClass}</MonoMuted>
       <Actions>
         <Button
           variant="ghost"
@@ -114,121 +121,3 @@ export const CombatantRow = ({
     </Row>
   );
 };
-
-const toneColor = {
-  full: (color: { success: string }) => color.success,
-  damaged: (color: { warning: string }) => color.warning,
-  down: (color: { danger: string }) => color.danger,
-} as const;
-
-const Row = styled.div<{
-  $isSelected: boolean;
-  $isActive: boolean;
-  $isDown: boolean;
-}>`
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr) 5.5rem 3rem 2.5rem;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  width: 100%;
-  padding: ${props => props.theme.space.sm} ${props => props.theme.space.md};
-  background: ${props =>
-    props.$isSelected
-      ? props.theme.color.surfaceRaised
-      : props.theme.color.canvas};
-  border: 1px solid
-    ${props =>
-      props.$isSelected ? props.theme.color.success : props.theme.color.border};
-  /* Whose turn it is has to read from across the table, not on inspection. */
-  border-left: 3px solid
-    ${props => (props.$isActive ? props.theme.color.accent : 'transparent')};
-  border-radius: ${props => props.theme.radius.sm};
-  /* A downed/killed combatant recedes to the same muted tone the rest of the
-   * row's secondary text already uses — never plain CSS opacity, which would
-   * blend every child's colour toward the background and risk retuning
-   * contrast that's already tightly budgeted (see the \`danger\` comment in
-   * theme/colors.ts, tuned for exactly this "selected combatant on 0 HP"
-   * case) and would carry no signal at all for a screen reader. */
-  color: ${props =>
-    props.$isDown
-      ? props.theme.color.textMuted
-      : props.theme.color.textPrimary};
-  font-size: ${props => props.theme.fontSize.md};
-
-  &:hover {
-    border-color: ${props => props.theme.color.accent};
-    /* Hover must not paint a turn marker on a row whose turn it is not. */
-    border-left-color: ${props =>
-      props.$isActive ? props.theme.color.accent : 'transparent'};
-  }
-`;
-
-/* Colour is deliberately not repeated here — it inherits from `Row`'s own
- * `$isDown` ternary, so the two can never drift out of sync with each
- * other. */
-const Initiative = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  font-weight: 700;
-`;
-
-const SelectButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: ${props => props.theme.space.sm};
-  min-width: 0;
-  padding: 0;
-  background: none;
-  border: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const Badge = styled.span<{ $tone: 'active' | 'muted' }>`
-  flex-shrink: 0;
-  padding: 0 ${props => props.theme.space.xs};
-  border: 1px solid
-    ${props =>
-      props.$tone === 'active'
-        ? props.theme.color.accent
-        : props.theme.color.accentMuted};
-  border-radius: ${props => props.theme.radius.pill};
-  font-size: ${props => props.theme.fontSize.sm};
-  color: ${props =>
-    props.$tone === 'active'
-      ? props.theme.color.accent
-      : props.theme.color.textMuted};
-`;
-
-const HitPointsButton = styled.button<{ $tone: HitPointTone }>`
-  padding: 0;
-  background: none;
-  border: none;
-  font: inherit;
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => toneColor[props.$tone](props.theme.color)};
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const Temporary = styled.span`
-  margin-left: ${props => props.theme.space.xs};
-  color: ${props => props.theme.color.accent};
-`;
-
-const ArmorClass = styled.span`
-  font-family: ${props => props.theme.font.mono};
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Actions = styled.span`
-  display: flex;
-  justify-content: flex-end;
-`;

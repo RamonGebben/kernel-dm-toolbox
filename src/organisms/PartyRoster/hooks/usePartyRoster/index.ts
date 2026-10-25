@@ -16,7 +16,7 @@ import {
 } from '~/utils/partyEditorHref';
 
 /** A party member as the Party page reads it. */
-export type PartyCharacter = {
+export interface PartyCharacter {
   id: string;
   name: string;
   playerName: string | null;
@@ -32,7 +32,7 @@ export type PartyCharacter = {
   passiveInvestigation: number | null;
   notes: string | null;
   isActive: boolean;
-};
+}
 
 const toFormClass = (className: string | null): CharacterClass | '' =>
   characterClasses.find(known => known === className) ?? '';
@@ -83,7 +83,7 @@ export const toCharacterInput = (values: CharacterFormValues) => ({
 
 /** Active members first, the bench below — each keeps the roster's order. */
 export const splitRoster = <TCharacter extends { isActive: boolean }>(
-  characters: readonly TCharacter[],
+  characters: ReadonlyArray<TCharacter>,
 ) => ({
   active: characters.filter(character => character.isActive),
   benched: characters.filter(character => !character.isActive),

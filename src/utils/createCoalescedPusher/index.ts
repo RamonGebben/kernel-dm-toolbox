@@ -1,8 +1,8 @@
-export type CoalescedPusher = {
+export interface CoalescedPusher {
   /** Ask for a push. Never awaited by the caller — an SSE change listener
    * fires-and-forgets this on every event. */
   requestPush: () => void;
-};
+}
 
 /**
  * Wraps an async `push` so that any number of requests arriving while one is

@@ -1,9 +1,12 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
-import styled from 'styled-components';
+import { Frame } from '~/atoms/Panel/components/Frame';
+import { Header } from '~/atoms/Panel/components/Header';
+import { Title } from '~/atoms/Panel/components/Title';
+import { Body } from '~/atoms/Panel/components/Body';
 
-type PanelProps = {
+interface PanelProps {
   title: string;
   /** Rendered beside the title — a close button, a count, a filter. */
   action?: ReactNode;
@@ -14,7 +17,7 @@ type PanelProps = {
    */
   isBodyScrollable?: boolean;
   children: ReactNode;
-};
+}
 
 /**
  * The framed column the three-panel layout is built from. Its body scrolls
@@ -40,38 +43,3 @@ export const Panel = ({
     </Frame>
   );
 };
-
-const Frame = styled.section`
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex-basis: 100%;
-  background: ${props => props.theme.color.surface};
-  border: 1px solid ${props => props.theme.color.border};
-  border-top: 2px solid ${props => props.theme.color.accent};
-  border-radius: ${props => props.theme.radius.md};
-  overflow: hidden;
-`;
-
-const Header = styled.header`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.md};
-  padding: ${props => props.theme.space.md};
-  border-bottom: 1px solid ${props => props.theme.color.border};
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  font-size: ${props => props.theme.fontSize.lg};
-  letter-spacing: 0.04em;
-  color: ${props => props.theme.color.textPrimary};
-`;
-
-const Body = styled.div<{ $isScrollable: boolean }>`
-  flex: 1;
-  min-height: 0;
-  overflow-y: ${props => (props.$isScrollable ? 'auto' : 'hidden')};
-  padding: ${props => props.theme.space.md};
-`;

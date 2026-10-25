@@ -1,12 +1,18 @@
-export type FilterOption<TValue> = { value: TValue; label: string };
+export interface FilterOption<TValue> {
+  value: TValue;
+  label: string;
+}
 
-export type FilterRange<TValue> = { min: TValue | null; max: TValue | null };
+export interface FilterRange<TValue> {
+  min: TValue | null;
+  max: TValue | null;
+}
 
 /** How many labels a tag spells out before it collapses the rest to "+N". */
 const MAX_SHOWN_LABELS = 2;
 
 const labelFor = <TValue>(
-  options: readonly FilterOption<TValue>[],
+  options: ReadonlyArray<FilterOption<TValue>>,
   value: TValue,
 ): string =>
   options.find(option => option.value === value)?.label ?? String(value);
@@ -20,8 +26,8 @@ const labelFor = <TValue>(
  * so the same selection always reads the same way.
  */
 export const summarizeSelection = (
-  options: readonly FilterOption<string>[],
-  selectedValues: readonly string[],
+  options: ReadonlyArray<FilterOption<string>>,
+  selectedValues: ReadonlyArray<string>,
 ): string | null => {
   if (!selectedValues.length) return null;
 
@@ -41,7 +47,7 @@ export const summarizeSelection = (
  * value when both bounds agree, and `null` when neither bound is set.
  */
 export const summarizeRange = <TValue>(
-  options: readonly FilterOption<TValue>[],
+  options: ReadonlyArray<FilterOption<TValue>>,
   range: FilterRange<TValue>,
 ): string | null => {
   const { min, max } = range;

@@ -9,10 +9,10 @@ import { useEventSourceView } from '~/hooks/useEventSourceView';
  * server, so there is nothing else for this screen to ask for.
  */
 
-export type MapPlayerStreamState = {
+export interface MapPlayerStreamState {
   isConnected: boolean;
   view: PlayerMapView | null;
-};
+}
 
 /**
  * Parses one frame.

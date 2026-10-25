@@ -4,9 +4,9 @@ import { TrackerOverlayBoardView } from '~/organisms/TrackerOverlayBoard/compone
 import { usePlayerStream } from '~/hooks/usePlayerStream';
 import type { PlayerMapViewTrackerOverlay } from '~/server/maps/toPlayerMapView';
 
-export type TrackerOverlayBoardProps = {
+export interface TrackerOverlayBoardProps {
   config: PlayerMapViewTrackerOverlay;
-};
+}
 
 /**
  * Connected boundary for the tracker overlay in `'both'` mode — the sibling

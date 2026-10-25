@@ -23,7 +23,10 @@ export type RollDie = (sides: number) => number;
 
 export const rollDie: RollDie = sides => Math.floor(Math.random() * sides) + 1;
 
-export type DiceRollResult = { rolls: number[]; total: number };
+export interface DiceRollResult {
+  rolls: Array<number>;
+  total: number;
+}
 
 /** Rolls an arbitrary `NdM + K` expression, e.g. 8d6 + 4. */
 export const rollExpression = (

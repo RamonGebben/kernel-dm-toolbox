@@ -4,12 +4,12 @@ import { expect, type APIRequestContext } from '@playwright/test';
 export const uniqueName = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-type NewCharacter = {
+interface NewCharacter {
   name: string;
   level?: number;
   armorClass?: number;
   maxHitPoints?: number;
-};
+}
 
 /**
  * Puts a character on the party roster through the API.

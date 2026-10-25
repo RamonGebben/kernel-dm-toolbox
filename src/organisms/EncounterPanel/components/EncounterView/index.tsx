@@ -1,6 +1,5 @@
 'use client';
 
-import styled from 'styled-components';
 import { Button } from '~/atoms/Button';
 import { EmptyState } from '~/atoms/EmptyState';
 import { Modal } from '~/atoms/Modal';
@@ -9,8 +8,17 @@ import { DifficultyReadout } from '~/molecules/DifficultyReadout';
 import { HitPointControls } from '~/molecules/HitPointControls';
 import { InitiativeRollForm } from '~/molecules/InitiativeRollForm';
 import type { EncounterDifficulty } from '~/content/encounterDifficulty';
+import { Wrapper } from '~/organisms/EncounterPanel/components/EncounterView/components/Wrapper';
+import { Toolbar } from '~/organisms/EncounterPanel/components/EncounterView/components/Toolbar';
+import { Stack } from '~/atoms/Stack';
+import { Cluster } from '~/atoms/Cluster';
+import { Round } from '~/organisms/EncounterPanel/components/EncounterView/components/Round';
+import { ScrollArea } from '~/atoms/ScrollArea';
+import { Headings } from '~/organisms/EncounterPanel/components/EncounterView/components/Headings';
+import { PlainList } from '~/atoms/PlainList';
+import { Skeleton } from '~/atoms/Skeleton';
 
-export type EncounterCombatantSummary = {
+export interface EncounterCombatantSummary {
   id: string;
   displayName: string;
   initiative: number;
@@ -23,25 +31,25 @@ export type EncounterCombatantSummary = {
   isPlayerCharacter: boolean;
   /** Null for a player character; drives the reroll in the initiative form. */
   initiativeBonus: number | null;
-  conditions: {
+  conditions: Array<{
     id: string;
     name: string;
     roundsRemaining: number | null;
     note: string | null;
-  }[];
-};
+  }>;
+}
 
-export type EncounterDifficultySummary = {
+export interface EncounterDifficultySummary {
   difficulty: EncounterDifficulty;
   totalExperience: number;
   hasParty: boolean;
-};
+}
 
-export type EncounterViewProps = {
+export interface EncounterViewProps {
   isPending: boolean;
   roundNumber: number;
   difficulty: EncounterDifficultySummary;
-  combatants: readonly EncounterCombatantSummary[];
+  combatants: ReadonlyArray<EncounterCombatantSummary>;
   selectedCombatantId: string | null;
   activeCombatantId: string | null;
   /** Whether the "Roll for initiative" dialog is open. */
@@ -53,7 +61,7 @@ export type EncounterViewProps = {
   onOpenHitPoints: (id: string) => void;
   onOpenInitiativeRoll: () => void;
   onCloseInitiativeRoll: () => void;
-  onStart: (initiatives: { id: string; initiative: number }[]) => void;
+  onStart: (initiatives: Array<{ id: string; initiative: number }>) => void;
   onEndCombat: () => void;
   onNextTurn: () => void;
   onPreviousTurn: () => void;
@@ -71,7 +79,7 @@ export type EncounterViewProps = {
   onDamage: (amount: number) => void;
   onHeal: (amount: number) => void;
   onGrantTemporary: (amount: number) => void;
-};
+}
 
 /** Presentational: the centre column of the tracker. */
 export const EncounterView = ({
@@ -109,15 +117,15 @@ export const EncounterView = ({
   return (
     <Wrapper>
       <Toolbar>
-        <Status>
+        <Stack $gap="xs">
           <Round>{isStarted ? `Round ${roundNumber}` : 'Not started'}</Round>
           <DifficultyReadout
             difficulty={difficulty.difficulty}
             totalExperience={difficulty.totalExperience}
             hasParty={difficulty.hasParty}
           />
-        </Status>
-        <ToolbarActions>
+        </Stack>
+        <Cluster>
           <TurnActions
             isStarted={isStarted}
             hasCombatants={combatants.length > 0}
@@ -134,10 +142,10 @@ export const EncounterView = ({
           >
             Clear monsters
           </Button>
-        </ToolbarActions>
+        </Cluster>
       </Toolbar>
 
-      <Body>
+      <ScrollArea>
         <OrderBody
           isPending={isPending}
           combatants={combatants}
@@ -148,7 +156,7 @@ export const EncounterView = ({
           onToggleDelay={onToggleDelay}
           onOpenHitPoints={onOpenHitPoints}
         />
-      </Body>
+      </ScrollArea>
 
       <Modal
         title="Roll for initiative"
@@ -263,7 +271,7 @@ const OrderBody = ({
   onOpenHitPoints,
 }: OrderBodyProps) => {
   if (isPending)
-    return <Skeleton role="status" aria-label="Loading the encounter" />;
+    return <Skeleton $height="10rem" aria-label="Loading the encounter" />;
 
   if (!combatants.length) {
     return (
@@ -283,7 +291,7 @@ const OrderBody = ({
         <span>AC</span>
         <span />
       </Headings>
-      <List>
+      <PlainList>
         {combatants.map(combatant => (
           <li key={combatant.id}>
             <CombatantRow
@@ -305,73 +313,7 @@ const OrderBody = ({
             />
           </li>
         ))}
-      </List>
+      </PlainList>
     </>
   );
 };
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.md};
-  height: calc(100% - ${props => props.theme.space.lg});
-  min-height: 0;
-`;
-
-const Toolbar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${props => props.theme.space.md};
-  flex-wrap: wrap;
-`;
-
-const Status = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-`;
-
-const ToolbarActions = styled.div`
-  display: flex;
-  gap: ${props => props.theme.space.sm};
-`;
-
-const Round = styled.span`
-  font-size: ${props => props.theme.fontSize.sm};
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const Body = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-`;
-
-const Headings = styled.div`
-  display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr) 5.5rem 3rem 2.5rem;
-  gap: ${props => props.theme.space.sm};
-  padding: 0 ${props => props.theme.space.md} ${props => props.theme.space.xs};
-  font-size: ${props => props.theme.fontSize.sm};
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: ${props => props.theme.color.textMuted};
-`;
-
-const List = styled.ul`
-  display: flex;
-  flex-direction: column;
-  gap: ${props => props.theme.space.xs};
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`;
-
-const Skeleton = styled.div`
-  height: 10rem;
-  border-radius: ${props => props.theme.radius.sm};
-  background: ${props => props.theme.color.surfaceRaised};
-`;

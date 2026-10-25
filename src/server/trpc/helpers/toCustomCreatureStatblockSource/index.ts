@@ -9,17 +9,17 @@ import type {
   StatblockSourceTrait,
 } from '~/server/trpc/helpers/buildStatblock';
 
-type ToCustomCreatureStatblockSourceArgs = {
+interface ToCustomCreatureStatblockSourceArgs {
   customCreature: CustomCreature;
-  traits: readonly CustomCreatureTrait[];
-  actions: readonly CustomCreatureAction[];
-};
+  traits: ReadonlyArray<CustomCreatureTrait>;
+  actions: ReadonlyArray<CustomCreatureAction>;
+}
 
-type CustomCreatureStatblockSource = {
+interface CustomCreatureStatblockSource {
   creature: StatblockSourceCreature;
-  traits: StatblockSourceTrait[];
-  actions: StatblockSourceAction[];
-};
+  traits: Array<StatblockSourceTrait>;
+  actions: Array<StatblockSourceAction>;
+}
 
 /**
  * Adapts a `custom_creatures` row (+ its traits/actions) into the exact shape
